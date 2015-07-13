@@ -62,12 +62,12 @@ namespace Elders.Cronus.Projections.Cassandra
 
         public void Delete<T, V>(T obj) where T : IDataTransferObject<V>
         {
-            persister.Delete(GetObjectId<T, V>(obj), typeof(object).GetColumnFamily());
+            persister.Delete(GetObjectId<T, V>(obj), typeof(T).GetColumnFamily());
         }
 
         public void DeleteCollectionItem<T, V, C>(T obj) where T : ICollectionDataTransferObjectItem<V, C>
         {
-            persister.DeleteCollectionItem(new KeyValueCollectionItem(ConvertIdToString(obj.CollectionId), ConvertIdToString(obj.Id), typeof(T).Name, null));
+            persister.DeleteCollectionItem(new KeyValueCollectionItem(ConvertIdToString(obj.CollectionId), ConvertIdToString(obj.Id), typeof(T).GetColumnFamily(), null));
         }
 
         public T Get<T, V>(V ids) where T : IDataTransferObject<V>

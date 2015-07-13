@@ -18,12 +18,12 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             foreach (var projType in projectionTypes.Where(x => x.GetInterfaces().Any(y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IDataTransferObject<>))))
             {
-                session.Execute(string.Format(CreateKeyValueDataColumnFamilyTemplate, projType.GetColumnFamily()).ToLower());
+                session.Execute(string.Format(CreateKeyValueDataColumnFamilyTemplate, projType.GetColumnFamily()).ToLowerInvariant());
             }
 
             foreach (var projType in projectionTypes.Where(x => x.GetInterfaces().Any(y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(ICollectionDataTransferObjectItem<,>))))
             {
-                session.Execute(string.Format(CreateColumnFamilyTemplate, projType.GetColumnFamily()).ToLower());
+                session.Execute(string.Format(CreateColumnFamilyTemplate, projType.GetColumnFamily()).ToLowerInvariant());
             }
         }
 
@@ -34,7 +34,7 @@ namespace Elders.Cronus.Projections.Cassandra
 
         public static string GetColumnFamily(this Type projectionType)
         {
-            return projectionType.GetContractId().Replace("-", "");
+            return projectionType.GetContractId().Replace("-", "").ToLowerInvariant();
         }
     }
 
