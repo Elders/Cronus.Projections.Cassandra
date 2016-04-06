@@ -91,6 +91,54 @@ namespace Elders.Cronus.Projections.Cassandra
             return item;
         }
 
+        public T Get<T>(object ids)
+        {
+            var tableName = typeof(T).GetColumnFamily();
+            var id = ConvertIdToString(ids);
+            if (track.ContainsKey(tableName))
+            {
+                if (track[tableName].ContainsKey(id))
+                    return (T)track[tableName][id].Item1;
+            }
+            else
+            {
+                track.Add(tableName, new Dictionary<string, Tuple<object, KeyValueData>>());
+            }
+            var data = persister.Get(id, tableName);
+            if (data == null)
+                return default(T);
+            var item = (T)Desirealizer(data.Blob);
+            track[tableName].Add(id, new Tuple<object, KeyValueData>(item, data));
+            return item;
+        }
+
+        /// <summary>
+        /// Probably this should be called in the generic implementation. If you do not know what this is doing internaly and the reason to have this method please do not use it in your code.
+        /// </summary>
+        /// <param name="ids"></param>
+        /// <param name="projectionStateType"></param>
+        /// <returns></returns>
+        public object Get(object ids, Type projectionStateType)
+        {
+            var tableName = projectionStateType.GetColumnFamily();
+            var id = ConvertIdToString(ids);
+            if (track.ContainsKey(tableName))
+            {
+                if (track[tableName].ContainsKey(id))
+                    return track[tableName][id].Item1;
+            }
+            else
+            {
+                track.Add(tableName, new Dictionary<string, Tuple<object, KeyValueData>>());
+            }
+            var data = persister.Get(id, tableName);
+            if (data == null)
+                return null;
+            var item = Desirealizer(data.Blob);
+            track[tableName].Add(id, new Tuple<object, KeyValueData>(item, data));
+            return item;
+        }
+
         public IEnumerable<T> GetAsCollectionItems<T, C>(C collectionIds) where T : ICollectionDataTransferObject<C>
         {
             var collectionId = ConvertIdToString(collectionIds);
@@ -129,6 +177,11 @@ namespace Elders.Cronus.Projections.Cassandra
         public void Save<T, V>(T obj) where T : IDataTransferObject<V>
         {
             persister.Save(new KeyValueData(GetObjectId<T, V>(obj), obj.GetType().GetColumnFamily(), Serializer(obj)));
+        }
+
+        public void Save(object id, object obj)
+        {
+            persister.Save(new KeyValueData(ConvertIdToString(id), obj.GetType().GetColumnFamily(), Serializer(obj)));
         }
 
         public void Save<T, V, C>(params T[] items) where T : ICollectionDataTransferObjectItem<V, C>
