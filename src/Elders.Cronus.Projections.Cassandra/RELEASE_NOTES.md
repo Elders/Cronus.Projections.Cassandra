@@ -1,3 +1,5 @@
+#### 1.0.3 - 08.04.2016
+* Additional methods for saving and retrieving
 #### 1.0.2 - 06.04.2016
 * Added public non generic get by id
 

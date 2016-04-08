@@ -169,6 +169,36 @@ namespace Elders.Cronus.Projections.Cassandra
             }
         }
 
+        public IEnumerable<object> GetAsCollectionItems(object collectionIds, Type projectionStateType)
+        {
+            var collectionId = ConvertIdToString(collectionIds);
+            if (!collectionTrack.ContainsKey(collectionId))
+                collectionTrack.Add(collectionId, new Dictionary<Type, List<Tuple<object, KeyValueCollectionItem>>>());
+            var typeofT = projectionStateType;
+            if (collectionTrack[collectionId].ContainsKey(typeofT))
+            {
+                if (collectionTrack[collectionId][typeofT].Count > 0)
+                {
+                    foreach (var item in collectionTrack[collectionId][typeofT])
+                    {
+                        yield return item.Item1;
+                    }
+                    yield break;
+                }
+            }
+            else
+                collectionTrack[collectionId].Add(typeofT, new List<Tuple<object, KeyValueCollectionItem>>());
+
+            foreach (KeyValueCollectionItem data in persister.GetCollection(collectionId, typeofT.GetColumnFamily()))
+            {
+                if (data == null)
+                    continue;
+                var item = Desirealizer(data.Blob);
+                collectionTrack[collectionId][typeofT].Add(new Tuple<object, KeyValueCollectionItem>(item, data));
+                yield return item;
+            }
+        }
+
         public Query<T> Query<T>()
         {
             return new Query<T>(this);
@@ -190,6 +220,11 @@ namespace Elders.Cronus.Projections.Cassandra
             {
                 persister.AddToCollection(new KeyValueCollectionItem(ConvertIdToString(item.CollectionId), ConvertIdToString(item.Id), typeof(T).GetColumnFamily(), Serializer(item)));
             }
+        }
+
+        public void Save(object collectionId, object id, object obj)
+        {
+            persister.AddToCollection(new KeyValueCollectionItem(ConvertIdToString(collectionId), ConvertIdToString(id), obj.GetType().GetColumnFamily(), Serializer(obj)));
         }
 
         string GetObjectId<T, V>(T obj) where T : IDataTransferObject<V>
