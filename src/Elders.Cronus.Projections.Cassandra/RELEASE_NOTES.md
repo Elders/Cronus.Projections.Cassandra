@@ -1,5 +1,9 @@
+#### 1.1.0-beta0001 - 15.04.2016
+* Support retrieving single collection item
+
 #### 1.0.3 - 08.04.2016
 * Additional methods for saving and retrieving
+
 #### 1.0.2 - 06.04.2016
 * Added public non generic get by id
 

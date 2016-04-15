@@ -46,6 +46,8 @@ namespace Elders.Cronus.Projections.Cassandra
 
         private const string GetQueryTemplate = @"SELECT data,iid FROM ""{0}"" WHERE id = ?;";
 
+        private const string GetItemQueryTemplate = @"SELECT data,iid FROM ""{0}"" WHERE id = ? AND iid = ?;";
+
         private const string DeleteQueryTemplate = @"DELETE FROM ""{0}"" WHERE id=? AND iid=?;";
 
         private readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
@@ -77,6 +79,16 @@ namespace Elders.Cronus.Projections.Cassandra
             }
         }
 
+        public KeyValueCollectionItem GetCollectionItem(string collectionId, string itemId, string columnFamily)
+        {
+            var statement = GetPreparedStatements.GetOrAdd(columnFamily, x => BuildeGetCollectionItemPreparedStatemnt(x));
+            var result = session.Execute(statement.Bind(collectionId, itemId)).FirstOrDefault();
+            if (result == null)
+                return null;
+
+            return new KeyValueCollectionItem(collectionId, result.GetValue<string>("iid"), columnFamily, result.GetValue<byte[]>("data"));
+        }
+
         public void AddToCollection(KeyValueCollectionItem collectionItem)
         {
             var statement = SavePreparedStatements.GetOrAdd(collectionItem.Table, x => BuildeInsertPreparedStatemnt(x));
@@ -92,6 +104,11 @@ namespace Elders.Cronus.Projections.Cassandra
         private PreparedStatement BuildeGetPreparedStatemnt(string columnFamily)
         {
             return session.Prepare(string.Format(GetQueryTemplate, columnFamily));
+        }
+
+        private PreparedStatement BuildeGetCollectionItemPreparedStatemnt(string columnFamily)
+        {
+            return session.Prepare(string.Format(GetItemQueryTemplate, columnFamily));
         }
 
         private PreparedStatement BuildeInsertPreparedStatemnt(string columnFamily)

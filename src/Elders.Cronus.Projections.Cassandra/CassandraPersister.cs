@@ -91,6 +91,11 @@ namespace Elders.Cronus.Projections.Cassandra
             return collPersister.GetCollection(collectionId, columnFamily);
         }
 
+        public KeyValueCollectionItem GetCollectionItem(string collectionId, string itemId, string columnFamily)
+        {
+            return collPersister.GetCollectionItem(collectionId, itemId, columnFamily);
+        }
+
         public void AddToCollection(KeyValueCollectionItem collectionItem)
         {
             collPersister.AddToCollection(collectionItem);

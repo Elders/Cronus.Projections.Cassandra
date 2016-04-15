@@ -199,6 +199,24 @@ namespace Elders.Cronus.Projections.Cassandra
             }
         }
 
+        public object GetAsCollectionItem(object collectionId, object itemId, Type projectionStateType)
+        {
+            var collectionStringId = ConvertIdToString(collectionId);
+
+            var itemStringId = ConvertIdToString(itemId);
+
+            var typeofT = projectionStateType;
+
+            var result = persister.GetCollectionItem(collectionStringId, itemStringId, typeofT.GetColumnFamily());
+
+            if (result == null)
+                return null;
+
+            return Desirealizer(result.Blob);
+
+        }
+
+
         public Query<T> Query<T>()
         {
             return new Query<T>(this);
