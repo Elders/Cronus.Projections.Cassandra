@@ -65,9 +65,19 @@ namespace Elders.Cronus.Projections.Cassandra
             persister.Delete(GetObjectId<T, V>(obj), typeof(T).GetColumnFamily());
         }
 
+        public void Delete(object id, Type projectionStateType)
+        {
+            persister.Delete(ConvertIdToString(id), projectionStateType.GetColumnFamily());
+        }
+
         public void DeleteCollectionItem<T, V, C>(T obj) where T : ICollectionDataTransferObjectItem<V, C>
         {
             persister.DeleteCollectionItem(new KeyValueCollectionItem(ConvertIdToString(obj.CollectionId), ConvertIdToString(obj.Id), typeof(T).GetColumnFamily(), null));
+        }
+
+        public void DeleteCollectionItem(object collectionIds, object itemId, Type projectionStateType)
+        {
+            persister.DeleteCollectionItem(new KeyValueCollectionItem(ConvertIdToString(collectionIds), ConvertIdToString(itemId), projectionStateType.GetColumnFamily(), null));
         }
 
         public T Get<T, V>(V ids) where T : IDataTransferObject<V>

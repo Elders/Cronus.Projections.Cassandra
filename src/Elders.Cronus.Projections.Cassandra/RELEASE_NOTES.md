@@ -1,3 +1,7 @@
+#### 1.1.0-beta0002 - 03.05.2016
+* Added public non generic delete by id
+* Added public non generic delete of collection item by collection id and item id
+
 #### 1.1.0-beta0001 - 15.04.2016
 * Support retrieving single collection item
 
