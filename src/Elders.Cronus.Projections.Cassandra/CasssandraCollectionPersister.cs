@@ -54,6 +54,8 @@ namespace Elders.Cronus.Projections.Cassandra
 
         private readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
 
+        private readonly ConcurrentDictionary<string, PreparedStatement> GetItemPreparedStatements;
+
         private readonly ConcurrentDictionary<string, PreparedStatement> UpdatePreparedStatements;
 
         private readonly ConcurrentDictionary<string, PreparedStatement> DeletePreparedStatements;
@@ -65,6 +67,7 @@ namespace Elders.Cronus.Projections.Cassandra
             this.session = session;
             this.SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+            this.GetItemPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.UpdatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.DeletePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }
@@ -81,7 +84,7 @@ namespace Elders.Cronus.Projections.Cassandra
 
         public KeyValueCollectionItem GetCollectionItem(string collectionId, string itemId, string columnFamily)
         {
-            var statement = GetPreparedStatements.GetOrAdd(columnFamily, x => BuildeGetCollectionItemPreparedStatemnt(x));
+            var statement = GetItemPreparedStatements.GetOrAdd(columnFamily, x => BuildeGetCollectionItemPreparedStatemnt(x));
             var result = session.Execute(statement.Bind(collectionId, itemId)).FirstOrDefault();
             if (result == null)
                 return null;
