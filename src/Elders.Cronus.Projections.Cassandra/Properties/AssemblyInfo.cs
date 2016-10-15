@@ -7,11 +7,11 @@ using System.Runtime.InteropServices;
 [assembly: ComVisibleAttribute(false)]
 [assembly: AssemblyProductAttribute("Elders.Cronus.Projections.Cassandra")]
 [assembly: AssemblyCopyrightAttribute("Copyright © 2016")]
-[assembly: AssemblyVersionAttribute("1.1.0.0")]
-[assembly: AssemblyFileVersionAttribute("1.1.0.0")]
-[assembly: AssemblyInformationalVersionAttribute("1.1.0+Branch.master.Sha.d579951ac75d09f2025f9829225c1ab31ec4ac52")]
+[assembly: AssemblyVersionAttribute("1.1.1.0")]
+[assembly: AssemblyFileVersionAttribute("1.1.1.0")]
+[assembly: AssemblyInformationalVersionAttribute("1.1.1+1.Branch.master.Sha.d1655277660bc1398e3faa98a60003ea6be7c139")]
 namespace System {
     internal static class AssemblyVersionInformation {
-        internal const string Version = "1.1.0.0";
+        internal const string Version = "1.1.1.0";
     }
 }

@@ -34,13 +34,13 @@ IF NOT EXIST %LocalAppData%\GitVersion.CommandLine %NUGET% "install" "GitVersion
 echo Downloading Nyx...
 %NUGET% "install" "Nyx" "-OutputDirectory" "%LocalAppData%" "-ExcludeVersion" "-PreRelease"
 
+IF NOT [%1]==[] (set RELEASE_NUGETKEY="%1")
+
 %FAKE% %NYX% "target=clean" -st
 %FAKE% %NYX% "target=RestoreNugetPackages" -st
 %FAKE% %NYX% "target=RestoreBowerPackages" -st
 
-IF NOT [%1]==[] (set RELEASE_NUGETKEY="%1")
-
 SET SUMMARY="Cronus.Projections.Cassandra"
 SET DESCRIPTION="Cronus.Projections.Cassandra"
 
-%FAKE% %NYX% appName=Elders.Cronus.Projections.Cassandra appSummary=%SUMMARY% appDescription=%DESCRIPTION% nugetPackageName=Cronus.Projections.Cassandra
+%FAKE% %NYX% appName=Elders.Cronus.Projections.Cassandra appSummary=%SUMMARY% appDescription=%DESCRIPTION% nugetPackageName=Cronus.Projections.Cassandra nugetkey=%RELEASE_NUGETKEY%
