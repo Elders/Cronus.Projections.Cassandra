@@ -65,9 +65,19 @@ namespace Elders.Cronus.Projections.Cassandra
             persister.Delete(GetObjectId<T, V>(obj), typeof(T).GetColumnFamily());
         }
 
+        public void Delete(object id, Type projectionStateType)
+        {
+            persister.Delete(ConvertIdToString(id), projectionStateType.GetColumnFamily());
+        }
+
         public void DeleteCollectionItem<T, V, C>(T obj) where T : ICollectionDataTransferObjectItem<V, C>
         {
             persister.DeleteCollectionItem(new KeyValueCollectionItem(ConvertIdToString(obj.CollectionId), ConvertIdToString(obj.Id), typeof(T).GetColumnFamily(), null));
+        }
+
+        public void DeleteCollectionItem(object collectionIds, object itemId, Type projectionStateType)
+        {
+            persister.DeleteCollectionItem(new KeyValueCollectionItem(ConvertIdToString(collectionIds), ConvertIdToString(itemId), projectionStateType.GetColumnFamily(), null));
         }
 
         public T Get<T, V>(V ids) where T : IDataTransferObject<V>
@@ -198,6 +208,24 @@ namespace Elders.Cronus.Projections.Cassandra
                 yield return item;
             }
         }
+
+        public object GetAsCollectionItem(object collectionId, object itemId, Type projectionStateType)
+        {
+            var collectionStringId = ConvertIdToString(collectionId);
+
+            var itemStringId = ConvertIdToString(itemId);
+
+            var typeofT = projectionStateType;
+
+            var result = persister.GetCollectionItem(collectionStringId, itemStringId, typeofT.GetColumnFamily());
+
+            if (result == null)
+                return null;
+
+            return Desirealizer(result.Blob);
+
+        }
+
 
         public Query<T> Query<T>()
         {

@@ -46,11 +46,15 @@ namespace Elders.Cronus.Projections.Cassandra
 
         private const string GetQueryTemplate = @"SELECT data,iid FROM ""{0}"" WHERE id = ?;";
 
+        private const string GetItemQueryTemplate = @"SELECT data,iid FROM ""{0}"" WHERE id = ? AND iid = ?;";
+
         private const string DeleteQueryTemplate = @"DELETE FROM ""{0}"" WHERE id=? AND iid=?;";
 
         private readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
 
         private readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
+
+        private readonly ConcurrentDictionary<string, PreparedStatement> GetItemPreparedStatements;
 
         private readonly ConcurrentDictionary<string, PreparedStatement> UpdatePreparedStatements;
 
@@ -63,6 +67,7 @@ namespace Elders.Cronus.Projections.Cassandra
             this.session = session;
             this.SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+            this.GetItemPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.UpdatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.DeletePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }
@@ -75,6 +80,16 @@ namespace Elders.Cronus.Projections.Cassandra
             {
                 yield return new KeyValueCollectionItem(collectionId, row.GetValue<string>("iid"), columnFamily, row.GetValue<byte[]>("data"));
             }
+        }
+
+        public KeyValueCollectionItem GetCollectionItem(string collectionId, string itemId, string columnFamily)
+        {
+            var statement = GetItemPreparedStatements.GetOrAdd(columnFamily, x => BuildeGetCollectionItemPreparedStatemnt(x));
+            var result = session.Execute(statement.Bind(collectionId, itemId)).FirstOrDefault();
+            if (result == null)
+                return null;
+
+            return new KeyValueCollectionItem(collectionId, result.GetValue<string>("iid"), columnFamily, result.GetValue<byte[]>("data"));
         }
 
         public void AddToCollection(KeyValueCollectionItem collectionItem)
@@ -92,6 +107,11 @@ namespace Elders.Cronus.Projections.Cassandra
         private PreparedStatement BuildeGetPreparedStatemnt(string columnFamily)
         {
             return session.Prepare(string.Format(GetQueryTemplate, columnFamily));
+        }
+
+        private PreparedStatement BuildeGetCollectionItemPreparedStatemnt(string columnFamily)
+        {
+            return session.Prepare(string.Format(GetItemQueryTemplate, columnFamily));
         }
 
         private PreparedStatement BuildeInsertPreparedStatemnt(string columnFamily)

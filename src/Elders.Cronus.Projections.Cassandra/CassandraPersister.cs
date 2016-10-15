@@ -9,11 +9,13 @@ namespace Elders.Cronus.Projections.Cassandra
 {
     public class CassandraPersister : IPersiter
     {
-        private const string InsertEventsBatchQueryTemplate = @"INSERT INTO ""{0}"" (id,data) VALUES (?,?);";
+        private const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id,data) VALUES (?,?);";
 
-        private const string UpdateEventsBatchQueryTemplate = @"UPDATE ""{0}"" SET data = ? WHERE id=?;";
+        private const string UpdateQueryTemplate = @"UPDATE ""{0}"" SET data = ? WHERE id=?;";
 
         private const string GetKeyValueDataTemplate = @"SELECT data FROM ""{0}"" WHERE id = ?;";
+
+        private const string DeleteQueryTemplate = @"DELETE FROM ""{0}"" WHERE id=?;";
 
         private readonly ISession session;
 
@@ -22,6 +24,8 @@ namespace Elders.Cronus.Projections.Cassandra
         private readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
 
         private readonly ConcurrentDictionary<string, PreparedStatement> UpdatePreparedStatements;
+
+        private readonly ConcurrentDictionary<string, PreparedStatement> DeletePreparedStatements;
 
         CasssandraCollectionPersister collPersister;
 
@@ -32,6 +36,7 @@ namespace Elders.Cronus.Projections.Cassandra
             this.SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.UpdatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+            this.DeletePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }
 
         public void Save(KeyValueData data)
@@ -47,12 +52,17 @@ namespace Elders.Cronus.Projections.Cassandra
 
         private PreparedStatement BuildPreparedStatementForKeyValueData(string columnFamily)
         {
-            return session.Prepare(String.Format(InsertEventsBatchQueryTemplate, columnFamily));
+            return session.Prepare(String.Format(InsertQueryTemplate, columnFamily));
         }
 
         private PreparedStatement BuildPreparedStatementForUpdateKeyValueData(string columnFamily)
         {
-            return session.Prepare(String.Format(UpdateEventsBatchQueryTemplate, columnFamily));
+            return session.Prepare(String.Format(UpdateQueryTemplate, columnFamily));
+        }
+
+        private PreparedStatement BuildeDeletePreparedStatemnt(string columnFamily)
+        {
+            return session.Prepare(string.Format(DeleteQueryTemplate, columnFamily));
         }
 
         public KeyValueData Get(string id, string columnFamiliy)
@@ -83,12 +93,18 @@ namespace Elders.Cronus.Projections.Cassandra
 
         public void Delete(string id, string table)
         {
-            throw new NotImplementedException();
+            var statement = DeletePreparedStatements.GetOrAdd(table, x => BuildeDeletePreparedStatemnt(x));
+            var result = session.Execute(statement.Bind(id));
         }
 
         public IEnumerable<KeyValueCollectionItem> GetCollection(string collectionId, string columnFamily)
         {
             return collPersister.GetCollection(collectionId, columnFamily);
+        }
+
+        public KeyValueCollectionItem GetCollectionItem(string collectionId, string itemId, string columnFamily)
+        {
+            return collPersister.GetCollectionItem(collectionId, itemId, columnFamily);
         }
 
         public void AddToCollection(KeyValueCollectionItem collectionItem)
@@ -100,7 +116,6 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             collPersister.DeleteCollectionItem(collectionItem);
         }
-
 
         public void Update(KeyValueCollectionItem collectionItem, byte[] data)
         {
