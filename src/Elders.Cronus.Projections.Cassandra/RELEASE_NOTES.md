@@ -1,14 +1,8 @@
-#### 1.1.0-beta0004 - 07.07.2016
+#### 1.1.0 - 15.10.2016
 * Fixed issue when loading collection item after loading collection
-
-#### 1.1.0-beta0003 - 03.05.2016
 * Added implementation for delete by id
-
-#### 1.1.0-beta0002 - 03.05.2016
 * Added public non generic delete by id
 * Added public non generic delete of collection item by collection id and item id
-
-#### 1.1.0-beta0001 - 15.04.2016
 * Support retrieving single collection item
 
 #### 1.0.3 - 08.04.2016
