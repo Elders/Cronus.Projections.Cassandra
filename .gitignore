@@ -2,9 +2,13 @@
 ## CURRENT PROJECT ##
 #####################
 
-release.cmd
 *.orig
 
+################
+## Elders.Nyx ##
+################
+release.cmd
+*/**/AssemblyInfo.cs
 
 ##############################################################
 ## Ignore Visual Studio temporary files, build results, and ##
@@ -231,6 +235,10 @@ $RECYCLE.BIN/
 *.msi
 *.msm
 *.msp
+!*.msi/
 
 # Windows shortcuts
 *.lnk
+
+# Directories which start with '.'
+**/.*/

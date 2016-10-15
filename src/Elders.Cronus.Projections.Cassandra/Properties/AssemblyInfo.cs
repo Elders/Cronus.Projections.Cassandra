@@ -6,13 +6,12 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyDescriptionAttribute("Cronus.Projections.Cassandra")]
 [assembly: ComVisibleAttribute(false)]
 [assembly: AssemblyProductAttribute("Elders.Cronus.Projections.Cassandra")]
-[assembly: AssemblyCopyrightAttribute("Copyright ©  2016")]
+[assembly: AssemblyCopyrightAttribute("Copyright © 2016")]
 [assembly: AssemblyVersionAttribute("1.1.0.0")]
 [assembly: AssemblyFileVersionAttribute("1.1.0.0")]
-[assembly: AssemblyInformationalVersionAttribute("1.1.0-beta.4+7.Branch.release-1.1.0.Sha.c34449b0fa097aef1942f21e9b7cc7dcea2fb97c")]
+[assembly: AssemblyInformationalVersionAttribute("1.1.0+Branch.master.Sha.d579951ac75d09f2025f9829225c1ab31ec4ac52")]
 namespace System {
     internal static class AssemblyVersionInformation {
         internal const string Version = "1.1.0.0";
-        internal const string InformationalVersion = "1.1.0-beta.4+7.Branch.release-1.1.0.Sha.c34449b0fa097aef1942f21e9b7cc7dcea2fb97c";
     }
 }

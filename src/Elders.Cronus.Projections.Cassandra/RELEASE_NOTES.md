@@ -1,4 +1,4 @@
-#### 1.1.0 - 15.10.2016
+#### 1.1.1 - 15.10.2016
 * Fixed issue when loading collection item after loading collection
 * Added implementation for delete by id
 * Added public non generic delete by id
