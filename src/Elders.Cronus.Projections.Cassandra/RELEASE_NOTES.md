@@ -1,3 +1,6 @@
+#### 2.0.0-beta0001 - 24.11.2016
+* Initial implementation with event sourced projections
+
 #### 1.1.1 - 15.10.2016
 * Fixed issue when loading collection item after loading collection
 * Added implementation for delete by id

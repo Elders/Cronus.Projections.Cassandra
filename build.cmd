@@ -38,7 +38,6 @@ IF NOT [%1]==[] (set RELEASE_NUGETKEY="%1")
 
 %FAKE% %NYX% "target=clean" -st
 %FAKE% %NYX% "target=RestoreNugetPackages" -st
-%FAKE% %NYX% "target=RestoreBowerPackages" -st
 
 SET SUMMARY="Cronus.Projections.Cassandra"
 SET DESCRIPTION="Cronus.Projections.Cassandra"
