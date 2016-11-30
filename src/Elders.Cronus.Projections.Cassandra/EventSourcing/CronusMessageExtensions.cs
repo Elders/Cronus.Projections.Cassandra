@@ -1,4 +1,5 @@
-﻿using Elders.Cronus.DomainModeling;
+﻿using System;
+using Elders.Cronus.DomainModeling;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
@@ -6,7 +7,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
     {
         public static EventOrigin GetEventOrigin(this CronusMessage message)
         {
-            return new EventOrigin(GetRootId(message), GetRevision(message), GetRootEventPosition(message));
+            return new EventOrigin(GetRootId(message), GetRevision(message), GetRootEventPosition(message), GetRootEventTimestamp(message));
         }
 
         public static int GetRevision(this CronusMessage message)
@@ -27,12 +28,22 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             return 0;
         }
 
-        public static IAggregateRootId GetRootId(this CronusMessage message)
+        public static long GetRootEventTimestamp(this CronusMessage message)
         {
-            return null;
-            //string value = null;
-            //message.Headers.TryGetValue(MessageHeader.AggregateRootRevision, out value);
-            //return value;
+            long timestamp = 0;
+            var value = string.Empty;
+            if (message.Headers.TryGetValue(MessageHeader.PublishTimestamp, out value) && long.TryParse(value, out timestamp))
+                return timestamp;
+            return 0;
+        }
+
+        public static string GetRootId(this CronusMessage message)
+        {
+            var aggregateRootId = string.Empty;
+            if (message.Headers.TryGetValue(MessageHeader.AggregateRootId, out aggregateRootId))
+                return aggregateRootId;
+
+            throw new ArgumentException("Cronus message does not contain a valid AggregateRootId");
         }
     }
 }

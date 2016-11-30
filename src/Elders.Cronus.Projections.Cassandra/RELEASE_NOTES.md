@@ -1,3 +1,6 @@
+#### 2.0.0-beta0002 - 30.11.2016
+* Should work
+
 #### 2.0.0-beta0001 - 24.11.2016
 * Initial implementation with event sourced projections
 

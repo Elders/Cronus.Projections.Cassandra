@@ -62,6 +62,8 @@
     <Compile Include="App_Packages\LibLog.4.2\LibLog.cs" />
     <Compile Include="CassandraPersister.cs" />
     <Compile Include="CasssandraCollectionPersister.cs" />
+    <Compile Include="EventSourcing\CassandraProjectionStore.cs" />
+    <Compile Include="EventSourcing\CasssandraExtensions.cs" />
     <Compile Include="EventSourcing\Usage.cs" />
     <Compile Include="EventSourcing\CronusMessageExtensions.cs" />
     <Compile Include="EventSourcing\EventOrigin.cs" />

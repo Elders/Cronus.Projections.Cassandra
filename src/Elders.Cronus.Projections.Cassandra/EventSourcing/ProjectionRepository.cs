@@ -1,5 +1,4 @@
 ﻿using Elders.Cronus.DomainModeling;
-using System.Linq;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
@@ -17,8 +16,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         public ProjectionGetResult<T> Get<T>(IBlobId projectionId) where T : IProjectionDefinition
         {
             var snapshot = snapshotStore.Load(projectionId);
-            var projectionCommits = projectionStore.Load(projectionId, snapshot.Revision).ToList();
-            var projectionStream = new ProjectionStream(projectionCommits, snapshot);
+            var projectionStream = projectionStore.Load<T>(projectionId, snapshot);
             return projectionStream.RestoreFromHistory<T>();
         }
     }

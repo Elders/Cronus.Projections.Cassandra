@@ -41,7 +41,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         void IHaveState.InitializeState(object state)
         {
-            ((IHaveState)this).State = state;
+            ((IHaveState)this).State = state ?? new TState();
         }
 
         protected ProjectionDefinition<TState, TId> Subscribe<TEvent>(Func<TEvent, TId> projectionId) where TEvent : IEvent
