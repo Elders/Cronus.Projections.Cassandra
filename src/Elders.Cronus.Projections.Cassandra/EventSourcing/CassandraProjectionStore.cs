@@ -34,7 +34,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public ProjectionStream Load(Type projectionType, IBlobId projectionId, ISnapshot snapshot)
         {
-            string projId = Encoding.UTF8.GetString(projectionId.RawId);
+            string projId = Convert.ToBase64String(projectionId.RawId);
             List<ProjectionCommit> commits = new List<ProjectionCommit>();
             bool tryGetRecords = true;
             int snapshotMarker = snapshot.Revision;

@@ -25,7 +25,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
     public class NoSnapshot : ISnapshot
     {
-        public int Revision { get { return 0; } }
+        public int Revision { get { return 1; } }
 
         public object State { get; set; }
 

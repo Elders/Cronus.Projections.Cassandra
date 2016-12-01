@@ -1,3 +1,6 @@
+#### 2.0.0-beta0003 - 01.12.2016
+* Fix loading of projections.
+
 #### 2.0.0-beta0002 - 30.11.2016
 * Should work
 
