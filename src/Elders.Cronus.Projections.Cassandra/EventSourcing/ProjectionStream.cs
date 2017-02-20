@@ -16,7 +16,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public IEnumerable<ProjectionCommit> Commits { get { return commits.ToList().AsReadOnly(); } }
 
-        public ProjectionGetResult<T> RestoreFromHistory<T>() where T : IProjectionDefinition
+        public IProjectionGetResult<T> RestoreFromHistory<T>() where T : IProjectionDefinition
         {
             var events = commits.Select(x => x.Event).ToList();
             if (events.Count > 0)

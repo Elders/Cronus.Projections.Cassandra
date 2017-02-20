@@ -6,12 +6,19 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyDescriptionAttribute("Cronus.Projections.Cassandra")]
 [assembly: ComVisibleAttribute(false)]
 [assembly: AssemblyProductAttribute("Elders.Cronus.Projections.Cassandra")]
-[assembly: AssemblyCopyrightAttribute("Copyright © 2016")]
+[assembly: AssemblyCopyrightAttribute("Copyright © 2017")]
 [assembly: AssemblyVersionAttribute("2.0.0.0")]
 [assembly: AssemblyFileVersionAttribute("2.0.0.0")]
-[assembly: AssemblyInformationalVersionAttribute("2.0.0-beta.3+7.Branch.release-2.0.0.Sha.c3464179c56c54b20d97b4a8872bbd4b80faf36d")]
+[assembly: AssemblyInformationalVersionAttribute("2.0.0-beta.3+Branch.release-2.0.0.Sha.53611cb5dcc8b9d64891962245be8cad979085e5")]
 namespace System {
     internal static class AssemblyVersionInformation {
-        internal const string Version = "2.0.0.0";
+        internal const System.String AssemblyTitle = "Elders.Cronus.Projections.Cassandra";
+        internal const System.String AssemblyDescription = "Cronus.Projections.Cassandra";
+        internal const System.Boolean ComVisible = false;
+        internal const System.String AssemblyProduct = "Elders.Cronus.Projections.Cassandra";
+        internal const System.String AssemblyCopyright = "Copyright © 2017";
+        internal const System.String AssemblyVersion = "2.0.0.0";
+        internal const System.String AssemblyFileVersion = "2.0.0.0";
+        internal const System.String AssemblyInformationalVersion = "2.0.0-beta.3+Branch.release-2.0.0.Sha.53611cb5dcc8b9d64891962245be8cad979085e5";
     }
 }

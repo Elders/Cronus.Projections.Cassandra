@@ -1,3 +1,6 @@
+#### 2.0.0-beta0004 - 20.02.2017
+* Projection result is an interface now
+
 #### 2.0.0-beta0003 - 01.12.2016
 * Fix loading of projections.
 
