@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyCopyrightAttribute("Copyright © 2017")]
 [assembly: AssemblyVersionAttribute("2.0.0.0")]
 [assembly: AssemblyFileVersionAttribute("2.0.0.0")]
-[assembly: AssemblyInformationalVersionAttribute("2.0.0-beta.3+Branch.release-2.0.0.Sha.53611cb5dcc8b9d64891962245be8cad979085e5")]
+[assembly: AssemblyInformationalVersionAttribute("2.0.0-beta.4+9.Branch.release-2.0.0.Sha.5a369864e8ea3623776da2775be7a5a15128f227")]
 namespace System {
     internal static class AssemblyVersionInformation {
         internal const System.String AssemblyTitle = "Elders.Cronus.Projections.Cassandra";
@@ -19,6 +19,6 @@ namespace System {
         internal const System.String AssemblyCopyright = "Copyright © 2017";
         internal const System.String AssemblyVersion = "2.0.0.0";
         internal const System.String AssemblyFileVersion = "2.0.0.0";
-        internal const System.String AssemblyInformationalVersion = "2.0.0-beta.3+Branch.release-2.0.0.Sha.53611cb5dcc8b9d64891962245be8cad979085e5";
+        internal const System.String AssemblyInformationalVersion = "2.0.0-beta.4+9.Branch.release-2.0.0.Sha.5a369864e8ea3623776da2775be7a5a15128f227";
     }
 }
