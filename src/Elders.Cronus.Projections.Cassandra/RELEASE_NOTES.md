@@ -1,3 +1,6 @@
+#### 2.0.0-beta0005 - 13.04.2017
+* Add the ability to use the cassandra projections with easy to use settings API
+
 #### 2.0.0-beta0004 - 20.02.2017
 * Projection result is an interface now
 

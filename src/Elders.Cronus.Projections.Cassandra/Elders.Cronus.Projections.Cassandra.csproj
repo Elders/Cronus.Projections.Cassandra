@@ -61,7 +61,10 @@
   <ItemGroup>
     <Compile Include="App_Packages\LibLog.4.2\LibLog.cs" />
     <Compile Include="CassandraPersister.cs" />
+    <Compile Include="CassandraProjectionsStorageManager.cs" />
     <Compile Include="CasssandraCollectionPersister.cs" />
+    <Compile Include="Config\CassandraProjectionsSettings.cs" />
+    <Compile Include="Config\NoHintedHandOffRetryPolicy.cs" />
     <Compile Include="EventSourcing\CassandraProjectionStore.cs" />
     <Compile Include="EventSourcing\CasssandraExtensions.cs" />
     <Compile Include="EventSourcing\Usage.cs" />
@@ -80,6 +83,9 @@
     <Compile Include="EventSourcing\ProjectionGetResult.cs" />
     <Compile Include="EventSourcing\ProjectionRepository.cs" />
     <Compile Include="EventSourcing\ProjectionStream.cs" />
+    <Compile Include="ReplicationStrategies\SimpleReplicationStrategy.cs" />
+    <Compile Include="ReplicationStrategies\NetworkTopologyReplicationStrategy.cs" />
+    <Compile Include="ReplicationStrategies\ICassandraReplicationStrategy.cs" />
     <Compile Include="Repository.cs" />
   </ItemGroup>
   <ItemGroup>

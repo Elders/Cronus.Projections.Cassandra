@@ -1,43 +1,11 @@
-﻿using System;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using Cassandra;
-using Elders.Cronus.DomainModeling;
 using Elders.Cronus.DomainModeling.Projections;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
-    public static class CasssandraCollectionPersisterExtensions
-    {
-        private const string CreateKeyValueDataColumnFamilyTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, data blob, PRIMARY KEY (id)) WITH compression = {{ 'sstable_compression' : '' }};";
-        private const string CreateColumnFamilyTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, iid text, data blob, PRIMARY KEY (id,iid)) WITH compression = {{ 'sstable_compression' : '' }};";
-
-        public static void InitializeProjectionDatabase(this ISession session, IEnumerable<Type> projectionTypes)
-        {
-            foreach (var projType in projectionTypes.Where(x => x.GetInterfaces().Any(y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IDataTransferObject<>))))
-            {
-                session.Execute(string.Format(CreateKeyValueDataColumnFamilyTemplate, projType.GetColumnFamily()).ToLowerInvariant());
-            }
-
-            foreach (var projType in projectionTypes.Where(x => x.GetInterfaces().Any(y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(ICollectionDataTransferObjectItem<,>))))
-            {
-                session.Execute(string.Format(CreateColumnFamilyTemplate, projType.GetColumnFamily()).ToLowerInvariant());
-            }
-        }
-
-        public static void InitializeProjectionDatabase(this ISession session, Assembly assemblyContainingProjections)
-        {
-            InitializeProjectionDatabase(session, assemblyContainingProjections.GetExportedTypes());
-        }
-
-        public static string GetColumnFamily(this Type projectionType)
-        {
-            return projectionType.GetContractId().Replace("-", "").ToLowerInvariant();
-        }
-    }
-
     public class CasssandraCollectionPersister : IKeyValueCollectionPersister
     {
         private const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id,iid,data) VALUES (?,?,?);";
