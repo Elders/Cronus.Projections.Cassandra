@@ -1,3 +1,6 @@
+#### 2.0.0-beta0006 - 13.04.2017
+* Change the settings API entry point
+
 #### 2.0.0-beta0005 - 13.04.2017
 * Add the ability to use the cassandra projections with easy to use settings API
 

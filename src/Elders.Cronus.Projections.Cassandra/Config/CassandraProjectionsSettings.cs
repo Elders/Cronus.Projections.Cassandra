@@ -10,13 +10,13 @@ namespace Elders.Cronus.Projections.Cassandra.Config
 {
     public static class CassandraEventStoreExtensions
     {
-        public static T UseCassandraProjections<T>(this T self, Action<CassandraProjectionsSettings> configure) where T : ProjectionMessageProcessorSettings
+        public static T UseCassandraProjections<T>(this T self, Action<CassandraProjectionsSettings> configure) where T : ISubscrptionMiddlewareSettings
         {
             CassandraProjectionsSettings settings = new CassandraProjectionsSettings(self);
             settings.SetReconnectionPolicy(new DataStaxCassandra.ExponentialReconnectionPolicy(100, 100000));
             settings.SetRetryPolicy(new NoHintedHandOffRetryPolicy());
             settings.SetReplicationStrategy(new SimpleReplicationStrategy(1));
-            (settings as ICassandraProjectionsSettings).ProjectionTypes = (self as ISubscrptionMiddlewareSettings).HandlerRegistrations;
+            (settings as ICassandraProjectionsSettings).ProjectionTypes = self.HandlerRegistrations;
             configure?.Invoke(settings);
 
             (settings as ISettingsBuilder).Build();

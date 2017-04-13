@@ -66,7 +66,6 @@
     <Compile Include="Config\CassandraProjectionsSettings.cs" />
     <Compile Include="Config\NoHintedHandOffRetryPolicy.cs" />
     <Compile Include="EventSourcing\CassandraProjectionStore.cs" />
-    <Compile Include="EventSourcing\CasssandraExtensions.cs" />
     <Compile Include="EventSourcing\Usage.cs" />
     <Compile Include="EventSourcing\CronusMessageExtensions.cs" />
     <Compile Include="EventSourcing\EventOrigin.cs" />
