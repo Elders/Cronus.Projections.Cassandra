@@ -5,18 +5,24 @@ using Elders.Cronus.Projections.Cassandra.ReplicationStrategies;
 using DataStaxCassandra = Cassandra;
 using System.Collections.Generic;
 using Elders.Cronus.DomainModeling.Projections;
+using Elders.Cronus.Projections.Cassandra.EventSourcing;
+using Elders.Cronus.Serializer;
+using System.Reflection;
 
 namespace Elders.Cronus.Projections.Cassandra.Config
 {
-    public static class CassandraEventStoreExtensions
+    public static class CassandraProjectionsExtensions
     {
-        public static T UseCassandraProjections<T>(this T self, Action<CassandraProjectionsSettings> configure) where T : ISubscrptionMiddlewareSettings
+        public static T UseCassandraProjections<T>(this T self, Action<CassandraProjectionsSettings> configure) where T : ISettingsBuilder
         {
             CassandraProjectionsSettings settings = new CassandraProjectionsSettings(self);
             settings.SetReconnectionPolicy(new DataStaxCassandra.ExponentialReconnectionPolicy(100, 100000));
             settings.SetRetryPolicy(new NoHintedHandOffRetryPolicy());
             settings.SetReplicationStrategy(new SimpleReplicationStrategy(1));
-            (settings as ICassandraProjectionsSettings).ProjectionTypes = self.HandlerRegistrations;
+
+            if (self is ISubscrptionMiddlewareSettings)
+                (settings as ICassandraProjectionsSettings).ProjectionTypes = (self as ISubscrptionMiddlewareSettings).HandlerRegistrations;
+
             configure?.Invoke(settings);
 
             (settings as ISettingsBuilder).Build();
@@ -110,6 +116,31 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             self.ReplicationStrategy = replicationStrategy;
             return self;
         }
+
+        /// <summary>
+        /// Set the projection types.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="projectionsAssembley">Assembly that contains the projection types.</param>
+        /// <returns></returns>
+        public static T SetProjectionTypes<T>(this T self, Assembly projectionsAssembley) where T : ICassandraProjectionsSettings
+        {
+            return self.SetProjectionTypes(projectionsAssembley.GetExportedTypes());
+        }
+
+        /// <summary>
+        /// Set the projection types.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="projectionTypes">The projection types.</param>
+        /// <returns></returns>
+        public static T SetProjectionTypes<T>(this T self, IEnumerable<Type> projectionTypes) where T : ICassandraProjectionsSettings
+        {
+            self.ProjectionTypes = projectionTypes;
+            return self;
+        }
     }
 
     public interface ICassandraProjectionsSettings : ISettingsBuilder
@@ -154,8 +185,13 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             session.ChangeKeyspace(settings.Keyspace);
 
             var persister = new CassandraPersister(session);
+            var serializer = builder.Container.Resolve<ISerializer>();
 
-            builder.Container.RegisterSingleton<IPersiter>(() => persister, builder.Name);
+            builder.Container.RegisterSingleton<IPersiter>(() => persister);
+            builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(session, serializer));
+            builder.Container.RegisterSingleton<ISnapshotStore>(() => new NoSnapshotStore());
+            builder.Container.RegisterSingleton<IRepository>(() => new Repository(persister, obj => serializer.SerializeToBytes(obj), data => serializer.DeserializeFromBytes(data)));
+            builder.Container.RegisterTransient<IProjectionRepository>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>()));
         }
 
         string ICassandraProjectionsSettings.Keyspace { get; set; }

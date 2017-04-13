@@ -1,3 +1,6 @@
+#### 2.0.0-beta0007 - 13.04.2017
+* Changes to the settings API
+
 #### 2.0.0-beta0006 - 13.04.2017
 * Change the settings API entry point
 
