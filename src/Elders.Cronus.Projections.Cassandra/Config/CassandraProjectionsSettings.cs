@@ -30,13 +30,13 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         }
 
         /// <summary>
-        /// Set the connection string.
+        /// Set the connection string for projections.
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="self"></param>
         /// <param name="connectionString">Connection string that will be used to connect to the cassandra cluster.</param>
         /// <returns></returns>
-        public static T SetConnectionString<T>(this T self, string connectionString) where T : ICassandraProjectionsSettings
+        public static T SetProjectionsConnectionString<T>(this T self, string connectionString) where T : ICassandraProjectionsSettings
         {
             var builder = new DataStaxCassandra.CassandraConnectionStringBuilder(connectionString);
             if (string.IsNullOrWhiteSpace(builder.DefaultKeyspace) == false)

@@ -1,3 +1,6 @@
+#### 2.0.0-beta0008 - 13.04.2017
+* Changes the "SetConnectionString" to "SetProjectionsConnectionString"
+
 #### 2.0.0-beta0007 - 13.04.2017
 * Changes to the settings API
 
