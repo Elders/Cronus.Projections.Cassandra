@@ -28,11 +28,17 @@ namespace Elders.Cronus.Projections.Cassandra
 
         private readonly ConcurrentDictionary<string, PreparedStatement> DeletePreparedStatements;
 
+        private readonly ConsistencyLevel writeConsistencyLevel;
+
+        private readonly ConsistencyLevel readConsistencyLevel;
+
         private ISession session;
 
-        public CasssandraCollectionPersister(ISession session)
+        public CasssandraCollectionPersister(ISession session, ConsistencyLevel writeConsistencyLevel, ConsistencyLevel readConsistencyLevel)
         {
             this.session = session;
+            this.writeConsistencyLevel = writeConsistencyLevel;
+            this.readConsistencyLevel = readConsistencyLevel;
             this.SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.GetItemPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
@@ -43,6 +49,7 @@ namespace Elders.Cronus.Projections.Cassandra
         public IEnumerable<KeyValueCollectionItem> GetCollection(string collectionId, string columnFamily)
         {
             var statement = GetPreparedStatements.GetOrAdd(columnFamily, x => BuildeGetPreparedStatemnt(x));
+            statement.SetConsistencyLevel(readConsistencyLevel);
             var result = session.Execute(statement.Bind(collectionId));
             foreach (var row in result)
             {
@@ -53,6 +60,7 @@ namespace Elders.Cronus.Projections.Cassandra
         public KeyValueCollectionItem GetCollectionItem(string collectionId, string itemId, string columnFamily)
         {
             var statement = GetItemPreparedStatements.GetOrAdd(columnFamily, x => BuildeGetCollectionItemPreparedStatemnt(x));
+            statement.SetConsistencyLevel(readConsistencyLevel);
             var result = session.Execute(statement.Bind(collectionId, itemId)).FirstOrDefault();
             if (result == null)
                 return null;
@@ -63,12 +71,21 @@ namespace Elders.Cronus.Projections.Cassandra
         public void AddToCollection(KeyValueCollectionItem collectionItem)
         {
             var statement = SavePreparedStatements.GetOrAdd(collectionItem.Table, x => BuildeInsertPreparedStatemnt(x));
+            statement.SetConsistencyLevel(writeConsistencyLevel);
             var result = session.Execute(statement.Bind(collectionItem.CollectionId, collectionItem.ItemId, collectionItem.Blob));
+        }
+
+        public void Update(KeyValueCollectionItem collectionItem, byte[] data)
+        {
+            var statement = UpdatePreparedStatements.GetOrAdd(collectionItem.Table, x => BuildeInsertPreparedStatemnt(x));
+            statement.SetConsistencyLevel(writeConsistencyLevel);
+            var result = session.Execute(statement.Bind(collectionItem.CollectionId, collectionItem.ItemId, data));
         }
 
         public void DeleteCollectionItem(KeyValueCollectionItem collectionItem)
         {
             var statement = DeletePreparedStatements.GetOrAdd(collectionItem.Table, x => BuildeDeletePreparedStatemnt(x));
+            statement.SetConsistencyLevel(writeConsistencyLevel);
             var result = session.Execute(statement.Bind(collectionItem.CollectionId, collectionItem.ItemId));
         }
 
@@ -90,12 +107,6 @@ namespace Elders.Cronus.Projections.Cassandra
         private PreparedStatement BuildeDeletePreparedStatemnt(string columnFamily)
         {
             return session.Prepare(string.Format(DeleteQueryTemplate, columnFamily));
-        }
-
-        public void Update(KeyValueCollectionItem collectionItem, byte[] data)
-        {
-            var statement = UpdatePreparedStatements.GetOrAdd(collectionItem.Table, x => BuildeInsertPreparedStatemnt(x));
-            var result = session.Execute(statement.Bind(collectionItem.CollectionId, collectionItem.ItemId, data));
         }
 
         private PreparedStatement BuildeUpdatePreparedStatemnt(string columnFamily)

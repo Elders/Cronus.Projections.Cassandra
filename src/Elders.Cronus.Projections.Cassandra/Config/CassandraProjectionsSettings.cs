@@ -19,6 +19,8 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             settings.SetReconnectionPolicy(new DataStaxCassandra.ExponentialReconnectionPolicy(100, 100000));
             settings.SetRetryPolicy(new NoHintedHandOffRetryPolicy());
             settings.SetReplicationStrategy(new SimpleReplicationStrategy(1));
+            settings.SetWriteConsistencyLevel(DataStaxCassandra.ConsistencyLevel.All);
+            settings.SetReadConsistencyLevel(DataStaxCassandra.ConsistencyLevel.Quorum);
 
             if (self is ISubscrptionMiddlewareSettings)
                 (settings as ICassandraProjectionsSettings).ProjectionTypes = (self as ISubscrptionMiddlewareSettings).HandlerRegistrations;
@@ -75,6 +77,32 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         public static T SetCluster<T>(this T self, DataStaxCassandra.Cluster cluster) where T : ICassandraProjectionsSettings
         {
             self.Cluster = cluster;
+            return self;
+        }
+
+        /// <summary>
+        /// Use to se the consistency level that is going to be used when writing to the event store.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="writeConsistencyLevel"></param>
+        /// <returns></returns>
+        public static T SetWriteConsistencyLevel<T>(this T self, DataStaxCassandra.ConsistencyLevel writeConsistencyLevel) where T : ICassandraProjectionsSettings
+        {
+            self.WriteConsistencyLevel = writeConsistencyLevel;
+            return self;
+        }
+
+        /// <summary>
+        /// Use to set the consistency level that is going to be used when reading from the event store.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="readConsistencyLevel"></param>
+        /// <returns></returns>
+        public static T SetReadConsistencyLevel<T>(this T self, DataStaxCassandra.ConsistencyLevel readConsistencyLevel) where T : ICassandraProjectionsSettings
+        {
+            self.ReadConsistencyLevel = readConsistencyLevel;
             return self;
         }
 
@@ -149,6 +177,8 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         string ConnectionString { get; set; }
         IEnumerable<Type> ProjectionTypes { get; set; }
         DataStaxCassandra.Cluster Cluster { get; set; }
+        DataStaxCassandra.ConsistencyLevel WriteConsistencyLevel { get; set; }
+        DataStaxCassandra.ConsistencyLevel ReadConsistencyLevel { get; set; }
         DataStaxCassandra.IRetryPolicy RetryPolicy { get; set; }
         DataStaxCassandra.IReconnectionPolicy ReconnectionPolicy { get; set; }
         ICassandraReplicationStrategy ReplicationStrategy { get; set; }
@@ -184,7 +214,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             storageManager.CreateStorage();
             session.ChangeKeyspace(settings.Keyspace);
 
-            var persister = new CassandraPersister(session);
+            var persister = new CassandraPersister(session, settings.WriteConsistencyLevel, settings.ReadConsistencyLevel);
             var serializer = builder.Container.Resolve<ISerializer>();
 
             builder.Container.RegisterSingleton<IPersiter>(() => persister);
@@ -201,6 +231,10 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         IEnumerable<Type> ICassandraProjectionsSettings.ProjectionTypes { get; set; }
 
         DataStaxCassandra.Cluster ICassandraProjectionsSettings.Cluster { get; set; }
+
+        DataStaxCassandra.ConsistencyLevel ICassandraProjectionsSettings.WriteConsistencyLevel { get; set; }
+
+        DataStaxCassandra.ConsistencyLevel ICassandraProjectionsSettings.ReadConsistencyLevel { get; set; }
 
         DataStaxCassandra.IRetryPolicy ICassandraProjectionsSettings.RetryPolicy { get; set; }
 
