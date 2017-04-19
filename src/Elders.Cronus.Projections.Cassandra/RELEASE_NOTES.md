@@ -1,3 +1,6 @@
+#### 2.0.0-beta0011 - 19.04.2017
+* Add setting for using event sourced projections or normal projections
+
 #### 2.0.0-beta0010 - 19.04.2017
 * Change the configuration extensions names so that they do not collide with the event store configurations
 

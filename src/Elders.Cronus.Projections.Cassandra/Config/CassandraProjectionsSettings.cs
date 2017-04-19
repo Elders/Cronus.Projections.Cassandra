@@ -31,6 +31,12 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             return self;
         }
 
+        public static T UseEventSourcedProjections<T>(this T self) where T : ICassandraProjectionsSettings
+        {
+            self.UseEventSourcedProjections = true;
+            return self;
+        }
+
         /// <summary>
         /// Set the connection string for projections.
         /// </summary>
@@ -182,6 +188,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         DataStaxCassandra.IRetryPolicy RetryPolicy { get; set; }
         DataStaxCassandra.IReconnectionPolicy ReconnectionPolicy { get; set; }
         ICassandraReplicationStrategy ReplicationStrategy { get; set; }
+        bool UseEventSourcedProjections { get; set; }
     }
 
     public class CassandraProjectionsSettings : SettingsBuilder, ICassandraProjectionsSettings
@@ -214,14 +221,19 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             storageManager.CreateStorage();
             session.ChangeKeyspace(settings.Keyspace);
 
-            var persister = new CassandraPersister(session, settings.WriteConsistencyLevel, settings.ReadConsistencyLevel);
             var serializer = builder.Container.Resolve<ISerializer>();
 
-            builder.Container.RegisterSingleton<IPersiter>(() => persister);
-            builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(session, serializer));
-            builder.Container.RegisterSingleton<ISnapshotStore>(() => new NoSnapshotStore());
-            builder.Container.RegisterSingleton<IRepository>(() => new Repository(persister, obj => serializer.SerializeToBytes(obj), data => serializer.DeserializeFromBytes(data)));
-            builder.Container.RegisterTransient<IProjectionRepository>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>()));
+            if (settings.UseEventSourcedProjections == false)
+            {
+                builder.Container.RegisterSingleton<IPersiter>(() => new CassandraPersister(session, settings.WriteConsistencyLevel, settings.ReadConsistencyLevel));
+                builder.Container.RegisterSingleton<IRepository>(() => new Repository(builder.Container.Resolve<IPersiter>(), obj => serializer.SerializeToBytes(obj), data => serializer.DeserializeFromBytes(data)));
+            }
+            else
+            {
+                builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(session, serializer));
+                builder.Container.RegisterSingleton<ISnapshotStore>(() => new NoSnapshotStore());
+                builder.Container.RegisterTransient<IProjectionRepository>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>()));
+            }
         }
 
         string ICassandraProjectionsSettings.Keyspace { get; set; }
@@ -241,5 +253,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         DataStaxCassandra.IReconnectionPolicy ICassandraProjectionsSettings.ReconnectionPolicy { get; set; }
 
         ICassandraReplicationStrategy ICassandraProjectionsSettings.ReplicationStrategy { get; set; }
+
+        bool ICassandraProjectionsSettings.UseEventSourcedProjections { get; set; }
     }
 }
