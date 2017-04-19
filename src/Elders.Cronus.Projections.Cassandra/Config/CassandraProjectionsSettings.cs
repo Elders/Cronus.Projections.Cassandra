@@ -16,11 +16,11 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         public static T UseCassandraProjections<T>(this T self, Action<CassandraProjectionsSettings> configure) where T : ISettingsBuilder
         {
             CassandraProjectionsSettings settings = new CassandraProjectionsSettings(self);
-            settings.SetReconnectionPolicy(new DataStaxCassandra.ExponentialReconnectionPolicy(100, 100000));
-            settings.SetRetryPolicy(new NoHintedHandOffRetryPolicy());
-            settings.SetReplicationStrategy(new SimpleReplicationStrategy(1));
-            settings.SetWriteConsistencyLevel(DataStaxCassandra.ConsistencyLevel.All);
-            settings.SetReadConsistencyLevel(DataStaxCassandra.ConsistencyLevel.Quorum);
+            settings.SetProjectionsReconnectionPolicy(new DataStaxCassandra.ExponentialReconnectionPolicy(100, 100000));
+            settings.SetProjectionsRetryPolicy(new NoHintedHandOffRetryPolicy());
+            settings.SetProjectionsReplicationStrategy(new SimpleReplicationStrategy(1));
+            settings.SetProjectionsWriteConsistencyLevel(DataStaxCassandra.ConsistencyLevel.All);
+            settings.SetProjectionsReadConsistencyLevel(DataStaxCassandra.ConsistencyLevel.Quorum);
 
             if (self is ISubscrptionMiddlewareSettings)
                 (settings as ICassandraProjectionsSettings).ProjectionTypes = (self as ISubscrptionMiddlewareSettings).HandlerRegistrations;
@@ -44,7 +44,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             if (string.IsNullOrWhiteSpace(builder.DefaultKeyspace) == false)
             {
                 self.ConnectionString = connectionString.Replace(builder.DefaultKeyspace, "");
-                self.SetKeyspace(builder.DefaultKeyspace);
+                self.SetProjectionsKeyspace(builder.DefaultKeyspace);
             }
             else
             {
@@ -61,7 +61,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="keyspace">Keyspace that will be used for the event store.</param>
         /// <returns></returns>
-        public static T SetKeyspace<T>(this T self, string keyspace) where T : ICassandraProjectionsSettings
+        public static T SetProjectionsKeyspace<T>(this T self, string keyspace) where T : ICassandraProjectionsSettings
         {
             self.Keyspace = keyspace;
             return self;
@@ -74,7 +74,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="cluster">Fully configured Cassandra cluster object.</param>
         /// <returns></returns>
-        public static T SetCluster<T>(this T self, DataStaxCassandra.Cluster cluster) where T : ICassandraProjectionsSettings
+        public static T SetProjectionsCluster<T>(this T self, DataStaxCassandra.Cluster cluster) where T : ICassandraProjectionsSettings
         {
             self.Cluster = cluster;
             return self;
@@ -87,7 +87,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="writeConsistencyLevel"></param>
         /// <returns></returns>
-        public static T SetWriteConsistencyLevel<T>(this T self, DataStaxCassandra.ConsistencyLevel writeConsistencyLevel) where T : ICassandraProjectionsSettings
+        public static T SetProjectionsWriteConsistencyLevel<T>(this T self, DataStaxCassandra.ConsistencyLevel writeConsistencyLevel) where T : ICassandraProjectionsSettings
         {
             self.WriteConsistencyLevel = writeConsistencyLevel;
             return self;
@@ -100,7 +100,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="readConsistencyLevel"></param>
         /// <returns></returns>
-        public static T SetReadConsistencyLevel<T>(this T self, DataStaxCassandra.ConsistencyLevel readConsistencyLevel) where T : ICassandraProjectionsSettings
+        public static T SetProjectionsReadConsistencyLevel<T>(this T self, DataStaxCassandra.ConsistencyLevel readConsistencyLevel) where T : ICassandraProjectionsSettings
         {
             self.ReadConsistencyLevel = readConsistencyLevel;
             return self;
@@ -113,7 +113,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="policy">Cassandra reconnection policy.</param>
         /// <returns></returns>
-        public static T SetReconnectionPolicy<T>(this T self, DataStaxCassandra.IReconnectionPolicy policy) where T : ICassandraProjectionsSettings
+        public static T SetProjectionsReconnectionPolicy<T>(this T self, DataStaxCassandra.IReconnectionPolicy policy) where T : ICassandraProjectionsSettings
         {
             self.ReconnectionPolicy = policy;
             return self;
@@ -126,7 +126,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="policy">Cassandra retry policy.</param>
         /// <returns></returns>
-        public static T SetRetryPolicy<T>(this T self, DataStaxCassandra.IRetryPolicy policy) where T : ICassandraProjectionsSettings
+        public static T SetProjectionsRetryPolicy<T>(this T self, DataStaxCassandra.IRetryPolicy policy) where T : ICassandraProjectionsSettings
         {
             self.RetryPolicy = policy;
             return self;
@@ -139,7 +139,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="replicationStrategy">Cassandra replication strategy.</param>
         /// <returns></returns>
-        public static T SetReplicationStrategy<T>(this T self, ICassandraReplicationStrategy replicationStrategy) where T : ICassandraProjectionsSettings
+        public static T SetProjectionsReplicationStrategy<T>(this T self, ICassandraReplicationStrategy replicationStrategy) where T : ICassandraProjectionsSettings
         {
             self.ReplicationStrategy = replicationStrategy;
             return self;

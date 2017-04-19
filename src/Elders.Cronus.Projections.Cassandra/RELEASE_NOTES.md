@@ -1,3 +1,6 @@
+#### 2.0.0-beta0010 - 19.04.2017
+* Change the configuration extensions names so that they do not collide with the event store configurations
+
 #### 2.0.0-beta0009 - 18.04.2017
 * Add settings for read and write consistency level
 
