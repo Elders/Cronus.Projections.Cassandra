@@ -233,6 +233,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
                 builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(session, serializer));
                 builder.Container.RegisterSingleton<ISnapshotStore>(() => new NoSnapshotStore());
                 builder.Container.RegisterTransient<IProjectionRepository>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>()));
+                (settings as ISubscrptionMiddlewareSettings).Middleware(x => { return new EventSourcedProjectionsMiddleware(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>()); });
             }
         }
 

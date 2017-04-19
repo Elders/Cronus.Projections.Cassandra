@@ -4,21 +4,9 @@ using Elders.Cronus.Middleware;
 using System.Collections.Generic;
 using System.Linq;
 using System;
-using Elders.Cronus.Pipeline.Config;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
-
-    public static class EventSourcedProjectionsMiddlewareConfig
-    {
-
-        public static Middleware<HandleContext> EventSourcedProjections(this Middleware<HandleContext> self, IProjectionStore projectionStore, ISnapshotStore snapshotStore)
-        {
-            return new EventSourcedProjectionsMiddleware(projectionStore, snapshotStore);
-        }
-
-    }
-
     public class EventSourcedProjectionsMiddleware : Middleware<HandleContext>
     {
         static int numberofEventsWhenSnapshot = 5;
