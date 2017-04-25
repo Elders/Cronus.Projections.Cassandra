@@ -1,3 +1,6 @@
+#### 2.0.0-beta0013 - 25.04.2017
+* Fix event sourced projections middleware registration
+
 #### 2.0.0-beta0012 - 19.04.2017
 * Move the event sourced projections middleware registration to the UseEventSourcedProjections under the CassandraProjectionsSettings
 
