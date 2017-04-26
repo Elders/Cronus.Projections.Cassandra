@@ -30,12 +30,20 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Cassandra, Version=3.0.0.0, Culture=neutral, PublicKeyToken=10b231fbfc8c4b4d, processorArchitecture=MSIL">
-      <HintPath>..\packages\CassandraCSharpDriver.3.0.9\lib\net40\Cassandra.dll</HintPath>
+    <Reference Include="Cassandra, Version=3.1.0.1, Culture=neutral, PublicKeyToken=10b231fbfc8c4b4d, processorArchitecture=MSIL">
+      <HintPath>..\packages\CassandraCSharpDriver.3.1.0.1\lib\net45\Cassandra.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Elders.Cronus, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Cronus.3.0.2\lib\net45-full\Elders.Cronus.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Elders.Cronus.DomainModeling, Version=3.1.4.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\Cronus.DomainModeling.3.1.4\lib\net45-full\Elders.Cronus.DomainModeling.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Elders.Multithreading.Scheduler, Version=1.1.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Multithreading.Scheduler.1.1.2\lib\net45-full\Elders.Multithreading.Scheduler.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="LZ4, Version=1.0.10.93, Culture=neutral, PublicKeyToken=62e1b5ec1eec9bdd, processorArchitecture=MSIL">
@@ -45,10 +53,38 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="App_Packages\LibLog.4.2\LibLog.cs" />
     <Compile Include="CassandraPersister.cs" />
+    <Compile Include="CassandraProjectionsStorageManager.cs" />
     <Compile Include="CasssandraCollectionPersister.cs" />
+    <Compile Include="Config\CassandraProjectionsSettings.cs" />
+    <Compile Include="Config\NoHintedHandOffRetryPolicy.cs" />
+    <Compile Include="EventSourcing\CassandraProjectionStore.cs" />
+    <Compile Include="EventSourcing\Usage.cs" />
+    <Compile Include="EventSourcing\CronusMessageExtensions.cs" />
+    <Compile Include="EventSourcing\EventOrigin.cs" />
+    <Compile Include="EventSourcing\EventSourcedProjectionsMiddleware.cs" />
+    <Compile Include="EventSourcing\IAmEventSourcedProjection.cs" />
+    <Compile Include="EventSourcing\IProjectionDefinition.cs" />
+    <Compile Include="EventSourcing\IProjectionRepository.cs" />
+    <Compile Include="EventSourcing\IHaveState.cs" />
+    <Compile Include="EventSourcing\IProjectionStore.cs" />
+    <Compile Include="EventSourcing\ISnapshot.cs" />
+    <Compile Include="EventSourcing\ISnapshotStore.cs" />
+    <Compile Include="EventSourcing\ProjectionCommit.cs" />
+    <Compile Include="EventSourcing\ProjectionDefinition.cs" />
+    <Compile Include="EventSourcing\ProjectionGetResult.cs" />
+    <Compile Include="EventSourcing\ProjectionRepository.cs" />
+    <Compile Include="EventSourcing\ProjectionStream.cs" />
+    <Compile Include="ReplicationStrategies\SimpleReplicationStrategy.cs" />
+    <Compile Include="ReplicationStrategies\NetworkTopologyReplicationStrategy.cs" />
+    <Compile Include="ReplicationStrategies\ICassandraReplicationStrategy.cs" />
     <Compile Include="Repository.cs" />
   </ItemGroup>
   <ItemGroup>

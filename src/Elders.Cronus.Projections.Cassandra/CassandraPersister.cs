@@ -19,6 +19,10 @@ namespace Elders.Cronus.Projections.Cassandra
 
         private readonly ISession session;
 
+        private readonly ConsistencyLevel writeConsistencyLevel;
+
+        private readonly ConsistencyLevel readConsistencyLevel;
+
         private readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
 
         private readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
@@ -29,10 +33,12 @@ namespace Elders.Cronus.Projections.Cassandra
 
         CasssandraCollectionPersister collPersister;
 
-        public CassandraPersister(ISession session)
+        public CassandraPersister(ISession session, ConsistencyLevel writeConsistencyLevel, ConsistencyLevel readConsistencyLevel)
         {
             this.session = session;
-            collPersister = new CasssandraCollectionPersister(session);
+            this.writeConsistencyLevel = writeConsistencyLevel;
+            this.readConsistencyLevel = readConsistencyLevel;
+            collPersister = new CasssandraCollectionPersister(session, writeConsistencyLevel, readConsistencyLevel);
             this.SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.UpdatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
@@ -80,7 +86,7 @@ namespace Elders.Cronus.Projections.Cassandra
             }
         }
 
-        private PreparedStatement GetPreparedStatementToLoadKeyValueData(string columnFamily)
+        PreparedStatement GetPreparedStatementToLoadKeyValueData(string columnFamily)
         {
             PreparedStatement loadAggregatePreparedStatement;
             if (!GetPreparedStatements.TryGetValue(columnFamily, out loadAggregatePreparedStatement))
