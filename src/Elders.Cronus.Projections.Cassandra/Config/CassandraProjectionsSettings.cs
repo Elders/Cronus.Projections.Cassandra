@@ -8,11 +8,32 @@ using Elders.Cronus.DomainModeling.Projections;
 using Elders.Cronus.Projections.Cassandra.EventSourcing;
 using Elders.Cronus.Serializer;
 using System.Reflection;
+using System.Linq;
 
 namespace Elders.Cronus.Projections.Cassandra.Config
 {
     public static class CassandraProjectionsExtensions
     {
+        public static T ConfigureCassandraProjectionsStore<T>(this T self, Action<CassandraProjectionsStoreSettings> configure) where T : ISettingsBuilder
+        {
+            CassandraProjectionsStoreSettings settings = new CassandraProjectionsStoreSettings(self);
+            settings.SetProjectionsReconnectionPolicy(new DataStaxCassandra.ExponentialReconnectionPolicy(100, 100000));
+            settings.SetProjectionsRetryPolicy(new NoHintedHandOffRetryPolicy());
+            settings.SetProjectionsReplicationStrategy(new SimpleReplicationStrategy(1));
+            settings.SetProjectionsWriteConsistencyLevel(DataStaxCassandra.ConsistencyLevel.All);
+            settings.SetProjectionsReadConsistencyLevel(DataStaxCassandra.ConsistencyLevel.Quorum);
+
+            configure?.Invoke(settings);
+
+            var projectionTypes = (settings as ICassandraProjectionsSettings).ProjectionTypes;
+
+            if (ReferenceEquals(null, projectionTypes) || projectionTypes.Any() == false)
+                throw new InvalidOperationException("No projection types are registerd. Please use SetProjectionTypes.");
+
+            (settings as ISettingsBuilder).Build();
+            return self;
+        }
+
         public static T UseCassandraProjections<T>(this T self, Action<CassandraProjectionsSettings> configure) where T : ISubscrptionMiddlewareSettings
         {
             CassandraProjectionsSettings settings = new CassandraProjectionsSettings(self, self as ISubscrptionMiddlewareSettings);
@@ -190,7 +211,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         bool UseEventSourcedProjections { get; set; }
     }
 
-    public class CassandraProjectionsSettings : SettingsBuilder, ICassandraProjectionsSettings
+    public class CassandraProjectionsSettings : CassandraProjectionsStoreSettings
     {
         private ISubscrptionMiddlewareSettings subscrptionMiddlewareSettings;
 
@@ -198,6 +219,20 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         {
             this.subscrptionMiddlewareSettings = subscrptionMiddlewareSettings;
         }
+
+        public override void Build()
+        {
+            var builder = this as ISettingsBuilder;
+            ICassandraProjectionsSettings settings = this as ICassandraProjectionsSettings;
+            base.Build();
+            if (settings.UseEventSourcedProjections)
+                subscrptionMiddlewareSettings.Middleware(x => { return new EventSourcedProjectionsMiddleware(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>()); });
+        }
+    }
+
+    public class CassandraProjectionsStoreSettings : SettingsBuilder, ICassandraProjectionsSettings
+    {
+        public CassandraProjectionsStoreSettings(ISettingsBuilder settingsBuilder) : base(settingsBuilder) { }
 
         public override void Build()
         {
@@ -237,7 +272,6 @@ namespace Elders.Cronus.Projections.Cassandra.Config
                 builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(session, serializer));
                 builder.Container.RegisterSingleton<ISnapshotStore>(() => new NoSnapshotStore());
                 builder.Container.RegisterTransient<IProjectionRepository>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>()));
-                subscrptionMiddlewareSettings.Middleware(x => { return new EventSourcedProjectionsMiddleware(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>()); });
             }
         }
 

@@ -1,3 +1,6 @@
+#### 2.0.0-beta0014 - 26.04.2017
+* Fix projections settings
+
 #### 2.0.0-beta0013 - 25.04.2017
 * Fix event sourced projections middleware registration
 
