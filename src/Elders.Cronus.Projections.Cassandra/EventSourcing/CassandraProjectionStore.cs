@@ -5,7 +5,7 @@ using Cassandra;
 using System.Collections.Concurrent;
 using Elders.Cronus.Serializer;
 using System.IO;
-using System.Text;
+using Elders.Cronus.Projections.Cassandra.Config;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {

@@ -1,3 +1,7 @@
+#### 2.0.1 - 26.04.2017
+* Fixes database initialization
+* Removes the old projections
+
 #### 2.0.0 - 26.04.2017
 * Added event sourced projections
 * Added support for Cassandra cluster

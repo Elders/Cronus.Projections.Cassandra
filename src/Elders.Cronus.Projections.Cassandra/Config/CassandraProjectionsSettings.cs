@@ -9,6 +9,7 @@ using Elders.Cronus.Projections.Cassandra.EventSourcing;
 using Elders.Cronus.Serializer;
 using System.Reflection;
 using System.Linq;
+using Elders.Cronus.DomainModeling;
 
 namespace Elders.Cronus.Projections.Cassandra.Config
 {
@@ -48,12 +49,6 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             configure?.Invoke(settings);
 
             (settings as ISettingsBuilder).Build();
-            return self;
-        }
-
-        public static T UseEventSourcedProjections<T>(this T self) where T : ICassandraProjectionsSettings
-        {
-            self.UseEventSourcedProjections = true;
             return self;
         }
 
@@ -208,7 +203,6 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         DataStaxCassandra.IRetryPolicy RetryPolicy { get; set; }
         DataStaxCassandra.IReconnectionPolicy ReconnectionPolicy { get; set; }
         ICassandraReplicationStrategy ReplicationStrategy { get; set; }
-        bool UseEventSourcedProjections { get; set; }
     }
 
     public class CassandraProjectionsSettings : CassandraProjectionsStoreSettings
@@ -225,8 +219,39 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             var builder = this as ISettingsBuilder;
             ICassandraProjectionsSettings settings = this as ICassandraProjectionsSettings;
             base.Build();
-            if (settings.UseEventSourcedProjections)
-                subscrptionMiddlewareSettings.Middleware(x => { return new EventSourcedProjectionsMiddleware(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>()); });
+            subscrptionMiddlewareSettings.Middleware(x => { return new EventSourcedProjectionsMiddleware(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>()); });
+        }
+    }
+
+    public static class CasssandraExtensions
+    {
+        const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, sm int, evarid text, evarrev int, evarts bigint, evarpos int, data blob, PRIMARY KEY ((id, sm), evarid, evarrev, evarpos, evarts)) WITH CLUSTERING ORDER BY (evarid ASC);";
+
+        public static void InitializeProjectionDatabase(this DataStaxCassandra.ISession session, IEnumerable<Type> projections)
+        {
+            foreach (var projType in projections
+                .Where(x => typeof(IProjectionDefinition).IsAssignableFrom(x))
+                .Where(x => x.GetInterfaces().Any(y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IEventHandler<>))))
+            {
+                session.Execute(string.Format(CreateProjectionEventsTableTemplate, projType.GetColumnFamily()));
+            }
+        }
+
+        public static void InitializeProjectionDatabase(this DataStaxCassandra.ISession session, IEnumerable<Assembly> assemblyContainingProjections)
+        {
+            InitializeProjectionDatabase(session, assemblyContainingProjections.SelectMany(x => x.GetExportedTypes()));
+        }
+
+        public static string GetColumnFamily(this Type projectionType)
+        {
+            return projectionType.GetContractId().Replace("-", "").ToLower();
+        }
+
+        internal static void CreateKeyspace(this DataStaxCassandra.ISession session, ICassandraReplicationStrategy replicationStrategy, string keyspace)
+        {
+            var createKeySpaceQuery = replicationStrategy.CreateKeySpaceTemplate(keyspace);
+            session.Execute(createKeySpaceQuery);
+            session.ChangeKeyspace(keyspace);
         }
     }
 
@@ -256,23 +281,14 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             }
 
             var session = cluster.Connect();
-            var storageManager = new CassandraProjectionsStorageManager(session, settings.Keyspace, settings.ReplicationStrategy, settings.ProjectionTypes);
-            storageManager.CreateStorage();
-            session.ChangeKeyspace(settings.Keyspace);
+            session.CreateKeyspace(settings.ReplicationStrategy, settings.Keyspace);
+            session.InitializeProjectionDatabase(settings.ProjectionTypes);
 
             var serializer = builder.Container.Resolve<ISerializer>();
 
-            if (settings.UseEventSourcedProjections == false)
-            {
-                builder.Container.RegisterSingleton<IPersiter>(() => new CassandraPersister(session, settings.WriteConsistencyLevel, settings.ReadConsistencyLevel));
-                builder.Container.RegisterSingleton<IRepository>(() => new Repository(builder.Container.Resolve<IPersiter>(), obj => serializer.SerializeToBytes(obj), data => serializer.DeserializeFromBytes(data)));
-            }
-            else
-            {
-                builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(session, serializer));
-                builder.Container.RegisterSingleton<ISnapshotStore>(() => new NoSnapshotStore());
-                builder.Container.RegisterTransient<IProjectionRepository>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>()));
-            }
+            builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(session, serializer));
+            builder.Container.RegisterSingleton<ISnapshotStore>(() => new NoSnapshotStore());
+            builder.Container.RegisterTransient<IProjectionRepository>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>()));
         }
 
         string ICassandraProjectionsSettings.Keyspace { get; set; }
@@ -292,7 +308,5 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         DataStaxCassandra.IReconnectionPolicy ICassandraProjectionsSettings.ReconnectionPolicy { get; set; }
 
         ICassandraReplicationStrategy ICassandraProjectionsSettings.ReplicationStrategy { get; set; }
-
-        bool ICassandraProjectionsSettings.UseEventSourcedProjections { get; set; }
     }
 }
