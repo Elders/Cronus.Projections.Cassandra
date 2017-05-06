@@ -15,7 +15,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public IProjectionGetResult<T> Get<T>(IBlobId projectionId) where T : IProjectionDefinition
         {
-            var snapshot = snapshotStore.Load(projectionId);
+            var snapshot = snapshotStore.Load(typeof(T), projectionId);
             var projectionStream = projectionStore.Load<T>(projectionId, snapshot);
             return projectionStream.RestoreFromHistory<T>();
         }

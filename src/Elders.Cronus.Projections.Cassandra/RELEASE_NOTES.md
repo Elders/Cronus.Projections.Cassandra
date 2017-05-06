@@ -1,3 +1,6 @@
+#### 2.1.0-beta0001 - 07.05.2017
+* Added snapshot store
+
 #### 2.0.1 - 26.04.2017
 * Fixes database initialization
 * Removes the old projections

@@ -6,11 +6,13 @@ using System.Collections.Concurrent;
 using Elders.Cronus.Serializer;
 using System.IO;
 using Elders.Cronus.Projections.Cassandra.Config;
+using System.Linq;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
     public class CassandraProjectionStore : IProjectionStore
     {
+        const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, sm int, evarid text, evarrev int, evarts bigint, evarpos int, data blob, PRIMARY KEY ((id, sm), evarid, evarrev, evarpos, evarts)) WITH CLUSTERING ORDER BY (evarid ASC);";
         const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id, sm, evarid, evarrev, evarpos, evarts, data) VALUES (?,?,?,?,?,?,?);";
         const string GetQueryTemplate = @"SELECT data FROM ""{0}"" WHERE id=? AND sm=?;";
 
@@ -19,8 +21,9 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
         readonly ISerializer serializer;
 
-        public CassandraProjectionStore(ISession session, ISerializer serializer)
+        public CassandraProjectionStore(IEnumerable<Type> projections, ISession session, ISerializer serializer)
         {
+            InitializeProjectionDatabase(session, projections);
             this.serializer = serializer;
             this.session = session;
             this.SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
@@ -75,9 +78,19 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
                 ));
         }
 
-        PreparedStatement BuildeInsertPreparedStatemnt(string columnFamily)
+        private PreparedStatement BuildeInsertPreparedStatemnt(string columnFamily)
         {
             return session.Prepare(string.Format(InsertQueryTemplate, columnFamily));
+        }
+
+        private void InitializeProjectionDatabase(ISession session, IEnumerable<Type> projections)
+        {
+            foreach (var projType in projections
+                .Where(x => typeof(IProjectionDefinition).IsAssignableFrom(x))
+                .Where(x => x.GetInterfaces().Any(y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IEventHandler<>))))
+            {
+                session.Execute(string.Format(CreateProjectionEventsTableTemplate, projType.GetColumnFamily()));
+            }
         }
 
         private PreparedStatement GetPreparedStatementToGetProjection(string columnFamily)
@@ -91,7 +104,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             return loadAggregatePreparedStatement;
         }
 
-        string ConvertIdToString(object id)
+        private string ConvertIdToString(object id)
         {
             if (id is string || id is Guid)
                 return id.ToString();

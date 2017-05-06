@@ -25,16 +25,17 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             var cronusMessage = execution.Context.Message;
             //nie zname kakuv e tipa nqmame nujda ot factory.
             //to ne trqbva da ima dependancyta
-            var projectionDefinition = FastActivator.CreateInstance(execution.Context.HandlerType) as IProjectionDefinition;
+
+            Type projectionType = execution.Context.HandlerType;
+            var projectionDefinition = FastActivator.CreateInstance(projectionType) as IProjectionDefinition;
             if (projectionDefinition != null)
             {
                 if (execution.Context.Message.Payload is IEvent)
                 {
                     // infrastructure work
                     var projectionId = projectionDefinition.GetProjectionId(execution.Context.Message.Payload as IEvent);
-                    var snapshot = snapshotStore.Load(projectionId);
+                    var snapshot = snapshotStore.Load(projectionType, projectionId);
                     projectionDefinition.InitializeState(snapshot.State);
-                    Type projectionType = projectionDefinition.GetType();
                     var projectionCommits = projectionStore.Load(projectionType, projectionId, snapshot).Commits;
 
 
@@ -57,7 +58,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
                         }
 
                         if (snapshotGroup.Key == revisionInfo.NextSnapshotRevision && snapshot.Revision < revisionInfo.NextSnapshotRevision)
-                            snapshotStore.Save(projectionId, new Snapshot(projectionDefinition.State, revisionInfo.NextSnapshotRevision));
+                            snapshotStore.Save(projectionId, new Snapshot(projectionId, projectionType, projectionDefinition.State, revisionInfo.NextSnapshotRevision));
                     }
 
                     projectionDefinition.Apply(commit.Event);
