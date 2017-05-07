@@ -1,3 +1,6 @@
+#### 2.1.0-beta0003 - 07.05.2017
+* fix to cassandra snapshot store
+
 #### 2.1.0-beta0002 - 07.05.2017
 * Added snapshot strategy
 

@@ -15,7 +15,7 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
     {
         const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, rev int, data blob, PRIMARY KEY (id, rev)) WITH CLUSTERING ORDER BY (rev DESC);";
         const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id, rev, data) VALUES (?,?,?);";
-        const string GetQueryTemplate = @"SELECT data FROM ""{0}"" WHERE id=? LIMIT 1;";
+        const string GetQueryTemplate = @"SELECT data, rev FROM ""{0}"" WHERE id=? LIMIT 1;";
 
         public CassandraSnapshotStore(IEnumerable<Type> projections, ISession session, ISerializer serializer)
         {
