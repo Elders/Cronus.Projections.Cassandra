@@ -30,6 +30,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Elders.Cronus, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" />
     <Reference Include="Elders.Cronus.DomainModeling, Version=3.1.4.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\Cronus.DomainModeling.3.1.4\lib\net45-full\Elders.Cronus.DomainModeling.dll</HintPath>
       <Private>True</Private>
@@ -63,7 +64,10 @@
     <Reference Include="System.Xml.Serialization" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="LoadProjectionFromStreamTest.cs" />
+    <Compile Include="MemoryProjectionStore.cs" />
+    <Compile Include="MemorySnapshotStore.cs" />
+    <Compile Include="When_handling_more_than_five_events.cs" />
+    <Compile Include="When_loadng_projection_from_stream.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

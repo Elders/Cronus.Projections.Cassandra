@@ -1,3 +1,6 @@
+#### 2.1.0-beta0002 - 07.05.2017
+* Added snapshot strategy
+
 #### 2.1.0-beta0001 - 07.05.2017
 * Added snapshot store
 

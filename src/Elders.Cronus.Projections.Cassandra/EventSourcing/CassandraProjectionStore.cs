@@ -7,6 +7,7 @@ using Elders.Cronus.Serializer;
 using System.IO;
 using Elders.Cronus.Projections.Cassandra.Config;
 using System.Linq;
+using Elders.Cronus.Projections.Cassandra.Snapshots;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
@@ -40,7 +41,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             string projId = Convert.ToBase64String(projectionId.RawId);
             List<ProjectionCommit> commits = new List<ProjectionCommit>();
             bool tryGetRecords = true;
-            int snapshotMarker = snapshot.Revision;
+            int snapshotMarker = snapshot.Revision + 1;
             while (tryGetRecords)
             {
                 tryGetRecords = false;

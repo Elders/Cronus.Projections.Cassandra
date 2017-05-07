@@ -57,7 +57,7 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
             }
         }
 
-        public void Save(IBlobId id, ISnapshot snapshot)
+        public void Save(ISnapshot snapshot)
         {
             if (projectionTypes.Contains(snapshot.ProjectionType) == false)
             {

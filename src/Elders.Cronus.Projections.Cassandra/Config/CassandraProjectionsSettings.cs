@@ -4,12 +4,10 @@ using Elders.Cronus.Pipeline.Config;
 using Elders.Cronus.Projections.Cassandra.ReplicationStrategies;
 using DataStaxCassandra = Cassandra;
 using System.Collections.Generic;
-using Elders.Cronus.DomainModeling.Projections;
 using Elders.Cronus.Projections.Cassandra.EventSourcing;
 using Elders.Cronus.Serializer;
 using System.Reflection;
 using System.Linq;
-using Elders.Cronus.DomainModeling;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
 
 namespace Elders.Cronus.Projections.Cassandra.Config
@@ -27,7 +25,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
 
             configure?.Invoke(settings);
 
-            var projectionTypes = (settings as ICassandraProjectionsSettings).ProjectionTypes;
+            var projectionTypes = (settings as ICassandraProjectionsStoreSettings).ProjectionTypes;
 
             if (ReferenceEquals(null, projectionTypes) || projectionTypes.Any() == false)
                 throw new InvalidOperationException("No projection types are registerd. Please use SetProjectionTypes.");
@@ -44,8 +42,9 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             settings.SetProjectionsReplicationStrategy(new SimpleReplicationStrategy(1));
             settings.SetProjectionsWriteConsistencyLevel(DataStaxCassandra.ConsistencyLevel.All);
             settings.SetProjectionsReadConsistencyLevel(DataStaxCassandra.ConsistencyLevel.Quorum);
+            settings.UseSnapshotStrategy(new DefaultSnapshotStrategy(TimeSpan.Zero, 5));
 
-            (settings as ICassandraProjectionsSettings).ProjectionTypes = self.HandlerRegistrations;
+            (settings as ICassandraProjectionsStoreSettings).ProjectionTypes = self.HandlerRegistrations;
 
             configure?.Invoke(settings);
 
@@ -60,7 +59,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="connectionString">Connection string that will be used to connect to the cassandra cluster.</param>
         /// <returns></returns>
-        public static T SetProjectionsConnectionString<T>(this T self, string connectionString) where T : ICassandraProjectionsSettings
+        public static T SetProjectionsConnectionString<T>(this T self, string connectionString) where T : ICassandraProjectionsStoreSettings
         {
             var builder = new DataStaxCassandra.CassandraConnectionStringBuilder(connectionString);
             if (string.IsNullOrWhiteSpace(builder.DefaultKeyspace) == false)
@@ -83,7 +82,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="keyspace">Keyspace that will be used for the event store.</param>
         /// <returns></returns>
-        public static T SetProjectionsKeyspace<T>(this T self, string keyspace) where T : ICassandraProjectionsSettings
+        public static T SetProjectionsKeyspace<T>(this T self, string keyspace) where T : ICassandraProjectionsStoreSettings
         {
             self.Keyspace = keyspace;
             return self;
@@ -96,7 +95,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="cluster">Fully configured Cassandra cluster object.</param>
         /// <returns></returns>
-        public static T SetProjectionsCluster<T>(this T self, DataStaxCassandra.Cluster cluster) where T : ICassandraProjectionsSettings
+        public static T SetProjectionsCluster<T>(this T self, DataStaxCassandra.Cluster cluster) where T : ICassandraProjectionsStoreSettings
         {
             self.Cluster = cluster;
             return self;
@@ -109,7 +108,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="writeConsistencyLevel"></param>
         /// <returns></returns>
-        public static T SetProjectionsWriteConsistencyLevel<T>(this T self, DataStaxCassandra.ConsistencyLevel writeConsistencyLevel) where T : ICassandraProjectionsSettings
+        public static T SetProjectionsWriteConsistencyLevel<T>(this T self, DataStaxCassandra.ConsistencyLevel writeConsistencyLevel) where T : ICassandraProjectionsStoreSettings
         {
             self.WriteConsistencyLevel = writeConsistencyLevel;
             return self;
@@ -122,7 +121,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="readConsistencyLevel"></param>
         /// <returns></returns>
-        public static T SetProjectionsReadConsistencyLevel<T>(this T self, DataStaxCassandra.ConsistencyLevel readConsistencyLevel) where T : ICassandraProjectionsSettings
+        public static T SetProjectionsReadConsistencyLevel<T>(this T self, DataStaxCassandra.ConsistencyLevel readConsistencyLevel) where T : ICassandraProjectionsStoreSettings
         {
             self.ReadConsistencyLevel = readConsistencyLevel;
             return self;
@@ -135,7 +134,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="policy">Cassandra reconnection policy.</param>
         /// <returns></returns>
-        public static T SetProjectionsReconnectionPolicy<T>(this T self, DataStaxCassandra.IReconnectionPolicy policy) where T : ICassandraProjectionsSettings
+        public static T SetProjectionsReconnectionPolicy<T>(this T self, DataStaxCassandra.IReconnectionPolicy policy) where T : ICassandraProjectionsStoreSettings
         {
             self.ReconnectionPolicy = policy;
             return self;
@@ -148,7 +147,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="policy">Cassandra retry policy.</param>
         /// <returns></returns>
-        public static T SetProjectionsRetryPolicy<T>(this T self, DataStaxCassandra.IRetryPolicy policy) where T : ICassandraProjectionsSettings
+        public static T SetProjectionsRetryPolicy<T>(this T self, DataStaxCassandra.IRetryPolicy policy) where T : ICassandraProjectionsStoreSettings
         {
             self.RetryPolicy = policy;
             return self;
@@ -161,7 +160,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="replicationStrategy">Cassandra replication strategy.</param>
         /// <returns></returns>
-        public static T SetProjectionsReplicationStrategy<T>(this T self, ICassandraReplicationStrategy replicationStrategy) where T : ICassandraProjectionsSettings
+        public static T SetProjectionsReplicationStrategy<T>(this T self, ICassandraReplicationStrategy replicationStrategy) where T : ICassandraProjectionsStoreSettings
         {
             self.ReplicationStrategy = replicationStrategy;
             return self;
@@ -174,7 +173,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="projectionsAssembley">Assembly that contains the projection types.</param>
         /// <returns></returns>
-        public static T SetProjectionTypes<T>(this T self, Assembly projectionsAssembley) where T : ICassandraProjectionsSettings
+        public static T SetProjectionTypes<T>(this T self, Assembly projectionsAssembley) where T : ICassandraProjectionsStoreSettings
         {
             return self.SetProjectionTypes(projectionsAssembley.GetExportedTypes());
         }
@@ -186,7 +185,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="projectionTypes">The projection types.</param>
         /// <returns></returns>
-        public static T SetProjectionTypes<T>(this T self, IEnumerable<Type> projectionTypes) where T : ICassandraProjectionsSettings
+        public static T SetProjectionTypes<T>(this T self, IEnumerable<Type> projectionTypes) where T : ICassandraProjectionsStoreSettings
         {
             self.ProjectionTypes = projectionTypes;
             return self;
@@ -199,14 +198,27 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="projectionTypes">The projection types.</param>
         /// <returns></returns>
-        public static T UseSnapshots<T>(this T self, IEnumerable<Type> projectionTypes) where T : ICassandraProjectionsSettings
+        public static T UseSnapshots<T>(this T self, IEnumerable<Type> projectionTypes) where T : ICassandraProjectionsStoreSettings
         {
             self.ProjectionsToSnapshot = projectionTypes;
             return self;
         }
+
+        /// <summary>
+        /// Set snapshot strategy
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="snapshotStrategy"></param>
+        /// <returns></returns>
+        public static T UseSnapshotStrategy<T>(this T self, ISnapshotStrategy snapshotStrategy) where T : ICassandraProjectionsSettings
+        {
+            self.SnapshotStrategy = snapshotStrategy;
+            return self;
+        }
     }
 
-    public interface ICassandraProjectionsSettings : ISettingsBuilder
+    public interface ICassandraProjectionsStoreSettings : ISettingsBuilder
     {
         string Keyspace { get; set; }
         string ConnectionString { get; set; }
@@ -220,9 +232,15 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         IEnumerable<Type> ProjectionsToSnapshot { get; set; }
     }
 
-    public class CassandraProjectionsSettings : CassandraProjectionsStoreSettings
+    public interface ICassandraProjectionsSettings : ISettingsBuilder
+    {
+        ISnapshotStrategy SnapshotStrategy { get; set; }
+    }
+
+    public class CassandraProjectionsSettings : CassandraProjectionsStoreSettings, ICassandraProjectionsSettings
     {
         private ISubscrptionMiddlewareSettings subscrptionMiddlewareSettings;
+        ISnapshotStrategy ICassandraProjectionsSettings.SnapshotStrategy { get; set; }
 
         public CassandraProjectionsSettings(ISettingsBuilder settingsBuilder, ISubscrptionMiddlewareSettings subscrptionMiddlewareSettings) : base(settingsBuilder)
         {
@@ -234,18 +252,18 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             var builder = this as ISettingsBuilder;
             ICassandraProjectionsSettings settings = this as ICassandraProjectionsSettings;
             base.Build();
-            subscrptionMiddlewareSettings.Middleware(x => { return new EventSourcedProjectionsMiddleware(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>()); });
+            subscrptionMiddlewareSettings.Middleware(x => { return new EventSourcedProjectionsMiddleware(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>(), settings.SnapshotStrategy); });
         }
     }
 
-    public class CassandraProjectionsStoreSettings : SettingsBuilder, ICassandraProjectionsSettings
+    public class CassandraProjectionsStoreSettings : SettingsBuilder, ICassandraProjectionsStoreSettings
     {
         public CassandraProjectionsStoreSettings(ISettingsBuilder settingsBuilder) : base(settingsBuilder) { }
 
         public override void Build()
         {
             var builder = this as ISettingsBuilder;
-            ICassandraProjectionsSettings settings = this as ICassandraProjectionsSettings;
+            ICassandraProjectionsStoreSettings settings = this as ICassandraProjectionsStoreSettings;
 
             DataStaxCassandra.Cluster cluster = null;
 
@@ -280,24 +298,24 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             builder.Container.RegisterTransient<IProjectionRepository>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>()));
         }
 
-        string ICassandraProjectionsSettings.Keyspace { get; set; }
+        string ICassandraProjectionsStoreSettings.Keyspace { get; set; }
 
-        string ICassandraProjectionsSettings.ConnectionString { get; set; }
+        string ICassandraProjectionsStoreSettings.ConnectionString { get; set; }
 
-        IEnumerable<Type> ICassandraProjectionsSettings.ProjectionTypes { get; set; }
+        IEnumerable<Type> ICassandraProjectionsStoreSettings.ProjectionTypes { get; set; }
 
-        DataStaxCassandra.Cluster ICassandraProjectionsSettings.Cluster { get; set; }
+        DataStaxCassandra.Cluster ICassandraProjectionsStoreSettings.Cluster { get; set; }
 
-        DataStaxCassandra.ConsistencyLevel ICassandraProjectionsSettings.WriteConsistencyLevel { get; set; }
+        DataStaxCassandra.ConsistencyLevel ICassandraProjectionsStoreSettings.WriteConsistencyLevel { get; set; }
 
-        DataStaxCassandra.ConsistencyLevel ICassandraProjectionsSettings.ReadConsistencyLevel { get; set; }
+        DataStaxCassandra.ConsistencyLevel ICassandraProjectionsStoreSettings.ReadConsistencyLevel { get; set; }
 
-        DataStaxCassandra.IRetryPolicy ICassandraProjectionsSettings.RetryPolicy { get; set; }
+        DataStaxCassandra.IRetryPolicy ICassandraProjectionsStoreSettings.RetryPolicy { get; set; }
 
-        DataStaxCassandra.IReconnectionPolicy ICassandraProjectionsSettings.ReconnectionPolicy { get; set; }
+        DataStaxCassandra.IReconnectionPolicy ICassandraProjectionsStoreSettings.ReconnectionPolicy { get; set; }
 
-        ICassandraReplicationStrategy ICassandraProjectionsSettings.ReplicationStrategy { get; set; }
+        ICassandraReplicationStrategy ICassandraProjectionsStoreSettings.ReplicationStrategy { get; set; }
 
-        IEnumerable<Type> ICassandraProjectionsSettings.ProjectionsToSnapshot { get; set; }
+        IEnumerable<Type> ICassandraProjectionsStoreSettings.ProjectionsToSnapshot { get; set; }
     }
 }

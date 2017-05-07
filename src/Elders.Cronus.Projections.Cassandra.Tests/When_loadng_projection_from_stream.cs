@@ -1,12 +1,13 @@
 ﻿using Elders.Cronus.DomainModeling;
 using Elders.Cronus.Projections.Cassandra.EventSourcing;
+using Elders.Cronus.Projections.Cassandra.Snapshots;
 using Machine.Specifications;
 using System;
 using System.Collections.Generic;
 
 namespace Elders.Cronus.Projections.Cassandra.Tests
 {
-    public class LoadProjectionFromStreamTest
+    public class When_loadng_projection_from_stream
     {
         static ProjectionStream stream;
         static List<ProjectionCommit> commits;
@@ -22,13 +23,13 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
             for (int i = 1; i < 10; i++)
             {
                 var @event = new Event() { Id = id };
-                commits.Add(new ProjectionCommit(id, typeof(Projection), i, @event, new EventOrigin(id.Urn.Value, i, 1, DateTime.UtcNow.ToFileTimeUtc())));
+                commits.Add(new ProjectionCommit(id, typeof(Projection), @event, i, new EventOrigin(id.Urn.Value, i, 1, DateTime.UtcNow.ToFileTimeUtc()), DateTime.UtcNow));
             }
 
             for (int i = 1; i < 10; i++)
             {
                 var @event = new Event1() { Id = id };
-                commits.Add(new ProjectionCommit(id, typeof(Projection), i, @event, new EventOrigin(id.Urn.Value, i, 1, DateTime.UtcNow.ToFileTimeUtc())));
+                commits.Add(new ProjectionCommit(id, typeof(Projection), @event, i, new EventOrigin(id.Urn.Value, i, 1, DateTime.UtcNow.ToFileTimeUtc()), DateTime.UtcNow));
             }
 
             stream = new ProjectionStream(commits, new NoSnapshot(id, typeof(Projection)));
@@ -40,7 +41,7 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
             numberOfInstances = Projection.instances;
         };
 
-        It should = () =>
+        It should_create_one_instance_of_the_projection = () =>
         {
             numberOfInstances.ShouldEqual(1);
         };

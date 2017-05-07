@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Elders.Cronus.Projections.Cassandra.Snapshots;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing

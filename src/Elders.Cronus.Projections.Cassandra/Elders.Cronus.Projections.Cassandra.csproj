@@ -64,6 +64,11 @@
     <Compile Include="Config\CasssandraExtensions.cs" />
     <Compile Include="Config\NoHintedHandOffRetryPolicy.cs" />
     <Compile Include="EventSourcing\CassandraProjectionStore.cs" />
+    <Compile Include="EventSourcing\IProjectionGetResult.cs" />
+    <Compile Include="Snapshots\DefaultSnapshotStrategy.cs" />
+    <Compile Include="Snapshots\ISnapshotStrategy.cs" />
+    <Compile Include="Snapshots\NoSnapshot.cs" />
+    <Compile Include="Snapshots\NoSnapshotStore.cs" />
     <Compile Include="EventSourcing\Usage.cs" />
     <Compile Include="EventSourcing\CronusMessageExtensions.cs" />
     <Compile Include="EventSourcing\EventOrigin.cs" />
@@ -73,8 +78,8 @@
     <Compile Include="EventSourcing\IProjectionRepository.cs" />
     <Compile Include="EventSourcing\IHaveState.cs" />
     <Compile Include="EventSourcing\IProjectionStore.cs" />
-    <Compile Include="EventSourcing\ISnapshot.cs" />
-    <Compile Include="EventSourcing\ISnapshotStore.cs" />
+    <Compile Include="Snapshots\ISnapshot.cs" />
+    <Compile Include="Snapshots\ISnapshotStore.cs" />
     <Compile Include="EventSourcing\ProjectionCommit.cs" />
     <Compile Include="EventSourcing\ProjectionDefinition.cs" />
     <Compile Include="EventSourcing\ProjectionGetResult.cs" />
@@ -84,6 +89,7 @@
     <Compile Include="ReplicationStrategies\NetworkTopologyReplicationStrategy.cs" />
     <Compile Include="ReplicationStrategies\ICassandraReplicationStrategy.cs" />
     <Compile Include="Snapshots\CassandraSnapshotStore.cs" />
+    <Compile Include="Snapshots\Snapshot.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Properties\" />

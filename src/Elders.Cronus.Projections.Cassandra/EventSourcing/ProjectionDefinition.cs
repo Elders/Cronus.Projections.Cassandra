@@ -1,13 +1,11 @@
 ﻿using Elders.Cronus.DomainModeling;
-using Elders.Cronus.MessageProcessing;
-using Elders.Cronus.Middleware;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
-    public class ProjectionDefinition<TState, TId> : IProjectionDefinition
+    public class ProjectionDefinition<TState, TId> : IProjectionDefinition, IProjection
         where TState : new()
         where TId : IBlobId
     {

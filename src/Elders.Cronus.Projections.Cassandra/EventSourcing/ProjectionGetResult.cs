@@ -1,12 +1,5 @@
 ﻿namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
-    public interface IProjectionGetResult<out T>
-    {
-        bool Success { get; }
-
-        T Projection { get; }
-    }
-
     public class ProjectionGetResult<T> : IProjectionGetResult<T>
     {
         public ProjectionGetResult(bool success, T projection)

@@ -9,13 +9,14 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
     {
         ProjectionCommit() { }
 
-        public ProjectionCommit(IBlobId projectionId, Type projectionType, int snapshotMarker, IEvent @event, EventOrigin @eventOrigin)
+        public ProjectionCommit(IBlobId projectionId, Type projectionType, IEvent @event, int snapshotMarker, EventOrigin eventOrigin, DateTime timeStamp)
         {
-            SnapshotMarker = snapshotMarker;
-            ProjectionType = projectionType;
             ProjectionId = projectionId;
+            ProjectionType = projectionType;
             Event = @event;
+            SnapshotMarker = snapshotMarker;
             EventOrigin = eventOrigin;
+            TimeStamp = timeStamp;
         }
 
         [DataMember(Order = 1)]
@@ -32,5 +33,8 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         [DataMember(Order = 5)]
         public EventOrigin EventOrigin { get; set; }
+
+        [DataMember(Order = 6)]
+        public DateTime TimeStamp { get; set; }
     }
 }
