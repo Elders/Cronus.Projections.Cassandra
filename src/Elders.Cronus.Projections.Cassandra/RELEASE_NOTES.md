@@ -1,3 +1,6 @@
+#### 2.1.0-beta0004 - 30.05.2017
+* Adds ability to replay projections
+
 #### 2.1.0-beta0003 - 07.05.2017
 * fix to cassandra snapshot store
 
