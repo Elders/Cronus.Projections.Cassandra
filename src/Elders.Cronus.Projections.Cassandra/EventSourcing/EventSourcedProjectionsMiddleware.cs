@@ -15,6 +15,10 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public EventSourcedProjectionsMiddleware(IProjectionStore projectionStore, ISnapshotStore snapshotStore, ISnapshotStrategy snapshotStrategy)
         {
+            if (ReferenceEquals(null, projectionStore) == true) throw new ArgumentNullException(nameof(projectionStore));
+            if (ReferenceEquals(null, snapshotStore) == true) throw new ArgumentNullException(nameof(snapshotStore));
+            if (ReferenceEquals(null, snapshotStrategy) == true) throw new ArgumentNullException(nameof(snapshotStrategy));
+
             this.projectionStore = projectionStore;
             this.snapshotStore = snapshotStore;
             this.snapshotStrategy = snapshotStrategy;

@@ -286,14 +286,16 @@ namespace Elders.Cronus.Projections.Cassandra.Config
 
             var serializer = builder.Container.Resolve<ISerializer>();
 
-            builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(settings.ProjectionTypes, session, serializer));
+            builder.Container.RegisterSingleton<IVersionStore>(() => new CassandraVersionStore(session));
+
+            builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(settings.ProjectionTypes, session, serializer, builder.Container.Resolve<IVersionStore>()));
             if (ReferenceEquals(null, settings.ProjectionsToSnapshot))
             {
                 builder.Container.RegisterSingleton<ISnapshotStore>(() => new NoSnapshotStore());
             }
             else
             {
-                builder.Container.RegisterSingleton<ISnapshotStore>(() => new CassandraSnapshotStore(settings.ProjectionsToSnapshot, session, serializer));
+                builder.Container.RegisterSingleton<ISnapshotStore>(() => new CassandraSnapshotStore(settings.ProjectionsToSnapshot, session, serializer, builder.Container.Resolve<IVersionStore>()));
             }
             builder.Container.RegisterTransient<IProjectionRepository>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>()));
         }

@@ -11,5 +11,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         ProjectionStream Load<T>(IBlobId projectionId, ISnapshot snapshot) where T : IProjectionDefinition;
 
         void Save(ProjectionCommit commit);
+
+        IProjectionBuilder GetBuilder(Type projectionType);
     }
 }

@@ -1,14 +1,9 @@
 ﻿using System;
 using Elders.Cronus.DomainModeling;
 using Elders.Cronus.Projections.Cassandra.EventSourcing;
-using Machine.Specifications;
 using System.Collections.Generic;
 using System.Linq;
-using Elders.Cronus.MessageProcessing;
-using Elders.Cronus.Middleware;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
-using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
 
 namespace Elders.Cronus.Projections.Cassandra.Tests
 {
@@ -19,6 +14,11 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
         public MemoryProjectionStore()
         {
             commits = new List<ProjectionCommit>();
+        }
+
+        public IProjectionBuilder GetBuilder(Type projectionType)
+        {
+            throw new NotImplementedException();
         }
 
         public ProjectionStream Load(Type projectionType, IBlobId projectionId, ISnapshot snapshot)

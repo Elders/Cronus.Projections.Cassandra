@@ -64,7 +64,12 @@
     <Compile Include="Config\CasssandraExtensions.cs" />
     <Compile Include="Config\NoHintedHandOffRetryPolicy.cs" />
     <Compile Include="EventSourcing\CassandraProjectionStore.cs" />
+    <Compile Include="EventSourcing\IProjectionBuilder.cs" />
     <Compile Include="EventSourcing\IProjectionGetResult.cs" />
+    <Compile Include="TableTemplates.cs" />
+    <Compile Include="Versions\CassandraVersionStore.cs" />
+    <Compile Include="Versions\IVersionStore.cs" />
+    <Compile Include="EventSourcing\VersionStatus.cs" />
     <Compile Include="Snapshots\DefaultSnapshotStrategy.cs" />
     <Compile Include="Snapshots\ISnapshotStrategy.cs" />
     <Compile Include="Snapshots\NoSnapshot.cs" />
@@ -90,6 +95,7 @@
     <Compile Include="ReplicationStrategies\ICassandraReplicationStrategy.cs" />
     <Compile Include="Snapshots\CassandraSnapshotStore.cs" />
     <Compile Include="Snapshots\Snapshot.cs" />
+    <Compile Include="Versions\VersionModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Properties\" />

@@ -4,7 +4,7 @@ using System.Runtime.Serialization;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
-    [DataContract(Name = "ed0d9b4e-3ac5-4cd4-9598-7bf5687b037a")]
+    [DataContract(Name = "e2a4be5e-578c-4448-bae8-43a56efa4f8e")]
     public class ProjectionCommit
     {
         ProjectionCommit() { }
