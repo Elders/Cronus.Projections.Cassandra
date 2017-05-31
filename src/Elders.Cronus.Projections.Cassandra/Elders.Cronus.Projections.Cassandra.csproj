@@ -64,6 +64,7 @@
     <Compile Include="Config\CasssandraExtensions.cs" />
     <Compile Include="Config\NoHintedHandOffRetryPolicy.cs" />
     <Compile Include="EventSourcing\CassandraProjectionStore.cs" />
+    <Compile Include="EventSourcing\EventSourcedProjectionBuilder.cs" />
     <Compile Include="EventSourcing\IProjectionBuilder.cs" />
     <Compile Include="EventSourcing\IProjectionGetResult.cs" />
     <Compile Include="TableTemplates.cs" />

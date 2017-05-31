@@ -13,14 +13,19 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
     public class CassandraProjectionStore : IProjectionStore
     {
+        static readonly object createMutex = new object();
+        static readonly object dropMutex = new object();
+
         public readonly string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, sm int, evarid text, evarrev int, evarts bigint, evarpos int, data blob, PRIMARY KEY ((id, sm), evarid, evarrev, evarpos, evarts)) WITH CLUSTERING ORDER BY (evarid ASC);";
         const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id, sm, evarid, evarrev, evarpos, evarts, data) VALUES (?,?,?,?,?,?,?);";
         const string GetQueryTemplate = @"SELECT data FROM ""{0}"" WHERE id=? AND sm=?;";
-        const string DeleteQueryTemplate = @"DROP TABLE IF EXISTS ""{0}"";";
+        const string DropQueryTemplate = @"DROP TABLE IF EXISTS ""{0}"";";
 
         readonly ISession session;
         readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
         readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
+        readonly ConcurrentDictionary<string, PreparedStatement> CreatePreparedStatements;
+        readonly ConcurrentDictionary<string, PreparedStatement> DropPreparedStatements;
         readonly ISerializer serializer;
         readonly IVersionStore versionStore;
 
@@ -36,6 +41,8 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             this.versionStore = projectionVersionStore;
             this.SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+            this.CreatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+            this.DropPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             InitializeProjectionDatabase(projections);
         }
 
@@ -98,17 +105,41 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public void DropTable(string location)
         {
-            session.Execute(string.Format(DeleteQueryTemplate, location));
+            // https://issues.apache.org/jira/browse/CASSANDRA-10699
+            // https://issues.apache.org/jira/browse/CASSANDRA-11429
+            lock (dropMutex)
+            {
+                var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildDropPreparedStatemnt(x));
+                statement.SetConsistencyLevel(ConsistencyLevel.All);
+                session.Execute(statement.Bind());
+            }
         }
 
         public void CreateTable(string template, string location)
         {
-            session.Execute(string.Format(template, location));
+            // https://issues.apache.org/jira/browse/CASSANDRA-10699
+            // https://issues.apache.org/jira/browse/CASSANDRA-11429
+            lock (createMutex)
+            {
+                var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildCreatePreparedStatemnt(x));
+                statement.SetConsistencyLevel(ConsistencyLevel.All);
+                session.Execute(statement.Bind());
+            }
         }
 
         private PreparedStatement BuildInsertPreparedStatemnt(string columnFamily)
         {
             return session.Prepare(string.Format(InsertQueryTemplate, columnFamily));
+        }
+
+        private PreparedStatement BuildDropPreparedStatemnt(string columnFamily)
+        {
+            return session.Prepare(string.Format(DropQueryTemplate, columnFamily));
+        }
+
+        private PreparedStatement BuildCreatePreparedStatemnt(string columnFamily)
+        {
+            return session.Prepare(string.Format(CreateProjectionEventsTableTemplate, columnFamily));
         }
 
         private void InitializeProjectionDatabase(IEnumerable<Type> projections)
@@ -150,96 +181,4 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             return new EventSourcedProjectionBuilder(this, projectionType, versionStore);
         }
     }
-
-
-    public class EventSourcedProjectionBuilder : IProjectionBuilder
-    {
-
-        public VersionModel ProjectionVersion { get; private set; }
-        public VersionModel SnapshotVersion { get; private set; }
-        readonly Type projectionType;
-        readonly CassandraProjectionStore store;
-        readonly IVersionStore versionStore;
-
-        public EventSourcedProjectionBuilder(CassandraProjectionStore store, Type projectionType, IVersionStore versionStore)
-        {
-            this.versionStore = versionStore;
-            this.store = store;
-            this.projectionType = projectionType;
-
-            RefreshVersions();
-        }
-
-        void RefreshVersions()
-        {
-            this.SnapshotVersion = versionStore.Get(projectionType.GetColumnFamily("_sp"));
-            this.ProjectionVersion = versionStore.Get(projectionType.GetColumnFamily());
-        }
-
-        public void Begin()
-        {
-            RefreshVersions();
-            if (ProjectionVersion.Status != VersionStatus.Live) return;
-
-            // Drop previous projection version
-            store.DropTable(ProjectionVersion.GetPreviousVersionLocation());
-
-            // Drop previous snapshot version
-            store.DropTable(SnapshotVersion.GetPreviousVersionLocation());
-
-            // Next projection version
-            var projectionNextVersion = ProjectionVersion.Version + 1;
-            var projectionVersion = new VersionModel(ProjectionVersion.Key, projectionNextVersion, VersionStatus.Building);
-            versionStore.Save(projectionVersion);
-            ProjectionVersion = projectionVersion;
-
-            // Create next projection table
-            var projectionTableToCreate = $"{ProjectionVersion.Key}_{projectionNextVersion}";
-            store.CreateTable(store.CreateProjectionEventsTableTemplate, projectionTableToCreate);
-
-            // Next snapshot version
-            var snapshotNextVersion = SnapshotVersion.Version + 1;
-            var snapshotVersion = new VersionModel(SnapshotVersion.Key, snapshotNextVersion, VersionStatus.Building);
-            versionStore.Save(snapshotVersion);
-            SnapshotVersion = snapshotVersion;
-
-            // Create next snapshot table
-            var snapshotTableToCreate = $"{SnapshotVersion.Key}_{snapshotNextVersion}";
-            // We need to fix this
-            store.CreateTable(TableTemplates.CreateSnapshopEventsTableTemplate, snapshotTableToCreate);
-        }
-
-        public void End()
-        {
-            RefreshVersions();
-            if (ProjectionVersion.Status != VersionStatus.Building) return;
-
-            // Promote next live version of projections
-            var projectionVersion = new VersionModel(ProjectionVersion.Key, ProjectionVersion.Version, VersionStatus.Live);
-            versionStore.Save(projectionVersion);
-            ProjectionVersion = projectionVersion;
-
-            //Promote next live version of snapshots
-            var snapshotVersion = new VersionModel(SnapshotVersion.Key, SnapshotVersion.Version, VersionStatus.Live);
-            versionStore.Save(snapshotVersion);
-            SnapshotVersion = snapshotVersion;
-
-            // Drop obsolate projection version
-            var projectionTableToDelete = ProjectionVersion.GetPreviousVersionLocation();
-            store.DropTable(projectionTableToDelete);
-
-            // Drop obsolate snapshot version
-            var snapshotprojectionTableToDelete = SnapshotVersion.GetPreviousVersionLocation();
-            store.DropTable(snapshotprojectionTableToDelete);
-        }
-
-        public void Populate(ProjectionCommit commit)
-        {
-            if (ProjectionVersion.Status == VersionStatus.Building)
-            {
-                store.Save(commit, ProjectionVersion.GetNextVersionLocation());
-            }
-        }
-    }
-
 }

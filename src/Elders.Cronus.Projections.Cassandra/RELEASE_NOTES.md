@@ -1,3 +1,7 @@
+#### 2.1.0-beta0005 - 31.05.2017
+* Fixes Cassandra table creation issue
+* EventSourcedProjectionBuilder now handles version state internally
+
 #### 2.1.0-beta0004 - 30.05.2017
 * Adds ability to replay projections
 
