@@ -121,7 +121,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             // https://issues.apache.org/jira/browse/CASSANDRA-11429
             lock (createMutex)
             {
-                var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildCreatePreparedStatemnt(x));
+                var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildCreatePreparedStatemnt(template, x));
                 statement.SetConsistencyLevel(ConsistencyLevel.All);
                 session.Execute(statement.Bind());
             }
@@ -137,9 +137,9 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             return session.Prepare(string.Format(DropQueryTemplate, columnFamily));
         }
 
-        private PreparedStatement BuildCreatePreparedStatemnt(string columnFamily)
+        private PreparedStatement BuildCreatePreparedStatemnt(string template, string columnFamily)
         {
-            return session.Prepare(string.Format(CreateProjectionEventsTableTemplate, columnFamily));
+            return session.Prepare(string.Format(template, columnFamily));
         }
 
         private void InitializeProjectionDatabase(IEnumerable<Type> projections)

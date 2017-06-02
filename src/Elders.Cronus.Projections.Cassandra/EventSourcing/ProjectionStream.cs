@@ -12,6 +12,9 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public ProjectionStream(IList<ProjectionCommit> commits, ISnapshot snapshot)
         {
+            if (ReferenceEquals(null, commits) == true) throw new ArgumentException(nameof(commits));
+            if (ReferenceEquals(null, snapshot) == true) throw new ArgumentException(nameof(snapshot));
+
             this.snapshot = snapshot;
             this.commits = commits;
         }
@@ -20,13 +23,10 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public IProjectionGetResult<T> RestoreFromHistory<T>() where T : IProjectionDefinition
         {
-            if (ReferenceEquals(null, commits) == true) throw new ArgumentException(nameof(commits));
-
             var events = commits.Select(x => x.Event).ToList();
             if (events.Count > 0)
             {
                 var projection = (T)FastActivator.CreateInstance(typeof(T), true);
-                if (ReferenceEquals(null, projection) == true) throw new ArgumentException(nameof(projection));
                 projection.ReplayEvents(events);
                 return new ProjectionGetResult<T>(true, projection);
             }

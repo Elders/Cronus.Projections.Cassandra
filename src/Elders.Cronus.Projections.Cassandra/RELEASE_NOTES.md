@@ -1,3 +1,6 @@
+#### 2.1.0-beta0007 - 02.06.2017
+* Fixes issue with creating wrong table for snapshots
+
 #### 2.1.0-beta0006 - 02.06.2017
 * Adds null checks
 
