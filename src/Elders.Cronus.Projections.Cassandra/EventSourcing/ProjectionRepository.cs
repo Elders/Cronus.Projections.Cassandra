@@ -1,4 +1,5 @@
-﻿using Elders.Cronus.DomainModeling;
+﻿using System;
+using Elders.Cronus.DomainModeling;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
@@ -10,6 +11,9 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public ProjectionRepository(IProjectionStore projectionStore, ISnapshotStore snapshotStore)
         {
+            if (ReferenceEquals(null, projectionStore) == true) throw new ArgumentException(nameof(projectionStore));
+            if (ReferenceEquals(null, snapshotStore) == true) throw new ArgumentException(nameof(snapshotStore));
+
             this.projectionStore = projectionStore;
             this.snapshotStore = snapshotStore;
         }
@@ -18,6 +22,8 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         {
             var snapshot = snapshotStore.Load(typeof(T), projectionId);
             var projectionStream = projectionStore.Load<T>(projectionId, snapshot);
+
+            if (ReferenceEquals(null, projectionStream) == true) throw new ArgumentException(nameof(projectionStream));
             return projectionStream.RestoreFromHistory<T>();
         }
     }
