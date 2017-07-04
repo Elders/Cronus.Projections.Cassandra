@@ -31,8 +31,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Elders.Cronus, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" />
-    <Reference Include="Elders.Cronus.DomainModeling, Version=3.2.1.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Cronus.DomainModeling.3.2.1\lib\net45-full\Elders.Cronus.DomainModeling.dll</HintPath>
+    <Reference Include="Elders.Cronus.DomainModeling, Version=3.2.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Cronus.DomainModeling.3.2.2\lib\net45-full\Elders.Cronus.DomainModeling.dll</HintPath>
     </Reference>
     <Reference Include="FakeItEasy, Version=3.1.0.0, Culture=neutral, PublicKeyToken=eff28e2146d5fd2c, processorArchitecture=MSIL">
       <HintPath>..\packages\FakeItEasy.3.1.0\lib\net40\FakeItEasy.dll</HintPath>

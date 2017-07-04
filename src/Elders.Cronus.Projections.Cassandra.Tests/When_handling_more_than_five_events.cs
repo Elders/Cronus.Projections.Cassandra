@@ -5,6 +5,7 @@ using Machine.Specifications;
 using System.Collections.Generic;
 using Elders.Cronus.MessageProcessing;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
+using Elders.Cronus.DomainModeling.Projections;
 
 namespace Elders.Cronus.Projections.Cassandra.Tests
 {

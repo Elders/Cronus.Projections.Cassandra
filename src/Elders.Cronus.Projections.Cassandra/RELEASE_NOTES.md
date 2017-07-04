@@ -1,3 +1,6 @@
+#### 2.1.0-beta0010 - 04.07.2017
+* Updates Cronus packages
+
 #### 2.1.0-beta0009 - 04.07.2017
 * Move common interfaces to Cronus.DomainModeling
 

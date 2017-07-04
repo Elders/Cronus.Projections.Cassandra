@@ -35,11 +35,10 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="Elders.Cronus, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Cronus.3.0.2\lib\net45-full\Elders.Cronus.dll</HintPath>
-      <Private>True</Private>
+      <HintPath>..\packages\Cronus.3.0.3\lib\net45-full\Elders.Cronus.dll</HintPath>
     </Reference>
-    <Reference Include="Elders.Cronus.DomainModeling, Version=3.2.1.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Cronus.DomainModeling.3.2.1\lib\net45-full\Elders.Cronus.DomainModeling.dll</HintPath>
+    <Reference Include="Elders.Cronus.DomainModeling, Version=3.2.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Cronus.DomainModeling.3.2.2\lib\net45-full\Elders.Cronus.DomainModeling.dll</HintPath>
     </Reference>
     <Reference Include="Elders.Multithreading.Scheduler, Version=1.1.2.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\Multithreading.Scheduler.1.1.2\lib\net45-full\Elders.Multithreading.Scheduler.dll</HintPath>
@@ -81,7 +80,6 @@
     <Compile Include="Snapshots\ISnapshot.cs" />
     <Compile Include="Snapshots\ISnapshotStore.cs" />
     <Compile Include="EventSourcing\ProjectionCommit.cs" />
-    <Compile Include="EventSourcing\ProjectionDefinition.cs" />
     <Compile Include="EventSourcing\ProjectionRepository.cs" />
     <Compile Include="EventSourcing\ProjectionStream.cs" />
     <Compile Include="ReplicationStrategies\SimpleReplicationStrategy.cs" />
