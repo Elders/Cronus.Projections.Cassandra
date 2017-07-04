@@ -5,15 +5,15 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
 {
     public class NoSnapshot : ISnapshot
     {
-        public NoSnapshot(IBlobId id, Type projectionType)
+        public NoSnapshot(IBlobId id, string projectionContractId)
         {
             Id = id;
-            ProjectionType = projectionType;
+            ProjectionContractId = projectionContractId;
         }
 
         public IBlobId Id { get; set; }
 
-        public Type ProjectionType { get; set; }
+        public string ProjectionContractId { get; set; }
 
         public int Revision { get { return 0; } }
 

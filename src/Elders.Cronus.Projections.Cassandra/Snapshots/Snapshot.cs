@@ -1,26 +1,24 @@
 ﻿using Elders.Cronus.DomainModeling;
-using Elders.Cronus.Projections.Cassandra.EventSourcing;
-using System;
 
 namespace Elders.Cronus.Projections.Cassandra.Snapshots
 {
     public class Snapshot : ISnapshot
     {
-        public Snapshot(IBlobId id, Type projectionType, object state, int revision)
+        public Snapshot(IBlobId id, string projectionContractId, object state, int revision)
         {
             Id = id;
-            ProjectionType = projectionType;
+            ProjectionContractId = projectionContractId;
             State = state;
             Revision = revision;
         }
 
-        public Type ProjectionType { get; private set; }
+        public IBlobId Id { get; private set; }
+
+        public string ProjectionContractId { get; private set; }
 
         public object State { get; set; }
 
         public int Revision { get; private set; }
-
-        public IBlobId Id { get; private set; }
 
         public void InitializeState(object state)
         {

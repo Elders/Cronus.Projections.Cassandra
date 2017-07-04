@@ -1,5 +1,4 @@
-﻿using System;
-using Elders.Cronus.DomainModeling;
+﻿using Elders.Cronus.DomainModeling;
 using Elders.Cronus.Projections.Cassandra.EventSourcing;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,18 +20,13 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
             throw new NotImplementedException();
         }
 
-        public ProjectionStream Load(Type projectionType, IBlobId projectionId, ISnapshot snapshot)
+        public ProjectionStream Load(string projectionContractId, IBlobId projectionId, ISnapshot snapshot
         {
             return new ProjectionStream(
                 commits.Where(x =>
                     x.ProjectionId == projectionId
                     && x.SnapshotMarker > snapshot.Revision).ToList(),
                 snapshot);
-        }
-
-        public ProjectionStream Load<T>(IBlobId projectionId, ISnapshot snapshot) where T : IProjectionDefinition
-        {
-            return Load(typeof(T), projectionId, snapshot);
         }
 
         public void Save(ProjectionCommit commit)

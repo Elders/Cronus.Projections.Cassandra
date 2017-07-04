@@ -4,6 +4,7 @@ using Elders.Cronus.Middleware;
 using System.Linq;
 using System;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
+using Elders.Cronus.Projections.Cassandra.Config;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
@@ -36,13 +37,13 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
                 {
                     // infrastructure work
                     var projectionId = projectionDefinition.GetProjectionId(execution.Context.Message.Payload as IEvent);
-                    var snapshot = snapshotStore.Load(projectionType, projectionId);
+                    string contractId = projectionType.GetContractId();
+                    var snapshot = snapshotStore.Load(contractId, projectionId);
                     projectionDefinition.InitializeState(snapshot.State);
-                    var projectionCommits = projectionStore.Load(projectionType, projectionId, snapshot).Commits;
-
+                    var projectionCommits = projectionStore.Load(contractId, projectionId, snapshot).Commits;
 
                     var snapshotMarker = snapshotStrategy.GetSnapshotMarker(projectionCommits);
-                    var commit = new ProjectionCommit(projectionId, projectionType, execution.Context.Message.Payload as IEvent, snapshotMarker, cronusMessage.GetEventOrigin(), DateTime.UtcNow);
+                    var commit = new ProjectionCommit(projectionId, contractId, execution.Context.Message.Payload as IEvent, snapshotMarker, cronusMessage.GetEventOrigin(), DateTime.UtcNow);
                     projectionStore.Save(commit);
 
                     //  Realproj work
@@ -60,7 +61,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
                         }
 
                         if (snapshotGroup.Key > snapshot.Revision && snapshotStrategy.ShouldCreateSnapshot(snapshotGroup))
-                            snapshotStore.Save(new Snapshot(projectionId, projectionType, projectionDefinition.State, snapshotGroup.Key));
+                            snapshotStore.Save(new Snapshot(projectionId, contractId, projectionDefinition.State, snapshotGroup.Key));
                     }
 
                     projectionDefinition.Apply(commit.Event);

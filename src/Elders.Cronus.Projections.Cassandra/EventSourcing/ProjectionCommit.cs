@@ -9,10 +9,10 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
     {
         ProjectionCommit() { }
 
-        public ProjectionCommit(IBlobId projectionId, Type projectionType, IEvent @event, int snapshotMarker, EventOrigin eventOrigin, DateTime timeStamp)
+        public ProjectionCommit(IBlobId projectionId, string contractId, IEvent @event, int snapshotMarker, EventOrigin eventOrigin, DateTime timeStamp)
         {
             ProjectionId = projectionId;
-            ProjectionType = projectionType;
+            ContractId = contractId;
             Event = @event;
             SnapshotMarker = snapshotMarker;
             EventOrigin = eventOrigin;
@@ -23,7 +23,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         public IBlobId ProjectionId { get; private set; }
 
         [DataMember(Order = 2)]
-        public Type ProjectionType { get; set; }
+        public string ContractId { get; set; }
 
         [DataMember(Order = 3)]
         public IEvent Event { get; private set; }

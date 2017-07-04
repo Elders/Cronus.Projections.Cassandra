@@ -20,11 +20,11 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         public CassandraSnapshotStore(IEnumerable<Type> projections, ISession session, ISerializer serializer, IVersionStore versionStore)
         {
             if (ReferenceEquals(null, projections) == true) throw new ArgumentNullException(nameof(projections));
+            this.projectionContracts = new HashSet<string>(projections.Select(proj => proj.GetContractId()));
             if (ReferenceEquals(null, session) == true) throw new ArgumentNullException(nameof(session));
             if (ReferenceEquals(null, serializer) == true) throw new ArgumentNullException(nameof(serializer));
             if (ReferenceEquals(null, versionStore) == true) throw new ArgumentNullException(nameof(versionStore));
 
-            this.projectionTypes = new HashSet<Type>(projections);
             this.serializer = serializer;
             this.session = session;
             this.versionStore = versionStore;
@@ -35,18 +35,16 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         }
 
         readonly ISession session;
-        readonly HashSet<Type> projectionTypes;
+        readonly HashSet<string> projectionContracts;
         readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
         readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
         readonly ISerializer serializer;
         readonly IVersionStore versionStore;
 
-        public ISnapshot Load(Type projectionType, IBlobId id)
+        public ISnapshot Load(string projectionContractId, IBlobId id)
         {
-            if (projectionTypes.Contains(projectionType) == false)
-            {
-                return new NoSnapshot(id, projectionType);
-            }
+            if (projectionContracts.Contains(projectionContractId) == false)
+                return new NoSnapshot(id, projectionContractId);
 
             var version = versionStore.Get(projectionType.GetColumnFamily("_sp"));
             BoundStatement bs = GetPreparedStatementToGetProjection(version.GetLiveVersionLocation()).Bind(Convert.ToBase64String(id.RawId));
@@ -54,24 +52,21 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
             var row = result.GetRows().FirstOrDefault();
 
             if (row == null)
-            {
-                return new NoSnapshot(id, projectionType);
-            }
+                return new NoSnapshot(id, projectionContractId);
+
             var data = row.GetValue<byte[]>("data");
             var rev = row.GetValue<int>("rev");
 
             using (var stream = new MemoryStream(data))
             {
-                return new Snapshot(id, projectionType, serializer.Deserialize(stream), rev);
+                return new Snapshot(id, projectionContractId, serializer.Deserialize(stream), rev);
             }
         }
 
         public void Save(ISnapshot snapshot)
         {
-            if (projectionTypes.Contains(snapshot.ProjectionType) == false)
-            {
+            if (projectionContracts.Contains(snapshot.ProjectionContractId) == false)
                 return;
-            }
 
             var version = versionStore.Get(snapshot.ProjectionType.GetColumnFamily("_sp"));
             var data = serializer.SerializeToBytes(snapshot.State);
@@ -86,9 +81,7 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
 
         private void InitializeSnapshotsDatabase()
         {
-            foreach (var projType in projectionTypes
-                .Where(x => typeof(IProjectionDefinition).IsAssignableFrom(x))
-                .Where(x => x.GetInterfaces().Any(y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IEventHandler<>))))
+            foreach (var projectionContractId in projectionContracts)
             {
                 var version = versionStore.Get(projType.GetColumnFamily("_sp"));
                 session.Execute(string.Format(TableTemplates.CreateSnapshopEventsTableTemplate, version.GetLiveVersionLocation()));

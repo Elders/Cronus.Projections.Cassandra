@@ -8,6 +8,6 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         IBlobId Id { get; }
         int Revision { get; }
         object State { get; }
-        Type ProjectionType { get; }
+        string ProjectionContractId { get; }
     }
 }

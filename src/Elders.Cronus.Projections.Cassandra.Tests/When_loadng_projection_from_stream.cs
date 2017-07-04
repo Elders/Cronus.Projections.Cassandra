@@ -23,16 +23,16 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
             for (int i = 1; i < 10; i++)
             {
                 var @event = new Event() { Id = id };
-                commits.Add(new ProjectionCommit(id, typeof(Projection), @event, i, new EventOrigin(id.Urn.Value, i, 1, DateTime.UtcNow.ToFileTimeUtc()), DateTime.UtcNow));
+                commits.Add(new ProjectionCommit(id, "Projection", @event, i, new EventOrigin(id.Urn.Value, i, 1, DateTime.UtcNow.ToFileTimeUtc()), DateTime.UtcNow));
             }
 
             for (int i = 1; i < 10; i++)
             {
                 var @event = new Event1() { Id = id };
-                commits.Add(new ProjectionCommit(id, typeof(Projection), @event, i, new EventOrigin(id.Urn.Value, i, 1, DateTime.UtcNow.ToFileTimeUtc()), DateTime.UtcNow));
+                commits.Add(new ProjectionCommit(id, "Projection", @event, i, new EventOrigin(id.Urn.Value, i, 1, DateTime.UtcNow.ToFileTimeUtc()), DateTime.UtcNow));
             }
 
-            stream = new ProjectionStream(commits, new NoSnapshot(id, typeof(Projection)));
+            stream = new ProjectionStream(commits, new NoSnapshot(id, "Projection"));
         };
 
         Because of = () =>

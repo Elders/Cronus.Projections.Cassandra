@@ -1,13 +1,12 @@
 ﻿using Elders.Cronus.DomainModeling;
-using System;
 
 namespace Elders.Cronus.Projections.Cassandra.Snapshots
 {
     public class NoSnapshotStore : ISnapshotStore
     {
-        public ISnapshot Load(Type projectionType, IBlobId id)
+        public ISnapshot Load(string projectionContractId, IBlobId id)
         {
-            return new NoSnapshot(id, projectionType);
+            return new NoSnapshot(id, projectionContractId);
         }
 
         public void Save(ISnapshot snapshot)

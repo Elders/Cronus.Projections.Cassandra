@@ -20,9 +20,9 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public IProjectionGetResult<T> Get<T>(IBlobId projectionId) where T : IProjectionDefinition
         {
-            var snapshot = snapshotStore.Load(typeof(T), projectionId);
-            var projectionStream = projectionStore.Load<T>(projectionId, snapshot);
-
+            string contractId = typeof(T).GetContractId();
+            ISnapshot snapshot = snapshotStore.Load(contractId, projectionId);
+            ProjectionStream projectionStream = projectionStore.Load(contractId, projectionId, snapshot);
             if (ReferenceEquals(null, projectionStream) == true) throw new ArgumentException(nameof(projectionStream));
             return projectionStream.RestoreFromHistory<T>();
         }

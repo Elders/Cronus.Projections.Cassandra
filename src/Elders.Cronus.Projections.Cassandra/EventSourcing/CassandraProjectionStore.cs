@@ -46,12 +46,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             InitializeProjectionDatabase(projections);
         }
 
-        public ProjectionStream Load<T>(IBlobId projectionId, ISnapshot snapshot) where T : IProjectionDefinition
-        {
-            return Load(typeof(T), projectionId, snapshot);
-        }
-
-        public ProjectionStream Load(Type projectionType, IBlobId projectionId, ISnapshot snapshot)
+        public ProjectionStream Load(string contractId, IBlobId projectionId, ISnapshot snapshot)
         {
             string projId = Convert.ToBase64String(projectionId.RawId);
             List<ProjectionCommit> commits = new List<ProjectionCommit>();

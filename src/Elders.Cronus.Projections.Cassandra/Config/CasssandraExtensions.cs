@@ -12,6 +12,11 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             return projectionType.GetContractId().Replace("-", "").ToLower() + sufix;
         }
 
+        public static string GetColumnFamily(this string contractId, string sufix = "")
+        {
+            return contractId.Replace("-", "").ToLower() + sufix;
+        }
+
         internal static void CreateKeyspace(this DataStaxCassandra.ISession session, ICassandraReplicationStrategy replicationStrategy, string keyspace)
         {
             var createKeySpaceQuery = replicationStrategy.CreateKeySpaceTemplate(keyspace);

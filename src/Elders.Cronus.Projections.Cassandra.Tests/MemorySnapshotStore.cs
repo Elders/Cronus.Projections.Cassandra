@@ -17,7 +17,7 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
             snapshots = new List<ISnapshot>();
         }
 
-        public ISnapshot Load(Type projectionType, IBlobId id)
+        public ISnapshot Load(string projectionContractId, IBlobId id)
         {
             var snapshot = snapshots
                 .Where(x => x.Id.Equals(id))
@@ -25,16 +25,14 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
                 .FirstOrDefault();
 
             if (ReferenceEquals(null, snapshot))
-            {
-                return new NoSnapshot(id, projectionType);
-            }
+                return new NoSnapshot(id, projectionContractId);
 
-            return new Snapshot(snapshot.Id, snapshot.ProjectionType, DeepClone(snapshot.State), snapshot.Revision);
+            return new Snapshot(snapshot.Id, snapshot.ProjectionContractId, DeepClone(snapshot.State), snapshot.Revision);
         }
 
         public void Save(ISnapshot snapshot)
         {
-            snapshots.Add(new Snapshot(snapshot.Id, snapshot.ProjectionType, DeepClone(snapshot.State), snapshot.Revision));
+            snapshots.Add(new Snapshot(snapshot.Id, snapshot.ProjectionContractId, DeepClone(snapshot.State), snapshot.Revision));
         }
 
         private static T DeepClone<T>(T obj)
