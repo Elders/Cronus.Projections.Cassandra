@@ -3,6 +3,7 @@ using Elders.Cronus.Projections.Cassandra.EventSourcing;
 using System.Collections.Generic;
 using System.Linq;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
+using System;
 
 namespace Elders.Cronus.Projections.Cassandra.Tests
 {
@@ -20,7 +21,7 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
             throw new NotImplementedException();
         }
 
-        public ProjectionStream Load(string projectionContractId, IBlobId projectionId, ISnapshot snapshot
+        public ProjectionStream Load(string projectionContractId, IBlobId projectionId, ISnapshot snapshot)
         {
             return new ProjectionStream(
                 commits.Where(x =>

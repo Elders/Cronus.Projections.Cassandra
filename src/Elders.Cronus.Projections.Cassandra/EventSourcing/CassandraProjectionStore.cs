@@ -52,7 +52,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             List<ProjectionCommit> commits = new List<ProjectionCommit>();
             bool tryGetRecords = true;
             int snapshotMarker = snapshot.Revision + 1;
-            var version = versionStore.Get(projectionType.GetColumnFamily());
+            var version = versionStore.Get(contractId.GetColumnFamily());
 
             while (tryGetRecords)
             {
@@ -77,7 +77,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public void Save(ProjectionCommit commit)
         {
-            var builder = new EventSourcedProjectionBuilder(this, commit.ProjectionType, versionStore);
+            var builder = new EventSourcedProjectionBuilder(this, commit.ContractId, versionStore);
             Save(commit, builder.ProjectionVersion.GetLiveVersionLocation());
             builder.Populate(commit);
         }
@@ -173,7 +173,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public IProjectionBuilder GetBuilder(Type projectionType)
         {
-            return new EventSourcedProjectionBuilder(this, projectionType, versionStore);
+            return new EventSourcedProjectionBuilder(this, projectionType.GetContractId(), versionStore);
         }
     }
 }

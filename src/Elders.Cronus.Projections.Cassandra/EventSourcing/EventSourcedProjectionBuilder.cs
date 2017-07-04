@@ -7,23 +7,23 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
     {
         public VersionModel ProjectionVersion { get; private set; }
         public VersionModel SnapshotVersion { get; private set; }
-        readonly Type projectionType;
+        readonly string projectionContractId;
         readonly CassandraProjectionStore store;
         readonly IVersionStore versionStore;
 
-        public EventSourcedProjectionBuilder(CassandraProjectionStore store, Type projectionType, IVersionStore versionStore)
+        public EventSourcedProjectionBuilder(CassandraProjectionStore store, string projectionContractId, IVersionStore versionStore)
         {
             this.versionStore = versionStore;
             this.store = store;
-            this.projectionType = projectionType;
+            this.projectionContractId = projectionContractId;
 
             RefreshVersions();
         }
 
         void RefreshVersions()
         {
-            this.SnapshotVersion = versionStore.Get(projectionType.GetColumnFamily("_sp"));
-            this.ProjectionVersion = versionStore.Get(projectionType.GetColumnFamily());
+            this.SnapshotVersion = versionStore.Get(projectionContractId.GetColumnFamily("_sp"));
+            this.ProjectionVersion = versionStore.Get(projectionContractId.GetColumnFamily());
         }
 
         public void Begin()

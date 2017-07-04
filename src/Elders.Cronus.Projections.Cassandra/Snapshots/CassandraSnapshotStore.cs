@@ -46,7 +46,7 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
             if (projectionContracts.Contains(projectionContractId) == false)
                 return new NoSnapshot(id, projectionContractId);
 
-            var version = versionStore.Get(projectionType.GetColumnFamily("_sp"));
+            var version = versionStore.Get(projectionContractId.GetColumnFamily("_sp"));
             BoundStatement bs = GetPreparedStatementToGetProjection(version.GetLiveVersionLocation()).Bind(Convert.ToBase64String(id.RawId));
             var result = session.Execute(bs);
             var row = result.GetRows().FirstOrDefault();
@@ -68,7 +68,7 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
             if (projectionContracts.Contains(snapshot.ProjectionContractId) == false)
                 return;
 
-            var version = versionStore.Get(snapshot.ProjectionType.GetColumnFamily("_sp"));
+            var version = versionStore.Get(snapshot.ProjectionContractId.GetColumnFamily("_sp"));
             var data = serializer.SerializeToBytes(snapshot.State);
             var statement = SavePreparedStatements.GetOrAdd(version.GetLiveVersionLocation(), x => BuildeInsertPreparedStatemnt(x));
             var result = session.Execute(statement
@@ -83,7 +83,7 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         {
             foreach (var projectionContractId in projectionContracts)
             {
-                var version = versionStore.Get(projType.GetColumnFamily("_sp"));
+                var version = versionStore.Get(projectionContractId.GetColumnFamily("_sp"));
                 session.Execute(string.Format(TableTemplates.CreateSnapshopEventsTableTemplate, version.GetLiveVersionLocation()));
             }
         }
