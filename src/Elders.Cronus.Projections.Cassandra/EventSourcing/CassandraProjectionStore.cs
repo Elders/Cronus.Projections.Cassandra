@@ -1,4 +1,5 @@
 ﻿using Elders.Cronus.DomainModeling;
+using Elders.Cronus.DomainModeling.Projections;
 using System.Collections.Generic;
 using System;
 using Cassandra;

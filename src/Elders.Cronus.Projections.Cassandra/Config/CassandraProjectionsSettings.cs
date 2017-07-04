@@ -9,6 +9,7 @@ using Elders.Cronus.Serializer;
 using System.Reflection;
 using System.Linq;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
+using Elders.Cronus.DomainModeling.Projections;
 
 namespace Elders.Cronus.Projections.Cassandra.Config
 {

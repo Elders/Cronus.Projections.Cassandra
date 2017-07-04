@@ -5,6 +5,7 @@ using System.Linq;
 using System;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
 using Elders.Cronus.Projections.Cassandra.Config;
+using Elders.Cronus.DomainModeling.Projections;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {

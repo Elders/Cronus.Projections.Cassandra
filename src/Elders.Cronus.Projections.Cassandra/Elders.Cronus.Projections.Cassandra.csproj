@@ -38,9 +38,8 @@
       <HintPath>..\packages\Cronus.3.0.2\lib\net45-full\Elders.Cronus.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Elders.Cronus.DomainModeling, Version=3.1.4.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Cronus.DomainModeling.3.1.4\lib\net45-full\Elders.Cronus.DomainModeling.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="Elders.Cronus.DomainModeling, Version=3.2.1.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Cronus.DomainModeling.3.2.1\lib\net45-full\Elders.Cronus.DomainModeling.dll</HintPath>
     </Reference>
     <Reference Include="Elders.Multithreading.Scheduler, Version=1.1.2.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\Multithreading.Scheduler.1.1.2\lib\net45-full\Elders.Multithreading.Scheduler.dll</HintPath>
@@ -66,7 +65,6 @@
     <Compile Include="EventSourcing\CassandraProjectionStore.cs" />
     <Compile Include="EventSourcing\EventSourcedProjectionBuilder.cs" />
     <Compile Include="EventSourcing\IProjectionBuilder.cs" />
-    <Compile Include="EventSourcing\IProjectionGetResult.cs" />
     <Compile Include="TableTemplates.cs" />
     <Compile Include="Versions\CassandraVersionStore.cs" />
     <Compile Include="Versions\IVersionStore.cs" />
@@ -79,16 +77,11 @@
     <Compile Include="EventSourcing\CronusMessageExtensions.cs" />
     <Compile Include="EventSourcing\EventOrigin.cs" />
     <Compile Include="EventSourcing\EventSourcedProjectionsMiddleware.cs" />
-    <Compile Include="EventSourcing\IAmEventSourcedProjection.cs" />
-    <Compile Include="EventSourcing\IProjectionDefinition.cs" />
-    <Compile Include="EventSourcing\IProjectionRepository.cs" />
-    <Compile Include="EventSourcing\IHaveState.cs" />
     <Compile Include="EventSourcing\IProjectionStore.cs" />
     <Compile Include="Snapshots\ISnapshot.cs" />
     <Compile Include="Snapshots\ISnapshotStore.cs" />
     <Compile Include="EventSourcing\ProjectionCommit.cs" />
     <Compile Include="EventSourcing\ProjectionDefinition.cs" />
-    <Compile Include="EventSourcing\ProjectionGetResult.cs" />
     <Compile Include="EventSourcing\ProjectionRepository.cs" />
     <Compile Include="EventSourcing\ProjectionStream.cs" />
     <Compile Include="ReplicationStrategies\SimpleReplicationStrategy.cs" />

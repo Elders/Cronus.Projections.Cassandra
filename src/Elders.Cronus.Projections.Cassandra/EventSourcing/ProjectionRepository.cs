@@ -1,5 +1,6 @@
 ﻿using System;
 using Elders.Cronus.DomainModeling;
+using Elders.Cronus.DomainModeling.Projections;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing

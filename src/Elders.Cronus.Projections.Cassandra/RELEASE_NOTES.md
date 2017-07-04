@@ -1,3 +1,6 @@
+#### 2.1.0-beta0009 - 04.07.2017
+* Move common interfaces to Cronus.DomainModeling
+
 #### 2.1.0-beta0008 - 04.07.2017
 * Fixes issue with creating wrong table for snapshots
 
