@@ -1,3 +1,6 @@
+#### 2.1.0-beta0011 - 05.07.2017
+* Fixes backward compatibility issue
+
 #### 2.1.0-beta0010 - 04.07.2017
 * Updates Cronus packages
 

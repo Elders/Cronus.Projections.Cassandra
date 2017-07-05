@@ -4,7 +4,7 @@ using System.Runtime.Serialization;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
-    [DataContract(Name = "e2a4be5e-578c-4448-bae8-43a56efa4f8e")]
+    [DataContract(Name = "ed0d9b4e-3ac5-4cd4-9598-7bf5687b037a")]
     public class ProjectionCommit
     {
         ProjectionCommit() { }
@@ -23,7 +23,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         public IBlobId ProjectionId { get; private set; }
 
         [DataMember(Order = 2)]
-        public string ContractId { get; set; }
+        public Type ProjectionType { get; set; }
 
         [DataMember(Order = 3)]
         public IEvent Event { get; private set; }
@@ -36,5 +36,8 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         [DataMember(Order = 6)]
         public DateTime TimeStamp { get; set; }
+
+        [DataMember(Order = 7)]
+        public string ContractId { get; set; }
     }
 }
