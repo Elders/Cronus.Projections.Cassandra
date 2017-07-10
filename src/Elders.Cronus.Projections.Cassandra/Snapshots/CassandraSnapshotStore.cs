@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Elders.Cronus.Projections.Cassandra.Config;
 using System.IO;
+using Elders.Cronus.DomainModeling.Projections;
 
 namespace Elders.Cronus.Projections.Cassandra.Snapshots
 {
@@ -20,7 +21,11 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         public CassandraSnapshotStore(IEnumerable<Type> projections, ISession session, ISerializer serializer, IVersionStore versionStore)
         {
             if (ReferenceEquals(null, projections) == true) throw new ArgumentNullException(nameof(projections));
-            this.projectionContracts = new HashSet<string>(projections.Select(proj => proj.GetContractId()));
+            this.projectionContracts = new HashSet<string>(
+                projections
+                .Where(x => typeof(IProjectionDefinition).IsAssignableFrom(x))
+                .Where(x => x.GetInterfaces().Any(y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IEventHandler<>)))
+                .Select(proj => proj.GetContractId()));
             if (ReferenceEquals(null, session) == true) throw new ArgumentNullException(nameof(session));
             if (ReferenceEquals(null, serializer) == true) throw new ArgumentNullException(nameof(serializer));
             if (ReferenceEquals(null, versionStore) == true) throw new ArgumentNullException(nameof(versionStore));

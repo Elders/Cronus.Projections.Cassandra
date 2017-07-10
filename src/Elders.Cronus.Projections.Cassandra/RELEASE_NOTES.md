@@ -1,3 +1,6 @@
+#### 2.1.0-beta0012 - 07.07.2017
+* Fixes applying of snapshots
+
 #### 2.1.0-beta0011 - 05.07.2017
 * Fixes backward compatibility issue
 

@@ -28,6 +28,10 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             if (events.Count > 0)
             {
                 var projection = (T)FastActivator.CreateInstance(typeof(T), true);
+
+                if (ReferenceEquals(null, snapshot.State) == false)
+                    projection.State = snapshot.State;
+
                 projection.ReplayEvents(events);
                 return new ProjectionGetResult<T>(true, projection);
             }
