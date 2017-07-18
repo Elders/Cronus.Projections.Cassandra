@@ -1,4 +1,7 @@
-﻿using Elders.Cronus.DomainModeling;
+﻿using System;
+using Elders.Cronus.DomainModeling;
+using Elders.Cronus.DomainModeling.Projections;
+using Elders.Cronus.Projections.Cassandra.Snapshots;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
@@ -9,14 +12,19 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public ProjectionRepository(IProjectionStore projectionStore, ISnapshotStore snapshotStore)
         {
+            if (ReferenceEquals(null, projectionStore) == true) throw new ArgumentException(nameof(projectionStore));
+            if (ReferenceEquals(null, snapshotStore) == true) throw new ArgumentException(nameof(snapshotStore));
+
             this.projectionStore = projectionStore;
             this.snapshotStore = snapshotStore;
         }
 
         public IProjectionGetResult<T> Get<T>(IBlobId projectionId) where T : IProjectionDefinition
         {
-            var snapshot = snapshotStore.Load(projectionId);
-            var projectionStream = projectionStore.Load<T>(projectionId, snapshot);
+            string contractId = typeof(T).GetContractId();
+            ISnapshot snapshot = snapshotStore.Load(contractId, projectionId);
+            ProjectionStream projectionStream = projectionStore.Load(contractId, projectionId, snapshot);
+            if (ReferenceEquals(null, projectionStream) == true) throw new ArgumentException(nameof(projectionStream));
             return projectionStream.RestoreFromHistory<T>();
         }
     }

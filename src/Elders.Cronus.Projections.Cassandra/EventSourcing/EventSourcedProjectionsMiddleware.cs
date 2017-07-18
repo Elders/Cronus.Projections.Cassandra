@@ -1,45 +1,50 @@
 ﻿using Elders.Cronus.DomainModeling;
 using Elders.Cronus.MessageProcessing;
 using Elders.Cronus.Middleware;
-using System.Collections.Generic;
 using System.Linq;
 using System;
+using Elders.Cronus.Projections.Cassandra.Snapshots;
+using Elders.Cronus.Projections.Cassandra.Config;
+using Elders.Cronus.DomainModeling.Projections;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
     public class EventSourcedProjectionsMiddleware : Middleware<HandleContext>
     {
-        static int numberofEventsWhenSnapshot = 5;
-
         readonly IProjectionStore projectionStore;
         readonly ISnapshotStore snapshotStore;
+        readonly ISnapshotStrategy snapshotStrategy;
 
-        public EventSourcedProjectionsMiddleware(IProjectionStore projectionStore, ISnapshotStore snapshotStore)
+        public EventSourcedProjectionsMiddleware(IProjectionStore projectionStore, ISnapshotStore snapshotStore, ISnapshotStrategy snapshotStrategy)
         {
+            if (ReferenceEquals(null, projectionStore) == true) throw new ArgumentNullException(nameof(projectionStore));
+            if (ReferenceEquals(null, snapshotStore) == true) throw new ArgumentNullException(nameof(snapshotStore));
+            if (ReferenceEquals(null, snapshotStrategy) == true) throw new ArgumentNullException(nameof(snapshotStrategy));
+
             this.projectionStore = projectionStore;
             this.snapshotStore = snapshotStore;
+            this.snapshotStrategy = snapshotStrategy;
         }
 
         protected override void Run(Execution<HandleContext> execution)
         {
             var cronusMessage = execution.Context.Message;
-            //nie zname kakuv e tipa nqmame nujda ot factory.
-            //to ne trqbva da ima dependancyta
-            var projectionDefinition = FastActivator.CreateInstance(execution.Context.HandlerType) as IProjectionDefinition;
+
+            Type projectionType = execution.Context.HandlerType;
+            var projectionDefinition = FastActivator.CreateInstance(projectionType) as IProjectionDefinition;
             if (projectionDefinition != null)
             {
                 if (execution.Context.Message.Payload is IEvent)
                 {
                     // infrastructure work
                     var projectionId = projectionDefinition.GetProjectionId(execution.Context.Message.Payload as IEvent);
-                    var snapshot = snapshotStore.Load(projectionId);
+                    string contractId = projectionType.GetContractId();
+                    var snapshot = snapshotStore.Load(contractId, projectionId);
                     projectionDefinition.InitializeState(snapshot.State);
-                    Type projectionType = projectionDefinition.GetType();
-                    var projectionCommits = projectionStore.Load(projectionType, projectionId, snapshot).Commits;
+                    var projectionCommits = projectionStore.Load(contractId, projectionId, snapshot).Commits;
 
-
-                    var revisionInfo = GetNextRevisionForProjectionCommit(projectionCommits);
-                    var commit = new ProjectionCommit(projectionId, projectionType, revisionInfo.SnapshotMarker, execution.Context.Message.Payload as IEvent, cronusMessage.GetEventOrigin());
+                    var snapshotMarker = snapshotStrategy.GetSnapshotMarker(projectionCommits);
+                    var commit = new ProjectionCommit(projectionId, contractId, execution.Context.Message.Payload as IEvent, snapshotMarker, cronusMessage.GetEventOrigin(), DateTime.UtcNow);
                     projectionStore.Save(commit);
 
                     //  Realproj work
@@ -56,39 +61,13 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
                             projectionDefinition.ReplayEvents(events);
                         }
 
-                        if (snapshotGroup.Key == revisionInfo.NextSnapshotRevision && snapshot.Revision < revisionInfo.NextSnapshotRevision)
-                            snapshotStore.Save(projectionId, new Snapshot(projectionDefinition.State, revisionInfo.NextSnapshotRevision));
+                        if (snapshotGroup.Key > snapshot.Revision && snapshotStrategy.ShouldCreateSnapshot(snapshotGroup))
+                            snapshotStore.Save(new Snapshot(projectionId, contractId, projectionDefinition.State, snapshotGroup.Key));
                     }
 
                     projectionDefinition.Apply(commit.Event);
                 }
             }
-        }
-
-        RevisionInfo GetNextRevisionForProjectionCommit(IEnumerable<ProjectionCommit> commitsSinceLastSnapshot)
-        {
-
-            var highestMarker = commitsSinceLastSnapshot.Any()
-                ? commitsSinceLastSnapshot.Max(x => x.SnapshotMarker)
-                : 1;
-            var numberOfCommitsWithHighestMarker = commitsSinceLastSnapshot.Count(x => x.SnapshotMarker == highestMarker);
-
-            var nextRevision = numberOfCommitsWithHighestMarker > numberofEventsWhenSnapshot
-                ? highestMarker + 1
-                : highestMarker;
-
-            return new RevisionInfo()
-            {
-                SnapshotMarker = nextRevision,
-                NextSnapshotRevision = nextRevision - 1
-            };
-        }
-
-        class RevisionInfo
-        {
-            public int SnapshotMarker { get; set; }
-            public int NextSnapshotRevision { get; set; }
-            public bool ShouldSnapshot { get; set; }
         }
     }
 }

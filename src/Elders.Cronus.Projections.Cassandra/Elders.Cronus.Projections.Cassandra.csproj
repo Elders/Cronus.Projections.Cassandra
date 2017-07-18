@@ -35,12 +35,10 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="Elders.Cronus, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Cronus.3.0.2\lib\net45-full\Elders.Cronus.dll</HintPath>
-      <Private>True</Private>
+      <HintPath>..\packages\Cronus.3.0.3\lib\net45-full\Elders.Cronus.dll</HintPath>
     </Reference>
-    <Reference Include="Elders.Cronus.DomainModeling, Version=3.1.4.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Cronus.DomainModeling.3.1.4\lib\net45-full\Elders.Cronus.DomainModeling.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="Elders.Cronus.DomainModeling, Version=3.2.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Cronus.DomainModeling.3.2.2\lib\net45-full\Elders.Cronus.DomainModeling.dll</HintPath>
     </Reference>
     <Reference Include="Elders.Multithreading.Scheduler, Version=1.1.2.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\Multithreading.Scheduler.1.1.2\lib\net45-full\Elders.Multithreading.Scheduler.dll</HintPath>
@@ -61,31 +59,38 @@
   <ItemGroup>
     <Compile Include="App_Packages\LibLog.4.2\LibLog.cs" />
     <Compile Include="Config\CassandraProjectionsSettings.cs" />
+    <Compile Include="Config\CasssandraExtensions.cs" />
     <Compile Include="Config\NoHintedHandOffRetryPolicy.cs" />
     <Compile Include="EventSourcing\CassandraProjectionStore.cs" />
+    <Compile Include="EventSourcing\EventSourcedProjectionBuilder.cs" />
+    <Compile Include="EventSourcing\IProjectionBuilder.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="TableTemplates.cs" />
+    <Compile Include="Versions\CassandraVersionStore.cs" />
+    <Compile Include="Versions\IVersionStore.cs" />
+    <Compile Include="EventSourcing\VersionStatus.cs" />
+    <Compile Include="Snapshots\DefaultSnapshotStrategy.cs" />
+    <Compile Include="Snapshots\ISnapshotStrategy.cs" />
+    <Compile Include="Snapshots\NoSnapshot.cs" />
+    <Compile Include="Snapshots\NoSnapshotStore.cs" />
     <Compile Include="EventSourcing\Usage.cs" />
     <Compile Include="EventSourcing\CronusMessageExtensions.cs" />
     <Compile Include="EventSourcing\EventOrigin.cs" />
     <Compile Include="EventSourcing\EventSourcedProjectionsMiddleware.cs" />
-    <Compile Include="EventSourcing\IAmEventSourcedProjection.cs" />
-    <Compile Include="EventSourcing\IProjectionDefinition.cs" />
-    <Compile Include="EventSourcing\IProjectionRepository.cs" />
-    <Compile Include="EventSourcing\IHaveState.cs" />
     <Compile Include="EventSourcing\IProjectionStore.cs" />
-    <Compile Include="EventSourcing\ISnapshot.cs" />
-    <Compile Include="EventSourcing\ISnapshotStore.cs" />
+    <Compile Include="Snapshots\ISnapshot.cs" />
+    <Compile Include="Snapshots\ISnapshotStore.cs" />
     <Compile Include="EventSourcing\ProjectionCommit.cs" />
-    <Compile Include="EventSourcing\ProjectionDefinition.cs" />
-    <Compile Include="EventSourcing\ProjectionGetResult.cs" />
     <Compile Include="EventSourcing\ProjectionRepository.cs" />
     <Compile Include="EventSourcing\ProjectionStream.cs" />
     <Compile Include="ReplicationStrategies\SimpleReplicationStrategy.cs" />
     <Compile Include="ReplicationStrategies\NetworkTopologyReplicationStrategy.cs" />
     <Compile Include="ReplicationStrategies\ICassandraReplicationStrategy.cs" />
+    <Compile Include="Snapshots\CassandraSnapshotStore.cs" />
+    <Compile Include="Snapshots\Snapshot.cs" />
+    <Compile Include="Versions\VersionModel.cs" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Properties\" />
-  </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
