@@ -1,38 +1,16 @@
-#### 2.1.0-beta0012 - 07.07.2017
+#### 2.1.0 - 18.07.2017
 * Fixes applying of snapshots
-
-#### 2.1.0-beta0011 - 05.07.2017
 * Fixes backward compatibility issue
-
-#### 2.1.0-beta0010 - 04.07.2017
 * Updates Cronus packages
-
-#### 2.1.0-beta0009 - 04.07.2017
 * Move common interfaces to Cronus.DomainModeling
-
-#### 2.1.0-beta0008 - 04.07.2017
 * Fixes issue with creating wrong table for snapshots
-
-#### 2.1.0-beta0007 - 02.06.2017
 * Fixes issue with creating wrong table for snapshots
-
-#### 2.1.0-beta0006 - 02.06.2017
 * Adds null checks
-
-#### 2.1.0-beta0005 - 31.05.2017
 * Fixes Cassandra table creation issue
 * EventSourcedProjectionBuilder now handles version state internally
-
-#### 2.1.0-beta0004 - 30.05.2017
 * Adds ability to replay projections
-
-#### 2.1.0-beta0003 - 07.05.2017
-* fix to cassandra snapshot store
-
-#### 2.1.0-beta0002 - 07.05.2017
+* Fix to cassandra snapshot store
 * Added snapshot strategy
-
-#### 2.1.0-beta0001 - 07.05.2017
 * Added snapshot store
 
 #### 2.0.1 - 26.04.2017

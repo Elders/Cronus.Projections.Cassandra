@@ -1,1 +1,0 @@
-# Cronus.Projections.Cassandra
