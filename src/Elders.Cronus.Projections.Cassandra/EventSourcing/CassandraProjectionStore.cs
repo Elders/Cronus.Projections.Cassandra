@@ -9,11 +9,14 @@ using System.IO;
 using Elders.Cronus.Projections.Cassandra.Config;
 using System.Linq;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
+using Elders.Cronus.Projections.Cassandra.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
     public class CassandraProjectionStore : IProjectionStore
     {
+        static ILog log = LogProvider.GetLogger(typeof(CassandraProjectionStore));
+
         static readonly object createMutex = new object();
         static readonly object dropMutex = new object();
 
@@ -72,6 +75,9 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
                 }
                 snapshotMarker++;
             }
+
+            if (commits.Count > 1000)
+                log.Warn($"Potential memory leak. The system will be down fearly soon. The projection `{contractId}` for id={projectionId} loads a lot of projection commits ({commits.Count}) and snapshot `{snapshot.GetType().Name}` which puts a lot of CPU and RAM pressure. You can resolve this by enabling the Snapshots feature in the host which handles projection WRITES and READS using `.UseSnapshots(...)`.");
 
             return new ProjectionStream(commits, snapshot);
         }

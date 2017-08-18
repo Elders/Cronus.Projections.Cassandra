@@ -1,3 +1,6 @@
+#### 2.1.1 - 18.07.2017
+* Adds warning to prevent potential memory leak when snapshots are not enabled
+
 #### 2.1.0 - 18.07.2017
 * Fixes applying of snapshots
 * Fixes backward compatibility issue
