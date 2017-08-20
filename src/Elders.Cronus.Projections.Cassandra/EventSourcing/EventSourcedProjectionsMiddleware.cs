@@ -35,21 +35,21 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             {
                 if (execution.Context.Message.Payload is IEvent)
                 {
-                    // infrastructure work
-                    var projectionId = projectionDefinition.GetProjectionId(execution.Context.Message.Payload as IEvent);
-                    string contractId = projectionType.GetContractId();
-                    var snapshot = snapshotStore.Load(contractId, projectionId);
-                    projectionDefinition.InitializeState(snapshot.State);
-                    var projectionCommits = projectionStore.Load(contractId, projectionId, snapshot).Commits;
-
-                    var snapshotMarker = snapshotStrategy.GetSnapshotMarker(projectionCommits);
-                    var commit = new ProjectionCommit(projectionId, contractId, execution.Context.Message.Payload as IEvent, snapshotMarker, cronusMessage.GetEventOrigin(), DateTime.UtcNow);
-
+                    // Check if this is replay
                     string isReplayHeader;
                     var isReplay = false;
                     if (execution.Context.Message.Headers.TryGetValue("isReplay", out isReplayHeader))
                         bool.TryParse(isReplayHeader, out isReplay);
 
+                    // infrastructure work
+                    var projectionId = projectionDefinition.GetProjectionId(execution.Context.Message.Payload as IEvent);
+                    string contractId = projectionType.GetContractId();
+                    var snapshot = snapshotStore.Load(contractId, projectionId, isReplay);
+                    projectionDefinition.InitializeState(snapshot.State);
+                    var projectionCommits = projectionStore.Load(contractId, projectionId, snapshot, isReplay).Commits;
+
+                    var snapshotMarker = snapshotStrategy.GetSnapshotMarker(projectionCommits);
+                    var commit = new ProjectionCommit(projectionId, contractId, execution.Context.Message.Payload as IEvent, snapshotMarker, cronusMessage.GetEventOrigin(), DateTime.UtcNow);
                     projectionStore.Save(commit, isReplay);
 
                     //  Realproj work

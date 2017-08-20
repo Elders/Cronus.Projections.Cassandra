@@ -51,12 +51,12 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
 
         It should_create_a_snpshot = () =>
         {
-            snapshotStore.Load("TestProjection", testId).Revision.ShouldEqual(2);
+            snapshotStore.Load("TestProjection", testId, false).Revision.ShouldEqual(2);
         };
 
         It should_build_correct_state = () =>
         {
-            (snapshotStore.Load("TestProjection", testId).State as ProjectionState).Counter.ShouldEqual(10);
+            (snapshotStore.Load("TestProjection", testId, false).State as ProjectionState).Counter.ShouldEqual(10);
         };
 
         public class TestProjection : ProjectionDefinition<ProjectionState, Id>,

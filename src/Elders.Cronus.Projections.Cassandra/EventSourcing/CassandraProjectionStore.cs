@@ -52,18 +52,29 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             InitializeProjectionDatabase(projections);
         }
 
-        public ProjectionStream Load(string contractId, IBlobId projectionId, ISnapshot snapshot)
+        public ProjectionStream Load(string contractId, IBlobId projectionId, ISnapshot snapshot, bool isReplay)
+        {
+            var version = versionStore.Get(contractId.GetColumnFamily());
+
+            // Live
+            if (isReplay == false)
+                return Load(contractId, projectionId, snapshot, version.GetLiveVersionLocation());
+
+            // Replay
+            return Load(contractId, projectionId, snapshot, version.GetNextVersionLocation());
+        }
+
+        private ProjectionStream Load(string contractId, IBlobId projectionId, ISnapshot snapshot, string columnFamily)
         {
             string projId = Convert.ToBase64String(projectionId.RawId);
             List<ProjectionCommit> commits = new List<ProjectionCommit>();
             bool tryGetRecords = true;
             int snapshotMarker = snapshot.Revision + 1;
-            var version = versionStore.Get(contractId.GetColumnFamily());
 
             while (tryGetRecords)
             {
                 tryGetRecords = false;
-                BoundStatement bs = GetPreparedStatementToGetProjection(version.GetLiveVersionLocation()).Bind(projId, snapshotMarker);
+                BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(projId, snapshotMarker);
                 var result = session.Execute(bs);
                 var rows = result.GetRows();
                 foreach (var row in rows)

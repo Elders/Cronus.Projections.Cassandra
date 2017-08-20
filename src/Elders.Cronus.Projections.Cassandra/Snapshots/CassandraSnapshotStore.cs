@@ -46,13 +46,24 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         readonly ISerializer serializer;
         readonly IVersionStore versionStore;
 
-        public ISnapshot Load(string projectionContractId, IBlobId id)
+        public ISnapshot Load(string projectionContractId, IBlobId id, bool isReplay)
         {
             if (projectionContracts.Contains(projectionContractId) == false)
                 return new NoSnapshot(id, projectionContractId);
 
             var version = versionStore.Get(projectionContractId.GetColumnFamily("_sp"));
-            BoundStatement bs = GetPreparedStatementToGetProjection(version.GetLiveVersionLocation()).Bind(Convert.ToBase64String(id.RawId));
+
+            // Live
+            if (isReplay == false)
+                return Load(projectionContractId, id, version.GetLiveVersionLocation());
+
+            // Replay
+            return Load(projectionContractId, id, version.GetNextVersionLocation());
+        }
+
+        private ISnapshot Load(string projectionContractId, IBlobId id, string columnFamily)
+        {
+            BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(Convert.ToBase64String(id.RawId));
             var result = session.Execute(bs);
             var row = result.GetRows().FirstOrDefault();
 
@@ -78,7 +89,8 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
             if (isReplay == false)
                 Save(snapshot, version.GetLiveVersionLocation());
 
-            if (version.Status == VersionStatus.Building)
+            // Here we care only about snapshots being produced from the replay
+            if (isReplay == true)
                 Save(snapshot, version.GetNextVersionLocation());
         }
 

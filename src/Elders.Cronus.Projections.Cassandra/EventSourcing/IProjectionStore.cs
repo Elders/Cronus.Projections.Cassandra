@@ -5,7 +5,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
     public interface IProjectionStore
     {
-        ProjectionStream Load(string contractId, IBlobId projectionId, ISnapshot snapshot);
+        ProjectionStream Load(string contractId, IBlobId projectionId, ISnapshot snapshot, bool isReplay);
 
         void Save(ProjectionCommit commit, bool isReplay);
 

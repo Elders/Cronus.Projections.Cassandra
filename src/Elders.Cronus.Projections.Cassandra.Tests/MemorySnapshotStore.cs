@@ -17,7 +17,7 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
             snapshots = new List<ISnapshot>();
         }
 
-        public ISnapshot Load(string projectionContractId, IBlobId id)
+        public ISnapshot Load(string projectionContractId, IBlobId id, bool isReplay)
         {
             var snapshot = snapshots
                 .Where(x => x.Id.Equals(id))

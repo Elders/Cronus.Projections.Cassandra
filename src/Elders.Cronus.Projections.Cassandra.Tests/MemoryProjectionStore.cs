@@ -26,7 +26,7 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
             throw new NotImplementedException();
         }
 
-        public ProjectionStream Load(string projectionContractId, IBlobId projectionId, ISnapshot snapshot)
+        public ProjectionStream Load(string projectionContractId, IBlobId projectionId, ISnapshot snapshot, bool isReplay)
         {
             return new ProjectionStream(
                 commits.Where(x =>
