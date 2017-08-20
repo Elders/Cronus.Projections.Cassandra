@@ -9,7 +9,7 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
             return new NoSnapshot(id, projectionContractId);
         }
 
-        public void Save(ISnapshot snapshot)
+        public void Save(ISnapshot snapshot, bool isReplay)
         {
 
         }

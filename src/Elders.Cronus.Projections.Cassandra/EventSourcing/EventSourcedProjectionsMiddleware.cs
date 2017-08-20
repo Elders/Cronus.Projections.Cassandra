@@ -4,7 +4,6 @@ using Elders.Cronus.Middleware;
 using System.Linq;
 using System;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
-using Elders.Cronus.Projections.Cassandra.Config;
 using Elders.Cronus.DomainModeling.Projections;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
@@ -45,7 +44,13 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
                     var snapshotMarker = snapshotStrategy.GetSnapshotMarker(projectionCommits);
                     var commit = new ProjectionCommit(projectionId, contractId, execution.Context.Message.Payload as IEvent, snapshotMarker, cronusMessage.GetEventOrigin(), DateTime.UtcNow);
-                    projectionStore.Save(commit);
+
+                    string isReplayHeader;
+                    var isReplay = false;
+                    if (execution.Context.Message.Headers.TryGetValue("isReplay", out isReplayHeader))
+                        bool.TryParse(isReplayHeader, out isReplay);
+
+                    projectionStore.Save(commit, isReplay);
 
                     //  Realproj work
                     var groupedBySnapshotMarker = projectionCommits.GroupBy(x => x.SnapshotMarker).OrderBy(x => x.Key);
@@ -62,7 +67,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
                         }
 
                         if (snapshotGroup.Key > snapshot.Revision && snapshotStrategy.ShouldCreateSnapshot(snapshotGroup))
-                            snapshotStore.Save(new Snapshot(projectionId, contractId, projectionDefinition.State, snapshotGroup.Key));
+                            snapshotStore.Save(new Snapshot(projectionId, contractId, projectionDefinition.State, snapshotGroup.Key), isReplay);
                     }
 
                     projectionDefinition.Apply(commit.Event);

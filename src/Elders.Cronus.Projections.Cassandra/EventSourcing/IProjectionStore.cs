@@ -1,5 +1,4 @@
-﻿using System;
-using Elders.Cronus.DomainModeling;
+﻿using Elders.Cronus.DomainModeling;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
@@ -8,8 +7,10 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
     {
         ProjectionStream Load(string contractId, IBlobId projectionId, ISnapshot snapshot);
 
-        void Save(ProjectionCommit commit);
+        void Save(ProjectionCommit commit, bool isReplay);
 
-        IProjectionBuilder GetBuilder(Type projectionType);
+        void BeginReplay(string projectionContractId);
+
+        void EndReplay(string projectionContractId);
     }
 }

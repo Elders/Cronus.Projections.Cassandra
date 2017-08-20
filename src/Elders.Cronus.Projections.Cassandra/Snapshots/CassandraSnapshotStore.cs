@@ -68,14 +68,24 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
             }
         }
 
-        public void Save(ISnapshot snapshot)
+        public void Save(ISnapshot snapshot, bool isReplay)
         {
             if (projectionContracts.Contains(snapshot.ProjectionContractId) == false)
                 return;
 
             var version = versionStore.Get(snapshot.ProjectionContractId.GetColumnFamily("_sp"));
+
+            if (isReplay == false)
+                Save(snapshot, version.GetLiveVersionLocation());
+
+            if (version.Status == VersionStatus.Building)
+                Save(snapshot, version.GetNextVersionLocation());
+        }
+
+        private void Save(ISnapshot snapshot, string columnFamily)
+        {
             var data = serializer.SerializeToBytes(snapshot.State);
-            var statement = SavePreparedStatements.GetOrAdd(version.GetLiveVersionLocation(), x => BuildeInsertPreparedStatemnt(x));
+            var statement = SavePreparedStatements.GetOrAdd(columnFamily, x => BuildeInsertPreparedStatemnt(x));
             var result = session.Execute(statement
                 .Bind(
                     Convert.ToBase64String(snapshot.Id.RawId),

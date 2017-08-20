@@ -6,6 +6,6 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
     {
         ISnapshot Load(string projectionContractId, IBlobId id);
 
-        void Save(ISnapshot snapshot);
+        void Save(ISnapshot snapshot, bool isReplay);
     }
 }

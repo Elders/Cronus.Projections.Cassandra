@@ -30,7 +30,7 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
             return new Snapshot(snapshot.Id, snapshot.ProjectionContractId, DeepClone(snapshot.State), snapshot.Revision);
         }
 
-        public void Save(ISnapshot snapshot)
+        public void Save(ISnapshot snapshot, bool isReplay)
         {
             snapshots.Add(new Snapshot(snapshot.Id, snapshot.ProjectionContractId, DeepClone(snapshot.State), snapshot.Revision));
         }
