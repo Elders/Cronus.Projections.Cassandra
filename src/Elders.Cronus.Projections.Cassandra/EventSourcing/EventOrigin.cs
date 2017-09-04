@@ -27,7 +27,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         public int AggregateRevision { get; private set; }
 
         /// <summary>
-        /// This is the position of the event insite a specific <see cref="AggregateRevision"/>
+        /// This is the position of the event inside a specific <see cref="AggregateRevision"/>
         /// </summary>
         [DataMember(Order = 3)]
         public int AggregateEventPosition { get; private set; }
