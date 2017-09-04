@@ -1,3 +1,7 @@
+#### 2.2.0-beta0003 - 04.09.2017
+* Changes the default configuration for snapshot `new DefaultSnapshotStrategy(snapshotOffset: TimeSpan.FromDays(10), eventsInSnapshot: 500)`
+* Updates packages. There were small breaking changes for projections from DomainModeling
+
 #### 2.2.0-beta0002 - 20.07.2017
 * Fixes creation of snapshots when replying
 
