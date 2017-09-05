@@ -1,14 +1,14 @@
-﻿using Elders.Cronus.Projections.Cassandra.EventSourcing;
-using System;
-using Elders.Cronus.DomainModeling;
-using Cassandra;
-using Elders.Cronus.Serializer;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
-using Elders.Cronus.Projections.Cassandra.Config;
 using System.IO;
+using System.Linq;
+using Cassandra;
+using Elders.Cronus.DomainModeling;
 using Elders.Cronus.DomainModeling.Projections;
+using Elders.Cronus.Projections.Cassandra.Config;
+using Elders.Cronus.Projections.Cassandra.EventSourcing;
+using Elders.Cronus.Serializer;
 
 namespace Elders.Cronus.Projections.Cassandra.Snapshots
 {
@@ -46,19 +46,14 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         readonly ISerializer serializer;
         readonly IVersionStore versionStore;
 
-        public ISnapshot Load(string projectionContractId, IBlobId id, bool isReplay)
+        public ISnapshot Load(string projectionContractId, IBlobId id)
         {
             if (projectionContracts.Contains(projectionContractId) == false)
                 return new NoSnapshot(id, projectionContractId);
 
             var version = versionStore.Get(projectionContractId.GetColumnFamily("_sp"));
 
-            // Live
-            if (isReplay == false)
-                return Load(projectionContractId, id, version.GetLiveVersionLocation());
-
-            // Replay
-            return Load(projectionContractId, id, version.GetNextVersionLocation());
+            return Load(projectionContractId, id, version.GetLiveVersionLocation());
         }
 
         private ISnapshot Load(string projectionContractId, IBlobId id, string columnFamily)
@@ -79,19 +74,14 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
             }
         }
 
-        public void Save(ISnapshot snapshot, bool isReplay)
+        public void Save(ISnapshot snapshot)
         {
             if (projectionContracts.Contains(snapshot.ProjectionContractId) == false)
                 return;
 
             var version = versionStore.Get(snapshot.ProjectionContractId.GetColumnFamily("_sp"));
 
-            if (isReplay == false)
-                Save(snapshot, version.GetLiveVersionLocation());
-
-            // Here we care only about snapshots being produced from the replay
-            if (isReplay == true)
-                Save(snapshot, version.GetNextVersionLocation());
+            Save(snapshot, version.GetLiveVersionLocation());
         }
 
         private void Save(ISnapshot snapshot, string columnFamily)

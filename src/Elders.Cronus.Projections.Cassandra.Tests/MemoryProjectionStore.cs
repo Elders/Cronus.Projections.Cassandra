@@ -26,16 +26,17 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
             throw new NotImplementedException();
         }
 
-        public ProjectionStream Load(string projectionContractId, IBlobId projectionId, ISnapshot snapshot, bool isReplay)
+        public ProjectionStream Load(string projectionContractId, IBlobId projectionId, ISnapshot snapshot)
         {
             return new ProjectionStream(
+                projectionId,
                 commits.Where(x =>
                     x.ProjectionId == projectionId
                     && x.SnapshotMarker > snapshot.Revision).ToList(),
                 snapshot);
         }
 
-        public void Save(ProjectionCommit commit, bool isReplay)
+        public void Save(ProjectionCommit commit)
         {
             commits.Add(commit);
         }

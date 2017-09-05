@@ -52,16 +52,10 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             InitializeProjectionDatabase(projections);
         }
 
-        public ProjectionStream Load(string contractId, IBlobId projectionId, ISnapshot snapshot, bool isReplay)
+        public ProjectionStream Load(string contractId, IBlobId projectionId, ISnapshot snapshot)
         {
             var version = versionStore.Get(contractId.GetColumnFamily());
-
-            // Live
-            if (isReplay == false)
-                return Load(contractId, projectionId, snapshot, version.GetLiveVersionLocation());
-
-            // Replay
-            return Load(contractId, projectionId, snapshot, version.GetNextVersionLocation());
+            return Load(contractId, projectionId, snapshot, version.GetLiveVersionLocation());
         }
 
         private ProjectionStream Load(string contractId, IBlobId projectionId, ISnapshot snapshot, string columnFamily)
@@ -92,18 +86,14 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             if (commits.Count > 1000)
                 log.Warn($"Potential memory leak. The system will be down fearly soon. The projection `{contractId}` for id={projectionId} loads a lot of projection commits ({commits.Count}) and snapshot `{snapshot.GetType().Name}` which puts a lot of CPU and RAM pressure. You can resolve this by enabling the Snapshots feature in the host which handles projection WRITES and READS using `.UseSnapshots(...)`.");
 
-            return new ProjectionStream(commits, snapshot);
+            return new ProjectionStream(projectionId, commits, snapshot);
         }
 
-        public void Save(ProjectionCommit commit, bool isReplay)
+        public void Save(ProjectionCommit commit)
         {
             var projectionVersion = versionStore.Get(commit.ContractId.GetColumnFamily());
 
-            if (isReplay == false)
-                Save(commit, projectionVersion.GetLiveVersionLocation());
-
-            if (projectionVersion.Status == VersionStatus.Building)
-                Save(commit, projectionVersion.GetNextVersionLocation());
+            Save(commit, projectionVersion.GetLiveVersionLocation());
         }
 
         private void Save(ProjectionCommit commit, string columnFamily)

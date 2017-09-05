@@ -32,15 +32,31 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
                  : lastMarker;
         }
 
-        public bool ShouldCreateSnapshot(IEnumerable<ProjectionCommit> commits)
+        public IAmTheAnswerIfWeNeedToCreateSnapshot ShouldCreateSnapshot(IEnumerable<ProjectionCommit> commits, int lastSnapshotRevision)
         {
-            if (commits.GroupBy(x => x.SnapshotMarker).Count() != 1)
+            int latestSnapshotMarker = commits.Select(x => x.SnapshotMarker).DefaultIfEmpty(0).Max();
+            if (latestSnapshotMarker > lastSnapshotRevision)
             {
-                throw new InvalidOperationException("Commits should have the same snapshot marker");
+                bool shouldCreateSnapshot = commits.Count() >= eventsInSnapshot || commits.Min(x => x.TimeStamp) <= DateTime.UtcNow - snapshotOffset;
+                if (shouldCreateSnapshot)
+                    return new IAmTheAnswerIfWeNeedToCreateSnapshot(latestSnapshotMarker);
             }
 
-            return commits.Count() >= eventsInSnapshot
-                && commits.Min(x => x.TimeStamp) <= DateTime.UtcNow - snapshotOffset;
+            return IAmTheAnswerIfWeNeedToCreateSnapshot.AndInThisCaseTheAnswerIsNo;
         }
+    }
+
+    public class IAmTheAnswerIfWeNeedToCreateSnapshot
+    {
+        public IAmTheAnswerIfWeNeedToCreateSnapshot(int revision)
+        {
+            KeepTheNextSnapshotRevisionHere = revision;
+        }
+
+        public bool ShouldCreateSnapshot { get { return KeepTheNextSnapshotRevisionHere > 0; } }
+
+        public int KeepTheNextSnapshotRevisionHere { get; private set; }
+
+        public static IAmTheAnswerIfWeNeedToCreateSnapshot AndInThisCaseTheAnswerIsNo = new IAmTheAnswerIfWeNeedToCreateSnapshot(-1);
     }
 }

@@ -300,7 +300,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             {
                 builder.Container.RegisterSingleton<ISnapshotStore>(() => new CassandraSnapshotStore(settings.ProjectionsToSnapshot, session, serializer, builder.Container.Resolve<IVersionStore>()));
             }
-            builder.Container.RegisterTransient<IProjectionRepository>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>()));
+            builder.Container.RegisterTransient<IProjectionRepository>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>(), builder.Container.Resolve<ISnapshotStrategy>()));
         }
 
         string ICassandraProjectionsStoreSettings.Keyspace { get; set; }
