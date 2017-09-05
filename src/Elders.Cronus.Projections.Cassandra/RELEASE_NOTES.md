@@ -1,18 +1,6 @@
-#### 2.2.0-beta0006 - 05.09.2017
-* Oops I did it again
-
-#### 2.2.0-beta0005 - 05.09.2017
-* Oops
-
-#### 2.2.0-beta0004 - 05.09.2017
-* Removes the `isReplay` flag everywhere
-
-#### 2.2.0-beta0003 - 04.09.2017
-* Changes the default configuration for snapshot `new DefaultSnapshotStrategy(snapshotOffset: TimeSpan.FromDays(10), eventsInSnapshot: 500)`
+#### 2.2.0 - 05.09.2017
+* Changes the default configuration for snapshot `new DefaultSnapshotStrategy(snapshotOffset: TimeSpan.FromDays(1), eventsInSnapshot: 500)`
 * Updates packages. There were small breaking changes for projections from DomainModeling
-
-#### 2.2.0-beta0002 - 20.07.2017
-* Fixes creation of snapshots when replying
 
 #### 2.1.1 - 18.07.2017
 * Adds warning to prevent potential memory leak when snapshots are not enabled
