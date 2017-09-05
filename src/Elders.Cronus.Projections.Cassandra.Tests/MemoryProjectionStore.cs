@@ -16,12 +16,7 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
             commits = new List<ProjectionCommit>();
         }
 
-        public void BeginReplay(string projectionContractId)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void EndReplay(string projectionContractId)
+        public IProjectionBuilder GetBuilder(Type projectionType)
         {
             throw new NotImplementedException();
         }

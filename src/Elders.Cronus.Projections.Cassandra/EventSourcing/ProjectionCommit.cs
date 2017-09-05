@@ -22,7 +22,6 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         [DataMember(Order = 1)]
         public IBlobId ProjectionId { get; private set; }
 
-        [Obsolete]
         [DataMember(Order = 2)]
         public Type ProjectionType { get; set; }
 

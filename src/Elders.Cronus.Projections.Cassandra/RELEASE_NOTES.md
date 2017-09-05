@@ -14,9 +14,6 @@
 #### 2.2.0-beta0002 - 20.07.2017
 * Fixes creation of snapshots when replying
 
-#### 2.2.0-beta0001 - 20.07.2017
-* Reworks how projections are being replayed
-
 #### 2.1.1 - 18.07.2017
 * Adds warning to prevent potential memory leak when snapshots are not enabled
 

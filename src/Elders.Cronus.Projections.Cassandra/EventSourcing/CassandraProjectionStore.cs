@@ -33,8 +33,6 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         readonly ISerializer serializer;
         readonly IVersionStore versionStore;
 
-        public VersionModel SnapshotVersion { get; private set; }
-
         public CassandraProjectionStore(IEnumerable<Type> projections, ISession session, ISerializer serializer, IVersionStore projectionVersionStore)
         {
             if (ReferenceEquals(null, projections) == true) throw new ArgumentNullException(nameof(projections));
@@ -91,12 +89,12 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public void Save(ProjectionCommit commit)
         {
-            var projectionVersion = versionStore.Get(commit.ContractId.GetColumnFamily());
-
-            Save(commit, projectionVersion.GetLiveVersionLocation());
+            var builder = new EventSourcedProjectionBuilder(this, commit.ContractId, versionStore);
+            Save(commit, builder.ProjectionVersion.GetLiveVersionLocation());
+            builder.Populate(commit);
         }
 
-        private void Save(ProjectionCommit commit, string columnFamily)
+        public void Save(ProjectionCommit commit, string columnFamily)
         {
             var data = serializer.SerializeToBytes(commit);
             var statement = SavePreparedStatements.GetOrAdd(columnFamily, x => BuildInsertPreparedStatemnt(x));
@@ -110,65 +108,6 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
                     commit.EventOrigin.Timestamp,
                     data
                 ));
-        }
-
-        public void BeginReplay(string projectionContractId)
-        {
-            var projectionVersion = versionStore.Get(projectionContractId.GetColumnFamily());
-            var snapshotVersion = versionStore.Get(projectionContractId.GetColumnFamily("_sp"));
-
-            if (projectionVersion.Status == VersionStatus.Building || snapshotVersion.Status == VersionStatus.Building)
-                return;
-
-            // Prepare next projection version
-            var projectionNextVersion = new VersionModel(projectionVersion.Key, projectionVersion.Version + 1, VersionStatus.Building);
-            projectionVersion = projectionNextVersion;
-
-            // Prepare next snapshot version
-            var snapshotNextVersion = new VersionModel(snapshotVersion.Key, snapshotVersion.Version + 1, VersionStatus.Building);
-            snapshotVersion = snapshotNextVersion;
-
-            // Create next snapshot table
-            // We need to fix this
-            var snapshotTableToCreate = $"{snapshotVersion.Key}_{snapshotVersion.Version}";
-            this.CreateTable(TableTemplates.CreateSnapshopEventsTableTemplate, snapshotTableToCreate);
-
-            // Create next projection table
-            var projectionTableToCreate = $"{projectionVersion.Key}_{projectionVersion.Version}";
-            this.CreateTable(this.CreateProjectionEventsTableTemplate, projectionTableToCreate);
-
-            // Save next projection version
-            versionStore.Save(projectionNextVersion);
-
-            // Save next snapshot version
-            versionStore.Save(snapshotNextVersion);
-        }
-
-        public void EndReplay(string projectionContractId)
-        {
-            var projectionVersion = versionStore.Get(projectionContractId.GetColumnFamily());
-            var snapshotVersion = versionStore.Get(projectionContractId.GetColumnFamily("_sp"));
-
-            if (projectionVersion.Status != VersionStatus.Building || snapshotVersion.Status != VersionStatus.Building)
-                return;
-
-            // Promote next live version of projections
-            var projectionNextVersion = new VersionModel(projectionVersion.Key, projectionVersion.Version, VersionStatus.Live);
-            versionStore.Save(projectionNextVersion);
-            projectionVersion = projectionNextVersion;
-
-            // Promote next live version of snapshots
-            var snapshotNextVersion = new VersionModel(snapshotVersion.Key, snapshotVersion.Version, VersionStatus.Live);
-            versionStore.Save(snapshotNextVersion);
-            snapshotVersion = snapshotNextVersion;
-
-            // Drop obsolate projection version
-            var projectionTableToDelete = projectionVersion.GetPreviousVersionLocation();
-            this.DropTable(projectionTableToDelete);
-
-            // Drop obsolate snapshot version
-            var snapshotprojectionTableToDelete = snapshotVersion.GetPreviousVersionLocation();
-            this.DropTable(snapshotprojectionTableToDelete);
         }
 
         public void DropTable(string location)
@@ -242,6 +181,11 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
                 return Convert.ToBase64String((id as IBlobId).RawId);
             }
             throw new NotImplementedException(String.Format("Unknow type id {0}", id.GetType()));
+        }
+
+        public IProjectionBuilder GetBuilder(Type projectionType)
+        {
+            return new EventSourcedProjectionBuilder(this, projectionType.GetContractId(), versionStore);
         }
     }
 }

@@ -248,10 +248,8 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         {
             var builder = this as ISettingsBuilder;
             ICassandraProjectionsStoreSettings settings = this as ICassandraProjectionsStoreSettings;
-            builder.Container.RegisterSingleton<EventSourcedProjectionsMiddleware>(() => new EventSourcedProjectionsMiddleware(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>(), settings.SnapshotStrategy));
-
             base.Build();
-            subscrptionMiddlewareSettings.Middleware(x => { return builder.Container.Resolve<EventSourcedProjectionsMiddleware>(); });
+            subscrptionMiddlewareSettings.Middleware(x => { return new EventSourcedProjectionsMiddleware(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>(), settings.SnapshotStrategy); });
         }
     }
 
