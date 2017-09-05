@@ -1,3 +1,6 @@
+#### 2.2.0-beta0005 - 05.09.2017
+* Oops
+
 #### 2.2.0-beta0004 - 05.09.2017
 * Removes the `isReplay` flag everywhere
 

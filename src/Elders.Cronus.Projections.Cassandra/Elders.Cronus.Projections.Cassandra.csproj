@@ -30,8 +30,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Cassandra, Version=3.99.0.0, Culture=neutral, PublicKeyToken=10b231fbfc8c4b4d, processorArchitecture=MSIL">
-      <HintPath>..\packages\CassandraCSharpDriver.3.3.2\lib\net45\Cassandra.dll</HintPath>
+    <Reference Include="Cassandra, Version=3.1.0.1, Culture=neutral, PublicKeyToken=10b231fbfc8c4b4d, processorArchitecture=MSIL">
+      <HintPath>..\packages\CassandraCSharpDriver.3.1.0.1\lib\net45\Cassandra.dll</HintPath>
     </Reference>
     <Reference Include="Elders.Cronus, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\Cronus.3.0.3\lib\net45-full\Elders.Cronus.dll</HintPath>
