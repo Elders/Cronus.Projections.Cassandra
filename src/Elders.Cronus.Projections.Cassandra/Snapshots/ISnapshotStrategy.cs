@@ -6,6 +6,6 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
     public interface ISnapshotStrategy
     {
         int GetSnapshotMarker(IEnumerable<ProjectionCommit> commits);
-        bool ShouldCreateSnapshot(IEnumerable<ProjectionCommit> commits);
+        IAmTheAnswerIfWeNeedToCreateSnapshot ShouldCreateSnapshot(IEnumerable<ProjectionCommit> commits, int lastSnapshotRevision);
     }
 }

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using Elders.Cronus.MessageProcessing;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
 using Elders.Cronus.DomainModeling.Projections;
+using System.Runtime.Serialization;
 
 namespace Elders.Cronus.Projections.Cassandra.Tests
 {
@@ -23,7 +24,7 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
         {
             projectionStore = new MemoryProjectionStore();
             snapshotStore = new MemorySnapshotStore();
-            snapshotStrategy = new DefaultSnapshotStrategy(TimeSpan.Zero, 5);
+            snapshotStrategy = new DefaultSnapshotStrategy(TimeSpan.FromDays(10), 5);
 
             middleware = new EventSourcedProjectionsMiddleware(projectionStore, snapshotStore, snapshotStrategy);
             testId = new Id("test");
@@ -59,6 +60,7 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
             (snapshotStore.Load("TestProjection", testId).State as ProjectionState).Counter.ShouldEqual(10);
         };
 
+        [DataContract(Name = "14e609e6-ff52-458f-ae21-0f1c8016c655")]
         public class TestProjection : ProjectionDefinition<ProjectionState, Id>,
             IEventHandler<TestEvent>
         {

@@ -1,7 +1,6 @@
 ﻿using Elders.Cronus.DomainModeling;
 using Elders.Cronus.MessageProcessing;
 using Elders.Cronus.Middleware;
-using System.Linq;
 using System;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
 using Elders.Cronus.Projections.Cassandra.Config;
@@ -28,44 +27,37 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         protected override void Run(Execution<HandleContext> execution)
         {
-            var cronusMessage = execution.Context.Message;
+            CronusMessage cronusMessage = execution.Context.Message;
 
             Type projectionType = execution.Context.HandlerType;
-            var projectionDefinition = FastActivator.CreateInstance(projectionType) as IProjectionDefinition;
-            if (projectionDefinition != null)
+            var projection = FastActivator.CreateInstance(projectionType) as IProjectionDefinition;
+
+            if (projection != null)
             {
-                if (execution.Context.Message.Payload is IEvent)
+                if (cronusMessage.Payload is IEvent)
                 {
-                    // infrastructure work
-                    var projectionId = projectionDefinition.GetProjectionId(execution.Context.Message.Payload as IEvent);
+                    var projectionIds = projection.GetProjectionIds(cronusMessage.Payload as IEvent);
                     string contractId = projectionType.GetContractId();
-                    var snapshot = snapshotStore.Load(contractId, projectionId);
-                    projectionDefinition.InitializeState(snapshot.State);
-                    var projectionCommits = projectionStore.Load(contractId, projectionId, snapshot).Commits;
 
-                    var snapshotMarker = snapshotStrategy.GetSnapshotMarker(projectionCommits);
-                    var commit = new ProjectionCommit(projectionId, contractId, execution.Context.Message.Payload as IEvent, snapshotMarker, cronusMessage.GetEventOrigin(), DateTime.UtcNow);
-                    projectionStore.Save(commit);
-
-                    //  Realproj work
-                    var groupedBySnapshotMarker = projectionCommits.GroupBy(x => x.SnapshotMarker).OrderBy(x => x.Key);
-                    foreach (var snapshotGroup in groupedBySnapshotMarker)
+                    foreach (var projectionId in projectionIds)
                     {
-                        var eventsByAggregate = snapshotGroup.GroupBy(x => x.EventOrigin.AggregateRootId);
-                        foreach (var aggregateGroup in eventsByAggregate)
-                        {
-                            var events = aggregateGroup
-                                .OrderBy(x => x.EventOrigin.AggregateRevision)
-                                .ThenBy(x => x.EventOrigin.AggregateEventPosition)
-                                .Select(x => x.Event);
-                            projectionDefinition.ReplayEvents(events);
-                        }
+                        // We should be using IProjectionRepository here!!
+                        ISnapshot snapshot = snapshotStore.Load(contractId, projectionId);
+                        ProjectionStream projectionStream = projectionStore.Load(contractId, projectionId, snapshot);
+                        if (ReferenceEquals(null, projectionStream) == true) throw new ArgumentException(nameof(projectionStream));
+                        var queryResult = projectionStream.RestoreFromHistory(projectionType);
 
-                        if (snapshotGroup.Key > snapshot.Revision && snapshotStrategy.ShouldCreateSnapshot(snapshotGroup))
-                            snapshotStore.Save(new Snapshot(projectionId, contractId, projectionDefinition.State, snapshotGroup.Key));
+                        var projectionCommits = projectionStream.Commits;
+                        int snapshotMarker = snapshotStrategy.GetSnapshotMarker(projectionCommits);
+                        var commit = new ProjectionCommit(projectionId, contractId, cronusMessage.Payload as IEvent, snapshotMarker, cronusMessage.GetEventOrigin(), DateTime.UtcNow);
+                        projectionStore.Save(commit);
+
+                        var we = snapshotStrategy.ShouldCreateSnapshot(projectionCommits, snapshot.Revision);
+                        if (we.ShouldCreateSnapshot)
+                            snapshotStore.Save(new Snapshot(projectionId, contractId, queryResult.Projection.State, we.KeepTheNextSnapshotRevisionHere));
+
+                        projection.Apply(commit.Event);
                     }
-
-                    projectionDefinition.Apply(commit.Event);
                 }
             }
         }

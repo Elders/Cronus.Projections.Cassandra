@@ -1,3 +1,7 @@
+#### 2.2.0 - 05.09.2017
+* Changes the default configuration for snapshot `new DefaultSnapshotStrategy(snapshotOffset: TimeSpan.FromDays(1), eventsInSnapshot: 500)`
+* Updates packages. There were small breaking changes for projections from DomainModeling
+
 #### 2.1.1 - 18.07.2017
 * Adds warning to prevent potential memory leak when snapshots are not enabled
 

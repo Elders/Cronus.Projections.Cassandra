@@ -24,6 +24,7 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
         public ProjectionStream Load(string projectionContractId, IBlobId projectionId, ISnapshot snapshot)
         {
             return new ProjectionStream(
+                projectionId,
                 commits.Where(x =>
                     x.ProjectionId == projectionId
                     && x.SnapshotMarker > snapshot.Revision).ToList(),

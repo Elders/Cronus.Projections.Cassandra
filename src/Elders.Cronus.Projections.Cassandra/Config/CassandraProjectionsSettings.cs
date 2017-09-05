@@ -23,6 +23,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             settings.SetProjectionsReplicationStrategy(new SimpleReplicationStrategy(1));
             settings.SetProjectionsWriteConsistencyLevel(DataStaxCassandra.ConsistencyLevel.All);
             settings.SetProjectionsReadConsistencyLevel(DataStaxCassandra.ConsistencyLevel.Quorum);
+            settings.UseSnapshotStrategy(new DefaultSnapshotStrategy(snapshotOffset: TimeSpan.FromDays(1), eventsInSnapshot: 500));
 
             configure?.Invoke(settings);
 
@@ -43,7 +44,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             settings.SetProjectionsReplicationStrategy(new SimpleReplicationStrategy(1));
             settings.SetProjectionsWriteConsistencyLevel(DataStaxCassandra.ConsistencyLevel.All);
             settings.SetProjectionsReadConsistencyLevel(DataStaxCassandra.ConsistencyLevel.Quorum);
-            settings.UseSnapshotStrategy(new DefaultSnapshotStrategy(TimeSpan.Zero, 5));
+            settings.UseSnapshotStrategy(new DefaultSnapshotStrategy(snapshotOffset: TimeSpan.FromDays(1), eventsInSnapshot: 500));
 
             (settings as ICassandraProjectionsStoreSettings).ProjectionTypes = self.HandlerRegistrations;
 
@@ -212,7 +213,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         /// <param name="self"></param>
         /// <param name="snapshotStrategy"></param>
         /// <returns></returns>
-        public static T UseSnapshotStrategy<T>(this T self, ISnapshotStrategy snapshotStrategy) where T : ICassandraProjectionsSettings
+        public static T UseSnapshotStrategy<T>(this T self, ISnapshotStrategy snapshotStrategy) where T : ICassandraProjectionsStoreSettings
         {
             self.SnapshotStrategy = snapshotStrategy;
             return self;
@@ -231,17 +232,12 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         DataStaxCassandra.IReconnectionPolicy ReconnectionPolicy { get; set; }
         ICassandraReplicationStrategy ReplicationStrategy { get; set; }
         IEnumerable<Type> ProjectionsToSnapshot { get; set; }
-    }
-
-    public interface ICassandraProjectionsSettings : ISettingsBuilder
-    {
         ISnapshotStrategy SnapshotStrategy { get; set; }
     }
 
-    public class CassandraProjectionsSettings : CassandraProjectionsStoreSettings, ICassandraProjectionsSettings
+    public class CassandraProjectionsSettings : CassandraProjectionsStoreSettings
     {
         private ISubscrptionMiddlewareSettings subscrptionMiddlewareSettings;
-        ISnapshotStrategy ICassandraProjectionsSettings.SnapshotStrategy { get; set; }
 
         public CassandraProjectionsSettings(ISettingsBuilder settingsBuilder, ISubscrptionMiddlewareSettings subscrptionMiddlewareSettings) : base(settingsBuilder)
         {
@@ -251,7 +247,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         public override void Build()
         {
             var builder = this as ISettingsBuilder;
-            ICassandraProjectionsSettings settings = this as ICassandraProjectionsSettings;
+            ICassandraProjectionsStoreSettings settings = this as ICassandraProjectionsStoreSettings;
             base.Build();
             subscrptionMiddlewareSettings.Middleware(x => { return new EventSourcedProjectionsMiddleware(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>(), settings.SnapshotStrategy); });
         }
@@ -298,7 +294,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             {
                 builder.Container.RegisterSingleton<ISnapshotStore>(() => new CassandraSnapshotStore(settings.ProjectionsToSnapshot, session, serializer, builder.Container.Resolve<IVersionStore>()));
             }
-            builder.Container.RegisterTransient<IProjectionRepository>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>()));
+            builder.Container.RegisterTransient<IProjectionRepository>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>(), builder.Container.Resolve<ISnapshotStrategy>()));
         }
 
         string ICassandraProjectionsStoreSettings.Keyspace { get; set; }
@@ -320,5 +316,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         ICassandraReplicationStrategy ICassandraProjectionsStoreSettings.ReplicationStrategy { get; set; }
 
         IEnumerable<Type> ICassandraProjectionsStoreSettings.ProjectionsToSnapshot { get; set; }
+
+        ISnapshotStrategy ICassandraProjectionsStoreSettings.SnapshotStrategy { get; set; }
     }
 }

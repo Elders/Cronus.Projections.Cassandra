@@ -5,6 +5,7 @@ using Machine.Specifications;
 using System;
 using System.Collections.Generic;
 using Elders.Cronus.DomainModeling.Projections;
+using System.Runtime.Serialization;
 
 namespace Elders.Cronus.Projections.Cassandra.Tests
 {
@@ -33,7 +34,7 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
                 commits.Add(new ProjectionCommit(id, "Projection", @event, i, new EventOrigin(id.Urn.Value, i, 1, DateTime.UtcNow.ToFileTimeUtc()), DateTime.UtcNow));
             }
 
-            stream = new ProjectionStream(commits, new NoSnapshot(id, "Projection"));
+            stream = new ProjectionStream(id, commits, new NoSnapshot(id, "Projection"));
         };
 
         Because of = () =>
@@ -47,6 +48,7 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
             numberOfInstances.ShouldEqual(1);
         };
 
+        [DataContract(Name = "0f0fd9bc-ca88-433c-8c69-91f27c8521e8")]
         public class Projection : ProjectionDefinition<ProjectionState, Id>,
             IEventHandler<Event>,
             IEventHandler<Event1>

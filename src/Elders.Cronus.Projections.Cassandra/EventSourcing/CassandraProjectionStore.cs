@@ -52,16 +52,21 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public ProjectionStream Load(string contractId, IBlobId projectionId, ISnapshot snapshot)
         {
+            var version = versionStore.Get(contractId.GetColumnFamily());
+            return Load(contractId, projectionId, snapshot, version.GetLiveVersionLocation());
+        }
+
+        private ProjectionStream Load(string contractId, IBlobId projectionId, ISnapshot snapshot, string columnFamily)
+        {
             string projId = Convert.ToBase64String(projectionId.RawId);
             List<ProjectionCommit> commits = new List<ProjectionCommit>();
             bool tryGetRecords = true;
             int snapshotMarker = snapshot.Revision + 1;
-            var version = versionStore.Get(contractId.GetColumnFamily());
 
             while (tryGetRecords)
             {
                 tryGetRecords = false;
-                BoundStatement bs = GetPreparedStatementToGetProjection(version.GetLiveVersionLocation()).Bind(projId, snapshotMarker);
+                BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(projId, snapshotMarker);
                 var result = session.Execute(bs);
                 var rows = result.GetRows();
                 foreach (var row in rows)
@@ -79,7 +84,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             if (commits.Count > 1000)
                 log.Warn($"Potential memory leak. The system will be down fearly soon. The projection `{contractId}` for id={projectionId} loads a lot of projection commits ({commits.Count}) and snapshot `{snapshot.GetType().Name}` which puts a lot of CPU and RAM pressure. You can resolve this by enabling the Snapshots feature in the host which handles projection WRITES and READS using `.UseSnapshots(...)`.");
 
-            return new ProjectionStream(commits, snapshot);
+            return new ProjectionStream(projectionId, commits, snapshot);
         }
 
         public void Save(ProjectionCommit commit)

@@ -1,14 +1,14 @@
-﻿using Elders.Cronus.Projections.Cassandra.EventSourcing;
-using System;
-using Elders.Cronus.DomainModeling;
-using Cassandra;
-using Elders.Cronus.Serializer;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
-using Elders.Cronus.Projections.Cassandra.Config;
 using System.IO;
+using System.Linq;
+using Cassandra;
+using Elders.Cronus.DomainModeling;
 using Elders.Cronus.DomainModeling.Projections;
+using Elders.Cronus.Projections.Cassandra.Config;
+using Elders.Cronus.Projections.Cassandra.EventSourcing;
+using Elders.Cronus.Serializer;
 
 namespace Elders.Cronus.Projections.Cassandra.Snapshots
 {
@@ -52,7 +52,13 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
                 return new NoSnapshot(id, projectionContractId);
 
             var version = versionStore.Get(projectionContractId.GetColumnFamily("_sp"));
-            BoundStatement bs = GetPreparedStatementToGetProjection(version.GetLiveVersionLocation()).Bind(Convert.ToBase64String(id.RawId));
+
+            return Load(projectionContractId, id, version.GetLiveVersionLocation());
+        }
+
+        private ISnapshot Load(string projectionContractId, IBlobId id, string columnFamily)
+        {
+            BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(Convert.ToBase64String(id.RawId));
             var result = session.Execute(bs);
             var row = result.GetRows().FirstOrDefault();
 
@@ -74,8 +80,14 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
                 return;
 
             var version = versionStore.Get(snapshot.ProjectionContractId.GetColumnFamily("_sp"));
+
+            Save(snapshot, version.GetLiveVersionLocation());
+        }
+
+        private void Save(ISnapshot snapshot, string columnFamily)
+        {
             var data = serializer.SerializeToBytes(snapshot.State);
-            var statement = SavePreparedStatements.GetOrAdd(version.GetLiveVersionLocation(), x => BuildeInsertPreparedStatemnt(x));
+            var statement = SavePreparedStatements.GetOrAdd(columnFamily, x => BuildeInsertPreparedStatemnt(x));
             var result = session.Execute(statement
                 .Bind(
                     Convert.ToBase64String(snapshot.Id.RawId),
