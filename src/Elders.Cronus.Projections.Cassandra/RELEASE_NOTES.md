@@ -1,3 +1,6 @@
+#### 2.2.1 - 06.09.2017
+* Performance optimizations
+
 #### 2.2.0 - 05.09.2017
 * Changes the default configuration for snapshot `new DefaultSnapshotStrategy(snapshotOffset: TimeSpan.FromDays(1), eventsInSnapshot: 500)`
 * Updates packages. There were small breaking changes for projections from DomainModeling
