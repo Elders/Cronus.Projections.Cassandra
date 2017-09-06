@@ -1,3 +1,6 @@
+#### 2.2.6 - 07.09.2017
+* Improves logging even more!!
+
 #### 2.2.5 - 07.09.2017
 * Fixes a bug when loading a projection
 
