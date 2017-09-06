@@ -48,7 +48,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         IProjectionGetResult<T> RestoreFromHistoryMamamia<T>(T projection) where T : IProjectionDefinition
         {
-            log.Debug(() => $"Restoring projection from history... {Environment.NewLine} ProjectionId (rawId in base64): {Convert.ToBase64String(projection.Id.RawId)} {Environment.NewLine} SnapshotRevision: {snapshot.Revision} {Environment.NewLine} MIN-SnapshotMarker: {commits.Min(x => x.SnapshotMarker)} {Environment.NewLine} MAX-SnapshotMarker: {commits.Max(x => x.SnapshotMarker)} {Environment.NewLine} ProjectionCommitsCount: {commits.Count}");
+            log.Debug(() => $"Restoring projection `{typeof(T).Name}` from history... {Environment.NewLine} ProjectionId (rawId in base64): {Convert.ToBase64String(projection.Id.RawId)} {Environment.NewLine} SnapshotRevision: {snapshot.Revision} {Environment.NewLine} MIN-SnapshotMarker: {commits.Min(x => x.SnapshotMarker)} {Environment.NewLine} MAX-SnapshotMarker: {commits.Max(x => x.SnapshotMarker)} {Environment.NewLine} ProjectionCommitsCount: {commits.Count}");
 
             projection.InitializeState(projectionId, snapshot.State);
 
