@@ -4,11 +4,14 @@ using System.Linq;
 using System;
 using Elders.Cronus.DomainModeling.Projections;
 using Elders.Cronus.DomainModeling;
+using Elders.Cronus.Projections.Cassandra.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
     public class ProjectionStream
     {
+        static ILog log = LogProvider.GetLogger(typeof(ProjectionStream));
+
         private readonly IBlobId projectionId;
         IList<ProjectionCommit> commits;
         readonly ISnapshot snapshot;
@@ -44,6 +47,8 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         IProjectionGetResult<T> RestoreFromHistoryMamamia<T>(T projection) where T : IProjectionDefinition
         {
+            log.Debug(() => $"Restoring projection from history. {Environment.NewLine} ProjectionId: {projection.Id} {Environment.NewLine} SnapshotRevision: {snapshot.Revision} {Environment.NewLine} MIN-SnapshotMarker: {commits.Min(x => x.SnapshotMarker)} {Environment.NewLine} MAX-SnapshotMarker: {commits.Max(x => x.SnapshotMarker)} {Environment.NewLine} ProjectionCommitsCount: {commits.Count}");
+
             projection.InitializeState(projectionId, snapshot.State);
 
             var groupedBySnapshotMarker = commits.GroupBy(x => x.SnapshotMarker).OrderBy(x => x.Key);

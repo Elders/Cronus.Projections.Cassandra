@@ -34,10 +34,11 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
 
         public IAmTheAnswerIfWeNeedToCreateSnapshot ShouldCreateSnapshot(IEnumerable<ProjectionCommit> commits, int lastSnapshotRevision)
         {
-            int latestSnapshotMarker = commits.Select(x => x.SnapshotMarker).DefaultIfEmpty(0).Max();
+            var commitsAfterLastSnapshotRevision = commits.Where(x => x.SnapshotMarker > lastSnapshotRevision);
+            int latestSnapshotMarker = commitsAfterLastSnapshotRevision.Select(x => x.SnapshotMarker).DefaultIfEmpty(0).Max();
             if (latestSnapshotMarker > lastSnapshotRevision)
             {
-                bool shouldCreateSnapshot = commits.Count() >= eventsInSnapshot || commits.Min(x => x.TimeStamp) <= DateTime.UtcNow - snapshotOffset;
+                bool shouldCreateSnapshot = commitsAfterLastSnapshotRevision.Count() >= eventsInSnapshot || commits.Min(x => x.TimeStamp) <= DateTime.UtcNow - snapshotOffset;
                 if (shouldCreateSnapshot)
                     return new IAmTheAnswerIfWeNeedToCreateSnapshot(latestSnapshotMarker);
             }
