@@ -5,6 +5,7 @@ using System;
 using Elders.Cronus.DomainModeling.Projections;
 using Elders.Cronus.DomainModeling;
 using Elders.Cronus.Projections.Cassandra.Logging;
+using System.Text;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
@@ -31,7 +32,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public IProjectionGetResult<IProjectionDefinition> RestoreFromHistory(Type projectionType)
         {
-            if (commits.Count < 0) return ProjectionGetResult<IProjectionDefinition>.NoResult;
+            if (commits.Count <= 0) return ProjectionGetResult<IProjectionDefinition>.NoResult;
 
             IProjectionDefinition projection = (IProjectionDefinition)FastActivator.CreateInstance(projectionType, true);
             return RestoreFromHistoryMamamia(projection);
@@ -39,7 +40,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public IProjectionGetResult<T> RestoreFromHistory<T>() where T : IProjectionDefinition
         {
-            if (commits.Count < 0) return ProjectionGetResult<T>.NoResult;
+            if (commits.Count <= 0) return ProjectionGetResult<T>.NoResult;
 
             T projection = (T)Activator.CreateInstance(typeof(T), true);
             return RestoreFromHistoryMamamia<T>(projection);
@@ -47,7 +48,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         IProjectionGetResult<T> RestoreFromHistoryMamamia<T>(T projection) where T : IProjectionDefinition
         {
-            log.Debug(() => $"Restoring projection from history. {Environment.NewLine} ProjectionId: {projection.Id} {Environment.NewLine} SnapshotRevision: {snapshot.Revision} {Environment.NewLine} MIN-SnapshotMarker: {commits.Min(x => x.SnapshotMarker)} {Environment.NewLine} MAX-SnapshotMarker: {commits.Max(x => x.SnapshotMarker)} {Environment.NewLine} ProjectionCommitsCount: {commits.Count}");
+            log.Debug(() => $"Restoring projection from history... {Environment.NewLine} ProjectionId (rawId in base64): {Convert.ToBase64String(projection.Id.RawId)} {Environment.NewLine} SnapshotRevision: {snapshot.Revision} {Environment.NewLine} MIN-SnapshotMarker: {commits.Min(x => x.SnapshotMarker)} {Environment.NewLine} MAX-SnapshotMarker: {commits.Max(x => x.SnapshotMarker)} {Environment.NewLine} ProjectionCommitsCount: {commits.Count}");
 
             projection.InitializeState(projectionId, snapshot.State);
 
