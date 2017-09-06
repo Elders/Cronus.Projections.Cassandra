@@ -53,8 +53,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             log.Debug(() => $"Restoring projection `{typeof(T).Name}` from history...{Environment.NewLine}" +
                 $"ProjectionId: {Encoding.UTF8.GetString(projection.Id.RawId)}||{Convert.ToBase64String(projection.Id.RawId)}{Environment.NewLine}" +
                 $"Snapshot revision: {snapshot.Revision}{Environment.NewLine}" +
-                $"MIN - snapshot marker: {commits.Select(x => x.SnapshotMarker).DefaultIfEmpty(snapshot.Revision).Min()}{Environment.NewLine}" +
-                $"MAX - snapshot marker: {commits.Select(x => x.SnapshotMarker).DefaultIfEmpty(snapshot.Revision).Max()}{Environment.NewLine}" +
+                $"MIN/MAX snapshot marker: {commits.Select(x => x.SnapshotMarker).DefaultIfEmpty(snapshot.Revision).Min()}/{commits.Select(x => x.SnapshotMarker).DefaultIfEmpty(snapshot.Revision).Max()}{Environment.NewLine}" +
                 $"Projection commits after snapshot: {commits.Count}");
 
             var groupedBySnapshotMarker = commits.GroupBy(x => x.SnapshotMarker).OrderBy(x => x.Key);
