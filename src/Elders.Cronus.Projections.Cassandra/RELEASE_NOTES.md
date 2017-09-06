@@ -1,3 +1,6 @@
+#### 2.2.2 - 07.09.2017
+* Adds some debug logs
+
 #### 2.2.1 - 06.09.2017
 * Performance optimizations
 
