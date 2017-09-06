@@ -1,3 +1,6 @@
+#### 2.2.7 - 07.09.2017
+* Guess what?!?! Improves logging even more!!
+
 #### 2.2.6 - 07.09.2017
 * Improves logging even more!!
 

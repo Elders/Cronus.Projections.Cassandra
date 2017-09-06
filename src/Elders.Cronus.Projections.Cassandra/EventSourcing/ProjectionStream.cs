@@ -51,9 +51,8 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             projection.InitializeState(projectionId, snapshot.State);
 
             log.Debug(() => $"Restoring projection `{typeof(T).Name}` from history...{Environment.NewLine}" +
-                $"ProjectionId urn: {Encoding.UTF8.GetString(projection.Id.RawId)}{Environment.NewLine}" +
-                $"ProjectionId base64: {Convert.ToBase64String(projection.Id.RawId)}{Environment.NewLine}" +
-                $"Snapshot revision: {snapshot.Revision} {Environment.NewLine} " +
+                $"ProjectionId: {Encoding.UTF8.GetString(projection.Id.RawId)}||{Convert.ToBase64String(projection.Id.RawId)}{Environment.NewLine}" +
+                $"Snapshot revision: {snapshot.Revision}{Environment.NewLine}" +
                 $"MIN - snapshot marker: {commits.Select(x => x.SnapshotMarker).DefaultIfEmpty(snapshot.Revision).Min()}{Environment.NewLine}" +
                 $"MAX - snapshot marker: {commits.Select(x => x.SnapshotMarker).DefaultIfEmpty(snapshot.Revision).Max()}{Environment.NewLine}" +
                 $"Projection commits after snapshot: {commits.Count}");
