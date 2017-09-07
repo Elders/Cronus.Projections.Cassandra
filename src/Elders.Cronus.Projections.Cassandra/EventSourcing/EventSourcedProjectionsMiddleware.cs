@@ -48,7 +48,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
 
                         var projectionCommits = projectionStream.Commits;
-                        int snapshotMarker = snapshotStrategy.GetSnapshotMarker(projectionCommits);
+                        int snapshotMarker = snapshotStrategy.GetSnapshotMarker(projectionCommits, snapshot.Revision);
                         var commit = new ProjectionCommit(projectionId, contractId, cronusMessage.Payload as IEvent, snapshotMarker, cronusMessage.GetEventOrigin(), DateTime.UtcNow);
                         projectionStore.Save(commit);
 
@@ -56,7 +56,6 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
                         if (we.ShouldCreateSnapshot)
                         {
                             var queryResult = projectionStream.RestoreFromHistory(projectionType);
-                            queryResult.Projection.Apply(commit.Event);// I think we do not need this
                             snapshotStore.Save(new Snapshot(projectionId, contractId, queryResult.Projection.State, we.KeepTheNextSnapshotRevisionHere));
                         }
                     }

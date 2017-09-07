@@ -16,14 +16,9 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
             this.eventsInSnapshot = eventsInSnapshot;
         }
 
-        public int GetSnapshotMarker(IEnumerable<ProjectionCommit> commits)
+        public int GetSnapshotMarker(IEnumerable<ProjectionCommit> commits, int lastSnapshotRevision)
         {
-            if (commits.Any() == false)
-            {
-                return 1;
-            }
-
-            var lastMarker = commits.Max(x => x.SnapshotMarker);
+            var lastMarker = commits.Select(x => x.SnapshotMarker).DefaultIfEmpty(lastSnapshotRevision + 1).Max();
 
             var commitsWithMarker = commits.Where(x => x.SnapshotMarker == lastMarker);
 
@@ -35,10 +30,10 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         public IAmTheAnswerIfWeNeedToCreateSnapshot ShouldCreateSnapshot(IEnumerable<ProjectionCommit> commits, int lastSnapshotRevision)
         {
             var commitsAfterLastSnapshotRevision = commits.Where(x => x.SnapshotMarker > lastSnapshotRevision);
-            int latestSnapshotMarker = commitsAfterLastSnapshotRevision.Select(x => x.SnapshotMarker).DefaultIfEmpty(0).Max();
+            int latestSnapshotMarker = commitsAfterLastSnapshotRevision.Select(x => x.SnapshotMarker).DefaultIfEmpty(lastSnapshotRevision + 1).Max();
             if (latestSnapshotMarker > lastSnapshotRevision)
             {
-                bool shouldCreateSnapshot = commitsAfterLastSnapshotRevision.Count() >= eventsInSnapshot || commits.Min(x => x.TimeStamp) <= DateTime.UtcNow - snapshotOffset;
+                bool shouldCreateSnapshot = commitsAfterLastSnapshotRevision.Count() >= eventsInSnapshot || commits.Select(x => x.TimeStamp).DefaultIfEmpty(DateTime.MaxValue).Min() <= DateTime.UtcNow - snapshotOffset;
                 if (shouldCreateSnapshot)
                     return new IAmTheAnswerIfWeNeedToCreateSnapshot(latestSnapshotMarker);
             }

@@ -1,3 +1,6 @@
+#### 2.2.9 - 07.09.2017
+* Fixes snapshot creation bug
+
 #### 2.2.8 - 07.09.2017
 * Improves logging even more!!!
 
