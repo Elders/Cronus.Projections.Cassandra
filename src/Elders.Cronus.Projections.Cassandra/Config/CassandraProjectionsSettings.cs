@@ -249,7 +249,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             var builder = this as ISettingsBuilder;
             ICassandraProjectionsStoreSettings settings = this as ICassandraProjectionsStoreSettings;
             base.Build();
-            subscrptionMiddlewareSettings.Middleware(x => { return new EventSourcedProjectionsMiddleware(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>(), settings.SnapshotStrategy); });
+            subscrptionMiddlewareSettings.Middleware(x => { return new EventSourcedProjectionsMiddleware(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>(), builder.Container.Resolve<ISnapshotStrategy>()); });
         }
     }
 
@@ -294,6 +294,8 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             {
                 builder.Container.RegisterSingleton<ISnapshotStore>(() => new CassandraSnapshotStore(settings.ProjectionsToSnapshot, session, serializer, builder.Container.Resolve<IVersionStore>()));
             }
+
+            builder.Container.RegisterSingleton<ISnapshotStrategy>(() => settings.SnapshotStrategy);
             builder.Container.RegisterTransient<IProjectionRepository>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>(), builder.Container.Resolve<ISnapshotStrategy>()));
         }
 

@@ -34,7 +34,8 @@
       <HintPath>..\packages\CassandraCSharpDriver.3.1.0.1\lib\net45\Cassandra.dll</HintPath>
     </Reference>
     <Reference Include="Elders.Cronus, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Cronus.3.0.4\lib\net45-full\Elders.Cronus.dll</HintPath>
+      <HintPath>..\packages\Cronus.3.0.5\lib\net45-full\Elders.Cronus.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="Elders.Cronus.DomainModeling, Version=3.3.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\Cronus.DomainModeling.3.3.0\lib\net45-full\Elders.Cronus.DomainModeling.dll</HintPath>
@@ -74,12 +75,10 @@
     <Compile Include="Snapshots\NoSnapshotStore.cs" />
     <Compile Include="EventSourcing\Usage.cs" />
     <Compile Include="EventSourcing\CronusMessageExtensions.cs" />
-    <Compile Include="EventSourcing\EventOrigin.cs" />
     <Compile Include="EventSourcing\EventSourcedProjectionsMiddleware.cs" />
     <Compile Include="EventSourcing\IProjectionStore.cs" />
     <Compile Include="Snapshots\ISnapshot.cs" />
     <Compile Include="Snapshots\ISnapshotStore.cs" />
-    <Compile Include="EventSourcing\ProjectionCommit.cs" />
     <Compile Include="EventSourcing\ProjectionRepository.cs" />
     <Compile Include="EventSourcing\ProjectionStream.cs" />
     <Compile Include="ReplicationStrategies\SimpleReplicationStrategy.cs" />

@@ -1,3 +1,6 @@
+#### 2.2.10 - 14.09.2017
+* Move ProjectionCommit in Cronus
+
 #### 2.2.9 - 07.09.2017
 * Fixes snapshot creation bug
 
