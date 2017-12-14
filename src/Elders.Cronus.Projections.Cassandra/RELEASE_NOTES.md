@@ -1,3 +1,6 @@
+#### 2.2.11 - 14.12.2017
+* Adds ability to shoot yourself in the foot
+
 #### 2.2.10 - 14.09.2017
 * Move ProjectionCommit in Cronus
 

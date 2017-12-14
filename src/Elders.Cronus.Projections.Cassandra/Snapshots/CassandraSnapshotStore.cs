@@ -40,13 +40,13 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         }
 
         readonly ISession session;
-        readonly HashSet<string> projectionContracts;
+        protected readonly HashSet<string> projectionContracts;
         readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
         readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
         readonly ISerializer serializer;
-        readonly IVersionStore versionStore;
+        protected readonly IVersionStore versionStore;
 
-        public ISnapshot Load(string projectionContractId, IBlobId id)
+        public virtual ISnapshot Load(string projectionContractId, IBlobId id)
         {
             if (projectionContracts.Contains(projectionContractId) == false)
                 return new NoSnapshot(id, projectionContractId);
@@ -56,7 +56,7 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
             return Load(projectionContractId, id, version.GetLiveVersionLocation());
         }
 
-        private ISnapshot Load(string projectionContractId, IBlobId id, string columnFamily)
+        protected ISnapshot Load(string projectionContractId, IBlobId id, string columnFamily)
         {
             BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(Convert.ToBase64String(id.RawId));
             var result = session.Execute(bs);
@@ -74,7 +74,7 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
             }
         }
 
-        public void Save(ISnapshot snapshot)
+        public virtual void Save(ISnapshot snapshot)
         {
             if (projectionContracts.Contains(snapshot.ProjectionContractId) == false)
                 return;
@@ -84,7 +84,7 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
             Save(snapshot, version.GetLiveVersionLocation());
         }
 
-        private void Save(ISnapshot snapshot, string columnFamily)
+        protected void Save(ISnapshot snapshot, string columnFamily)
         {
             var data = serializer.SerializeToBytes(snapshot.State);
             var statement = SavePreparedStatements.GetOrAdd(columnFamily, x => BuildeInsertPreparedStatemnt(x));
