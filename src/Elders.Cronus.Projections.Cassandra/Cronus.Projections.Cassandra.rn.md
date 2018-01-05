@@ -1,3 +1,6 @@
+#### 3.0.0-beta0001 - 14.05.2018
+* netstandard2.0
+
 #### 2.2.12 - 12.01.2018
 * Changes snapshot creation to trigger only during read (load of projection) - sorry for breaking the public API and not bumping the version
 
