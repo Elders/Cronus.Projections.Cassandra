@@ -81,10 +81,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public void Populate(ProjectionCommit commit)
         {
-            if (ProjectionVersion.Status == VersionStatus.Building)
-            {
-                store.Save(commit, ProjectionVersion.GetNextVersionLocation());
-            }
+
         }
     }
 }

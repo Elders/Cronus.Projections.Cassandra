@@ -4,8 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Cassandra;
-using Elders.Cronus.DomainModeling;
-using Elders.Cronus.DomainModeling.Projections;
 using Elders.Cronus.Projections.Cassandra.Config;
 using Elders.Cronus.Projections.Cassandra.EventSourcing;
 using Elders.Cronus.Serializer;

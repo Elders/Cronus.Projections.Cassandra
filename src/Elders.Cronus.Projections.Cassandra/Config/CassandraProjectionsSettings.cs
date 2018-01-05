@@ -9,7 +9,6 @@ using Elders.Cronus.Serializer;
 using System.Reflection;
 using System.Linq;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
-using Elders.Cronus.DomainModeling.Projections;
 
 namespace Elders.Cronus.Projections.Cassandra.Config
 {
@@ -249,7 +248,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             var builder = this as ISettingsBuilder;
             ICassandraProjectionsStoreSettings settings = this as ICassandraProjectionsStoreSettings;
             base.Build();
-            subscrptionMiddlewareSettings.Middleware(x => { return new EventSourcedProjectionsMiddleware(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>(), builder.Container.Resolve<ISnapshotStrategy>()); });
+            subscrptionMiddlewareSettings.Middleware(x => { return new EventSourcedProjectionsMiddleware(builder.Container.Resolve<Elders.Cronus.Projections.Cassandra.EventSourcing.IProjectionRepository>()); });
         }
     }
 
@@ -285,7 +284,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
 
             builder.Container.RegisterSingleton<IVersionStore>(() => new CassandraVersionStore(session));
 
-            builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(settings.ProjectionTypes, session, serializer, builder.Container.Resolve<IVersionStore>()));
+            builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(settings.ProjectionTypes, session, serializer, builder.Container.Resolve<IProjectionVersionResolver>()));
             if (ReferenceEquals(null, settings.ProjectionsToSnapshot))
             {
                 builder.Container.RegisterSingleton<ISnapshotStore>(() => new NoSnapshotStore());
@@ -296,7 +295,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             }
 
             builder.Container.RegisterSingleton<ISnapshotStrategy>(() => settings.SnapshotStrategy);
-            builder.Container.RegisterTransient<IProjectionRepository>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>(), builder.Container.Resolve<ISnapshotStrategy>()));
+            builder.Container.RegisterTransient<Elders.Cronus.Projections.Cassandra.EventSourcing.IProjectionRepository>(() => new Elders.Cronus.Projections.Cassandra.EventSourcing.ProjectionRepository(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>(), builder.Container.Resolve<ISnapshotStrategy>(), builder.Container.Resolve<IProjectionVersionResolver>()));
         }
 
         string ICassandraProjectionsStoreSettings.Keyspace { get; set; }

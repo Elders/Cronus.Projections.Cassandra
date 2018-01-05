@@ -1,14 +1,10 @@
-﻿using Elders.Cronus.DomainModeling;
-using Elders.Cronus.DomainModeling.Projections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System;
 using Cassandra;
 using System.Collections.Concurrent;
 using Elders.Cronus.Serializer;
 using System.IO;
-using Elders.Cronus.Projections.Cassandra.Config;
 using System.Linq;
-using Elders.Cronus.Projections.Cassandra.Snapshots;
 using Elders.Cronus.Projections.Cassandra.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
@@ -31,18 +27,18 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         readonly ConcurrentDictionary<string, PreparedStatement> CreatePreparedStatements;
         readonly ConcurrentDictionary<string, PreparedStatement> DropPreparedStatements;
         readonly ISerializer serializer;
-        readonly IVersionStore versionStore;
+        readonly IProjectionVersionResolver projectionVersionResolver;
 
-        public CassandraProjectionStore(IEnumerable<Type> projections, ISession session, ISerializer serializer, IVersionStore projectionVersionStore)
+        public CassandraProjectionStore(IEnumerable<Type> projections, ISession session, ISerializer serializer, IProjectionVersionResolver projectionVersionResolver)
         {
             if (ReferenceEquals(null, projections) == true) throw new ArgumentNullException(nameof(projections));
             if (ReferenceEquals(null, session) == true) throw new ArgumentNullException(nameof(session));
             if (ReferenceEquals(null, serializer) == true) throw new ArgumentNullException(nameof(serializer));
-            if (ReferenceEquals(null, projectionVersionStore) == true) throw new ArgumentNullException(nameof(projectionVersionStore));
+            if (ReferenceEquals(null, projectionVersionResolver) == true) throw new ArgumentNullException(nameof(projectionVersionResolver));
 
             this.serializer = serializer;
             this.session = session;
-            this.versionStore = projectionVersionStore;
+            this.projectionVersionResolver = projectionVersionResolver;
             this.SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.CreatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
@@ -52,11 +48,11 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public ProjectionStream Load(string contractId, IBlobId projectionId, ISnapshot snapshot)
         {
-            var version = versionStore.Get(contractId.GetColumnFamily());
-            return Load(contractId, projectionId, snapshot, version.GetLiveVersionLocation());
+            var version = projectionVersionResolver.GetVersions(contractId).Where(x => x.Status == ProjectionStatus.Live).Single();
+            return Load(contractId, projectionId, snapshot, version.ProjectionName + "_" + version.VersionNumber);
         }
 
-        private ProjectionStream Load(string contractId, IBlobId projectionId, ISnapshot snapshot, string columnFamily)
+        ProjectionStream Load(string contractId, IBlobId projectionId, ISnapshot snapshot, string columnFamily)
         {
             string projId = Convert.ToBase64String(projectionId.RawId);
             List<ProjectionCommit> commits = new List<ProjectionCommit>();
@@ -82,19 +78,18 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             }
 
             if (commits.Count > 1000)
-                log.Warn($"Potential memory leak. The system will be down fearly soon. The projection `{contractId}` for id={projectionId} loads a lot of projection commits ({commits.Count}) and snapshot `{snapshot.GetType().Name}` which puts a lot of CPU and RAM pressure. You can resolve this by enabling the Snapshots feature in the host which handles projection WRITES and READS using `.UseSnapshots(...)`.");
+                log.Warn($"Potential memory leak. The system will be down fairly soon. The projection `{contractId}` for id={projectionId} loads a lot of projection commits ({commits.Count}) and snapshot `{snapshot.GetType().Name}` which puts a lot of CPU and RAM pressure. You can resolve this by enabling the Snapshots feature in the host which handles projection WRITES and READS using `.UseSnapshots(...)`.");
 
             return new ProjectionStream(projectionId, commits, snapshot);
         }
 
         public void Save(ProjectionCommit commit)
         {
-            var builder = new EventSourcedProjectionBuilder(this, commit.ContractId, versionStore);
-            Save(commit, builder.ProjectionVersion.GetLiveVersionLocation());
-            builder.Populate(commit);
+            string projectionCommitLocationBasedOnVersion = commit.Version.ProjectionName + "_" + commit.Version.VersionNumber;
+            Save(commit, projectionCommitLocationBasedOnVersion);
         }
 
-        public void Save(ProjectionCommit commit, string columnFamily)
+        void Save(ProjectionCommit commit, string columnFamily)
         {
             var data = serializer.SerializeToBytes(commit);
             var statement = SavePreparedStatements.GetOrAdd(columnFamily, x => BuildInsertPreparedStatemnt(x));
@@ -134,33 +129,33 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             }
         }
 
-        private PreparedStatement BuildInsertPreparedStatemnt(string columnFamily)
+        PreparedStatement BuildInsertPreparedStatemnt(string columnFamily)
         {
             return session.Prepare(string.Format(InsertQueryTemplate, columnFamily));
         }
 
-        private PreparedStatement BuildDropPreparedStatemnt(string columnFamily)
+        PreparedStatement BuildDropPreparedStatemnt(string columnFamily)
         {
             return session.Prepare(string.Format(DropQueryTemplate, columnFamily));
         }
 
-        private PreparedStatement BuildCreatePreparedStatemnt(string template, string columnFamily)
+        PreparedStatement BuildCreatePreparedStatemnt(string template, string columnFamily)
         {
             return session.Prepare(string.Format(template, columnFamily));
         }
 
-        private void InitializeProjectionDatabase(IEnumerable<Type> projections)
+        void InitializeProjectionDatabase(IEnumerable<Type> projections)
         {
             foreach (var projType in projections
                 .Where(x => typeof(IProjectionDefinition).IsAssignableFrom(x))
                 .Where(x => x.GetInterfaces().Any(y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IEventHandler<>))))
             {
-                var version = versionStore.Get(projType.GetColumnFamily());
-                CreateTable(CreateProjectionEventsTableTemplate, version.GetLiveVersionLocation());
+                var versions = projectionVersionResolver.GetVersions(projType);
+                CreateTable(CreateProjectionEventsTableTemplate, versions.GetLiveColumnFamily());
             }
         }
 
-        private PreparedStatement GetPreparedStatementToGetProjection(string columnFamily)
+        PreparedStatement GetPreparedStatementToGetProjection(string columnFamily)
         {
             PreparedStatement loadAggregatePreparedStatement;
             if (!GetPreparedStatements.TryGetValue(columnFamily, out loadAggregatePreparedStatement))
@@ -171,7 +166,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             return loadAggregatePreparedStatement;
         }
 
-        private string ConvertIdToString(object id)
+        string ConvertIdToString(object id)
         {
             if (id is string || id is Guid)
                 return id.ToString();
@@ -185,7 +180,21 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public IProjectionBuilder GetBuilder(Type projectionType)
         {
-            return new EventSourcedProjectionBuilder(this, projectionType.GetContractId(), versionStore);
+            return null;
+            //return new EventSourcedProjectionBuilder(this, projectionType.GetContractId(), versionStore);
+        }
+    }
+
+    public static class ProjectionVersionExtensions
+    {
+        public static string GetColumnFamily(this ProjectionVersion version)
+        {
+            return version.ProjectionName + "_" + version.VersionNumber;
+        }
+
+        public static string GetLiveColumnFamily(this IEnumerable<ProjectionVersion> versions)
+        {
+            return GetColumnFamily(versions.Where(ver => ver.Status == ProjectionStatus.Live).Single());
         }
     }
 }

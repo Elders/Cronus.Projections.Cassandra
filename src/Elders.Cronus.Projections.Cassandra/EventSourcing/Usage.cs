@@ -1,6 +1,4 @@
-﻿using Elders.Cronus.DomainModeling;
-using System.Runtime.Serialization;
-using Elders.Cronus.DomainModeling.Projections;
+﻿using System.Runtime.Serialization;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
