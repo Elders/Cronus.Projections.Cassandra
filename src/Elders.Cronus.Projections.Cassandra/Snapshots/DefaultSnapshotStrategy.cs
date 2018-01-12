@@ -1,5 +1,4 @@
-﻿using Elders.Cronus.Projections.Cassandra.EventSourcing;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -14,17 +13,6 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         {
             this.snapshotOffset = snapshotOffset;
             this.eventsInSnapshot = eventsInSnapshot;
-        }
-
-        public int GetSnapshotMarker(IEnumerable<ProjectionCommit> commits, int lastSnapshotRevision)
-        {
-            var lastMarker = commits.Select(x => x.SnapshotMarker).DefaultIfEmpty(lastSnapshotRevision + 1).Max();
-
-            var commitsWithMarker = commits.Where(x => x.SnapshotMarker == lastMarker);
-
-            return commitsWithMarker.Count() >= eventsInSnapshot
-                 ? lastMarker + 1
-                 : lastMarker;
         }
 
         public IAmTheAnswerIfWeNeedToCreateSnapshot ShouldCreateSnapshot(IEnumerable<ProjectionCommit> commits, int lastSnapshotRevision)

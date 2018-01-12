@@ -1,3 +1,6 @@
+#### 2.2.12 - 12.01.2018
+* Changes snapshot creation to trigger only during read (load of projection) - sorry for breaking the public API and not bumping the version
+
 #### 2.2.11 - 14.12.2017
 * Adds ability to shoot yourself in the foot
 

@@ -16,6 +16,7 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
         static ISnapshotStore snapshotStore;
         static IProjectionStore projectionStore;
         static ISnapshotStrategy snapshotStrategy;
+        static IProjectionRepository projectionRepository;
         static TestEvent @event;
         static Id testId;
         static Dictionary<string, string> headers;
@@ -25,6 +26,7 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
             projectionStore = new MemoryProjectionStore();
             snapshotStore = new MemorySnapshotStore();
             snapshotStrategy = new DefaultSnapshotStrategy(TimeSpan.FromDays(10), 5);
+            projectionRepository = new ProjectionRepository(projectionStore, snapshotStore, snapshotStrategy);
 
             middleware = new EventSourcedProjectionsMiddleware(projectionStore, snapshotStore, snapshotStrategy);
             testId = new Id("test");
@@ -34,20 +36,15 @@ namespace Elders.Cronus.Projections.Cassandra.Tests
                 {MessageHeader.AggregateRootId, "test" },
                 {MessageHeader.AggregateRootRevision, "1" }
             };
-
-            for (var i = 1; i <= 10; i++)
-            {
-                middleware.Run(new HandleContext(
-                    new CronusMessage(@event, headers),
-                    typeof(TestProjection)));
-            }
         };
 
         Because of = () =>
         {
-            middleware.Run(new HandleContext(
-                new CronusMessage(@event, headers),
-                typeof(TestProjection)));
+            for (var i = 1; i <= 13; i++)
+            {
+                middleware.Run(new HandleContext(new CronusMessage(@event, headers), typeof(TestProjection)));
+                projectionRepository.Get<TestProjection>(testId); // this line triggers the snapshot creation
+            }
         };
 
         It should_create_a_snpshot = () =>

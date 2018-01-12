@@ -41,23 +41,11 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
                     foreach (var projectionId in projectionIds)
                     {
-                        // We should be using IProjectionRepository here!!
                         ISnapshot snapshot = snapshotStore.Load(contractId, projectionId);
-                        ProjectionStream projectionStream = projectionStore.Load(contractId, projectionId, snapshot);
-                        if (ReferenceEquals(null, projectionStream) == true) throw new ArgumentException(nameof(projectionStream));
 
-
-                        var projectionCommits = projectionStream.Commits;
-                        int snapshotMarker = snapshotStrategy.GetSnapshotMarker(projectionCommits, snapshot.Revision);
+                        int snapshotMarker = snapshot.Revision + 1;
                         var commit = new ProjectionCommit(projectionId, contractId, cronusMessage.Payload as IEvent, snapshotMarker, cronusMessage.GetEventOrigin(), DateTime.UtcNow);
                         projectionStore.Save(commit);
-
-                        var we = snapshotStrategy.ShouldCreateSnapshot(projectionCommits, snapshot.Revision);
-                        if (we.ShouldCreateSnapshot)
-                        {
-                            var queryResult = projectionStream.RestoreFromHistory(projectionType);
-                            snapshotStore.Save(new Snapshot(projectionId, contractId, queryResult.Projection.State, we.KeepTheNextSnapshotRevisionHere));
-                        }
                     }
                 }
             }
