@@ -9,7 +9,9 @@ using Elders.Cronus.Serializer;
 using System.Reflection;
 using System.Linq;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
-using Elders.Cronus.DomainModeling.Projections;
+using Elders.Cronus.Cluster;
+using Elders.Cronus.Projections.Snapshotting;
+using Elders.Cronus.Projections.Versioning;
 
 namespace Elders.Cronus.Projections.Cassandra.Config
 {
@@ -249,7 +251,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             var builder = this as ISettingsBuilder;
             ICassandraProjectionsStoreSettings settings = this as ICassandraProjectionsStoreSettings;
             base.Build();
-            subscrptionMiddlewareSettings.Middleware(x => { return new EventSourcedProjectionsMiddleware(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>(), builder.Container.Resolve<ISnapshotStrategy>()); });
+            subscrptionMiddlewareSettings.Middleware(x => { return new EventSourcedProjectionsMiddleware(builder.Container.Resolve<IProjectionRepository>(builder.Name)); });
         }
     }
 
@@ -282,21 +284,24 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             session.CreateKeyspace(settings.ReplicationStrategy, settings.Keyspace);
 
             var serializer = builder.Container.Resolve<ISerializer>();
+            var publisher = builder.Container.Resolve<ITransport>(builder.Name).GetPublisher<ICommand>(serializer);
 
-            builder.Container.RegisterSingleton<IVersionStore>(() => new CassandraVersionStore(session));
-
-            builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(settings.ProjectionTypes, session, serializer, builder.Container.Resolve<IVersionStore>()));
+            builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(settings.ProjectionTypes, session, serializer, publisher), builder.Name);
             if (ReferenceEquals(null, settings.ProjectionsToSnapshot))
             {
-                builder.Container.RegisterSingleton<ISnapshotStore>(() => new NoSnapshotStore());
+                builder.Container.RegisterSingleton<ISnapshotStore>(() => new NoSnapshotStore(), builder.Name);
             }
             else
             {
-                builder.Container.RegisterSingleton<ISnapshotStore>(() => new CassandraSnapshotStore(settings.ProjectionsToSnapshot, session, serializer, builder.Container.Resolve<IVersionStore>()));
+                builder.Container.RegisterSingleton<ISnapshotStore>(() => new CassandraSnapshotStore(settings.ProjectionsToSnapshot, session, serializer), builder.Name);
             }
 
-            builder.Container.RegisterSingleton<ISnapshotStrategy>(() => settings.SnapshotStrategy);
-            builder.Container.RegisterTransient<IProjectionRepository>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(), builder.Container.Resolve<ISnapshotStore>(), builder.Container.Resolve<ISnapshotStrategy>()));
+
+            builder.Container.RegisterSingleton<ISnapshotStrategy>(() => settings.SnapshotStrategy, builder.Name);
+
+            // the 2 lines below MUST be moved to Cronus
+            builder.Container.RegisterSingleton<InMemoryProjectionVersionStore>(() => new InMemoryProjectionVersionStore(), builder.Name);
+            builder.Container.RegisterTransient<IProjectionRepository>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(builder.Name), builder.Container.Resolve<ISnapshotStore>(builder.Name), builder.Container.Resolve<ISnapshotStrategy>(builder.Name), builder.Container.Resolve<InMemoryProjectionVersionStore>(builder.Name)), builder.Name);
         }
 
         string ICassandraProjectionsStoreSettings.Keyspace { get; set; }

@@ -1,15 +1,13 @@
-﻿using Elders.Cronus.DomainModeling;
-using Elders.Cronus.DomainModeling.Projections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System;
 using Cassandra;
 using System.Collections.Concurrent;
 using Elders.Cronus.Serializer;
 using System.IO;
-using Elders.Cronus.Projections.Cassandra.Config;
 using System.Linq;
-using Elders.Cronus.Projections.Cassandra.Snapshots;
 using Elders.Cronus.Projections.Cassandra.Logging;
+using Elders.Cronus.Projections.Cassandra.Config;
+using Elders.Cronus.Projections.Versioning;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
@@ -20,7 +18,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         static readonly object createMutex = new object();
         static readonly object dropMutex = new object();
 
-        public readonly string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, sm int, evarid text, evarrev int, evarts bigint, evarpos int, data blob, PRIMARY KEY ((id, sm), evarid, evarrev, evarpos, evarts)) WITH CLUSTERING ORDER BY (evarid ASC);";
+        const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, sm int, evarid text, evarrev int, evarts bigint, evarpos int, data blob, PRIMARY KEY ((id, sm), evarid, evarrev, evarpos, evarts)) WITH CLUSTERING ORDER BY (evarid ASC);";
         const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id, sm, evarid, evarrev, evarpos, evarts, data) VALUES (?,?,?,?,?,?,?);";
         const string GetQueryTemplate = @"SELECT data FROM ""{0}"" WHERE id=? AND sm=?;";
         const string DropQueryTemplate = @"DROP TABLE IF EXISTS ""{0}"";";
@@ -31,70 +29,84 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         readonly ConcurrentDictionary<string, PreparedStatement> CreatePreparedStatements;
         readonly ConcurrentDictionary<string, PreparedStatement> DropPreparedStatements;
         readonly ISerializer serializer;
-        readonly IVersionStore versionStore;
+        private readonly IPublisher<ICommand> publisher;
 
-        public CassandraProjectionStore(IEnumerable<Type> projections, ISession session, ISerializer serializer, IVersionStore projectionVersionStore)
+        public CassandraProjectionStore(IEnumerable<Type> projections, ISession session, ISerializer serializer, IPublisher<ICommand> publisher)
         {
             if (ReferenceEquals(null, projections) == true) throw new ArgumentNullException(nameof(projections));
             if (ReferenceEquals(null, session) == true) throw new ArgumentNullException(nameof(session));
             if (ReferenceEquals(null, serializer) == true) throw new ArgumentNullException(nameof(serializer));
-            if (ReferenceEquals(null, projectionVersionStore) == true) throw new ArgumentNullException(nameof(projectionVersionStore));
 
             this.serializer = serializer;
+            this.publisher = publisher;
             this.session = session;
-            this.versionStore = projectionVersionStore;
             this.SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.CreatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.DropPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            InitializeProjectionDatabase(projections);
         }
 
-        public ProjectionStream Load(string contractId, IBlobId projectionId, ISnapshot snapshot)
+        public IEnumerable<ProjectionCommit> Load(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
         {
-            var version = versionStore.Get(contractId.GetColumnFamily());
-            return Load(contractId, projectionId, snapshot, version.GetLiveVersionLocation());
+            var columnFamily = version.ProjectionContractId.GetColumnFamily("_" + version.Hash);
+            return Load(version.ProjectionContractId, projectionId, snapshotMarker, columnFamily);
         }
 
-        private ProjectionStream Load(string contractId, IBlobId projectionId, ISnapshot snapshot, string columnFamily)
+        IEnumerable<ProjectionCommit> Load(string contractId, IBlobId projectionId, int snapshotMarker, string columnFamily)
         {
-            string projId = Convert.ToBase64String(projectionId.RawId);
-            List<ProjectionCommit> commits = new List<ProjectionCommit>();
-            bool tryGetRecords = true;
-            int snapshotMarker = snapshot.Revision + 1;
-
-            while (tryGetRecords)
+            IEnumerable<Row> rows = null;
+            try
             {
-                tryGetRecords = false;
+                string projId = Convert.ToBase64String(projectionId.RawId);
+
                 BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(projId, snapshotMarker);
                 var result = session.Execute(bs);
-                var rows = result.GetRows();
-                foreach (var row in rows)
-                {
-                    tryGetRecords = true;
-                    var data = row.GetValue<byte[]>("data");
-                    using (var stream = new MemoryStream(data))
-                    {
-                        commits.Add((ProjectionCommit)serializer.Deserialize(stream));
-                    }
-                }
-                snapshotMarker++;
+                rows = result.GetRows();
+            }
+            catch (InvalidQueryException)
+            {
+                CreateTable(CreateProjectionEventsTableTemplate, columnFamily);
+                var id = new ProjectionVersionManagerId(contractId);
+                var command = new RegisterProjection(id, contractId.GetTypeByContract().GetProjectionHash());
+                publisher.Publish(command);
+                throw;
             }
 
-            if (commits.Count > 1000)
-                log.Warn($"Potential memory leak. The system will be down fearly soon. The projection `{contractId}` for id={projectionId} loads a lot of projection commits ({commits.Count}) and snapshot `{snapshot.GetType().Name}` which puts a lot of CPU and RAM pressure. You can resolve this by enabling the Snapshots feature in the host which handles projection WRITES and READS using `.UseSnapshots(...)`.");
+            foreach (var row in rows)
+            {
+                var data = row.GetValue<byte[]>("data");
+                using (var stream = new MemoryStream(data))
+                {
+                    yield return (ProjectionCommit)serializer.Deserialize(stream);
+                }
+            }
 
-            return new ProjectionStream(projectionId, commits, snapshot);
+        }
+
+        public IEnumerable<ProjectionCommit> EnumerateProjection(ProjectionVersion version, IBlobId projectionId)
+        {
+            int snapshotMarker = 0;
+            while (true)
+            {
+                snapshotMarker++;
+                var loadedCommits = Load(version, projectionId, snapshotMarker);
+                foreach (var loadedCommit in loadedCommits)
+                {
+                    yield return loadedCommit;
+                }
+
+                if (loadedCommits.Count() == 0)
+                    break;
+            }
         }
 
         public void Save(ProjectionCommit commit)
         {
-            var builder = new EventSourcedProjectionBuilder(this, commit.ContractId, versionStore);
-            Save(commit, builder.ProjectionVersion.GetLiveVersionLocation());
-            builder.Populate(commit);
+            string projectionCommitLocationBasedOnVersion = commit.Version.ProjectionContractId.GetColumnFamily("_" + commit.Version.Hash);
+            Save(commit, projectionCommitLocationBasedOnVersion);
         }
 
-        public void Save(ProjectionCommit commit, string columnFamily)
+        void Save(ProjectionCommit commit, string columnFamily)
         {
             var data = serializer.SerializeToBytes(commit);
             var statement = SavePreparedStatements.GetOrAdd(columnFamily, x => BuildInsertPreparedStatemnt(x));
@@ -128,39 +140,33 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             // https://issues.apache.org/jira/browse/CASSANDRA-11429
             lock (createMutex)
             {
-                var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildCreatePreparedStatemnt(template, x));
+                var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildCreatePreparedStatement(template, x));
                 statement.SetConsistencyLevel(ConsistencyLevel.All);
                 session.Execute(statement.Bind());
             }
         }
 
-        private PreparedStatement BuildInsertPreparedStatemnt(string columnFamily)
+        PreparedStatement BuildInsertPreparedStatemnt(string columnFamily)
         {
             return session.Prepare(string.Format(InsertQueryTemplate, columnFamily));
         }
 
-        private PreparedStatement BuildDropPreparedStatemnt(string columnFamily)
+        PreparedStatement BuildDropPreparedStatemnt(string columnFamily)
         {
             return session.Prepare(string.Format(DropQueryTemplate, columnFamily));
         }
 
-        private PreparedStatement BuildCreatePreparedStatemnt(string template, string columnFamily)
+        PreparedStatement BuildCreatePreparedStatement(string template, string columnFamily)
         {
             return session.Prepare(string.Format(template, columnFamily));
         }
 
-        private void InitializeProjectionDatabase(IEnumerable<Type> projections)
+        public void InitializeProjectionStore(ProjectionVersion projectionVersion)
         {
-            foreach (var projType in projections
-                .Where(x => typeof(IProjectionDefinition).IsAssignableFrom(x))
-                .Where(x => x.GetInterfaces().Any(y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IEventHandler<>))))
-            {
-                var version = versionStore.Get(projType.GetColumnFamily());
-                CreateTable(CreateProjectionEventsTableTemplate, version.GetLiveVersionLocation());
-            }
+            CreateTable(CreateProjectionEventsTableTemplate, projectionVersion.GetColumnFamily());
         }
 
-        private PreparedStatement GetPreparedStatementToGetProjection(string columnFamily)
+        PreparedStatement GetPreparedStatementToGetProjection(string columnFamily)
         {
             PreparedStatement loadAggregatePreparedStatement;
             if (!GetPreparedStatements.TryGetValue(columnFamily, out loadAggregatePreparedStatement))
@@ -171,7 +177,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             return loadAggregatePreparedStatement;
         }
 
-        private string ConvertIdToString(object id)
+        string ConvertIdToString(object id)
         {
             if (id is string || id is Guid)
                 return id.ToString();
@@ -181,11 +187,6 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
                 return Convert.ToBase64String((id as IBlobId).RawId);
             }
             throw new NotImplementedException(String.Format("Unknow type id {0}", id.GetType()));
-        }
-
-        public IProjectionBuilder GetBuilder(Type projectionType)
-        {
-            return new EventSourcedProjectionBuilder(this, projectionType.GetContractId(), versionStore);
         }
     }
 }

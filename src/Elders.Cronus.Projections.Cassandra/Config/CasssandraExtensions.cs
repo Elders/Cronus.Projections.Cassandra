@@ -1,7 +1,6 @@
 ﻿using System;
 using Elders.Cronus.Projections.Cassandra.ReplicationStrategies;
 using DataStaxCassandra = Cassandra;
-using Elders.Cronus.DomainModeling;
 
 namespace Elders.Cronus.Projections.Cassandra.Config
 {
