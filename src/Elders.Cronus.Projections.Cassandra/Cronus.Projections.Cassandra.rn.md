@@ -1,3 +1,6 @@
+#### 3.0.1 - 20.02.2018
+* Targets netstandard2.0;net45;net451;net452;net46;net461;net462
+
 #### 3.0.0 - 13.02.2018
 * netstandard2.0
 
