@@ -1,3 +1,6 @@
+#### 3.0.2 - 26.02.2018
+* Updates Cronus to 4.0.8
+
 #### 3.0.1 - 20.02.2018
 * Targets netstandard2.0;net45;net451;net452;net46;net461;net462
 

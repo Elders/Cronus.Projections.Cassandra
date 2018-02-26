@@ -23,7 +23,6 @@
     <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.0'">
         <PackageReference Include="LibLog" Version="4.2.6" />
         <PackageReference Include="Microsoft.CSharp" Version="4.4.1" />
-        <PackageReference Include="Cronus" Version="4.0.4" />
         <PackageReference Include="CassandraCSharpDriver" Version="3.4.0.1" />
     </ItemGroup>
 
@@ -39,5 +38,8 @@
         <PackageReference Include="LibLog" Version="4.2.6" />
         <PackageReference Include="Cronus" Version="4.0.4" />
         <PackageReference Include="CassandraCSharpDriver" Version="3.4.0.1" />
+    </ItemGroup>
+    <ItemGroup>
+      <PackageReference Include="Cronus" Version="4.0.8" />
     </ItemGroup>
 </Project>
