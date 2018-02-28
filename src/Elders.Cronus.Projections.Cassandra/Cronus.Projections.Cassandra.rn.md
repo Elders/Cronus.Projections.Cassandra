@@ -1,3 +1,6 @@
+#### 3.0.3 - 28.02.2018
+* Updates Cronus to 4.0.10
+
 #### 3.0.2 - 26.02.2018
 * Updates Cronus to 4.0.8
 
