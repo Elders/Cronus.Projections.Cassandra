@@ -1,3 +1,6 @@
+#### 5.0.0 - 01.04.2018
+* Gets in line with Cronus v5
+
 #### 3.0.3 - 28.02.2018
 * Updates Cronus to 4.0.10
 

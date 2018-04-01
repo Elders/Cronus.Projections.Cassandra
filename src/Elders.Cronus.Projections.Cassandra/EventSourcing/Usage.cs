@@ -54,7 +54,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
     {
         public UI()
         {
-            IProjectionRepository repo = null;
+            IProjectionLoader repo = null;
             var proj = repo.Get<UserProjection>(null).Projection.State;
         }
     }
