@@ -44,12 +44,14 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             this.GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.CreatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.DropPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+
+            log.Debug($"[{nameof(CassandraProjectionStore)}] Initialized with keyspace {session.Keyspace}");
         }
 
         public IEnumerable<ProjectionCommit> Load(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
         {
-            var columnFamily = version.ProjectionContractId.GetColumnFamily("_" + version.Hash);
-            return Load(version.ProjectionContractId, projectionId, snapshotMarker, columnFamily);
+            var columnFamily = version.ProjectionName.GetColumnFamily("_" + version.Hash);
+            return Load(version.ProjectionName, projectionId, snapshotMarker, columnFamily);
         }
 
         IEnumerable<ProjectionCommit> Load(string contractId, IBlobId projectionId, int snapshotMarker, string columnFamily)
@@ -102,7 +104,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public void Save(ProjectionCommit commit)
         {
-            string projectionCommitLocationBasedOnVersion = commit.Version.ProjectionContractId.GetColumnFamily("_" + commit.Version.Hash);
+            string projectionCommitLocationBasedOnVersion = commit.Version.ProjectionName.GetColumnFamily("_" + commit.Version.Hash);
             Save(commit, projectionCommitLocationBasedOnVersion);
         }
 

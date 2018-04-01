@@ -11,7 +11,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
                 versionSuffix = "_" + version.Hash;
 
             versionSuffix = versionSuffix + suffix;
-            return version.ProjectionContractId.GetColumnFamily(versionSuffix);
+            return version.ProjectionName.GetColumnFamily(versionSuffix);
         }
 
         public static string GetLiveColumnFamily(this ProjectionVersions versions)

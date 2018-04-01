@@ -51,37 +51,37 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         readonly ConcurrentDictionary<string, PreparedStatement> DropPreparedStatements;
         readonly ISerializer serializer;
 
-        public virtual ISnapshot Load(string projectionContractId, IBlobId id, ProjectionVersion projectionVersion)
+        public virtual ISnapshot Load(string ProjectionName, IBlobId id, ProjectionVersion projectionVersion)
         {
-            if (projectionContracts.Contains(projectionContractId) == false)
-                return new NoSnapshot(id, projectionContractId);
+            if (projectionContracts.Contains(ProjectionName) == false)
+                return new NoSnapshot(id, ProjectionName);
 
             var columnFamily = projectionVersion.GetSnapshotColumnFamily();
 
-            return Load(projectionContractId, id, columnFamily);
+            return Load(ProjectionName, id, columnFamily);
         }
 
-        ISnapshot Load(string projectionContractId, IBlobId id, string columnFamily)
+        ISnapshot Load(string ProjectionName, IBlobId id, string columnFamily)
         {
             BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(Convert.ToBase64String(id.RawId));
             var result = session.Execute(bs);
             var row = result.GetRows().FirstOrDefault();
 
             if (row == null)
-                return new NoSnapshot(id, projectionContractId);
+                return new NoSnapshot(id, ProjectionName);
 
             var data = row.GetValue<byte[]>("data");
             var rev = row.GetValue<int>("rev");
 
             using (var stream = new MemoryStream(data))
             {
-                return new Snapshot(id, projectionContractId, serializer.Deserialize(stream), rev);
+                return new Snapshot(id, ProjectionName, serializer.Deserialize(stream), rev);
             }
         }
 
         public virtual void Save(ISnapshot snapshot, ProjectionVersion projectionVersion)
         {
-            if (projectionContracts.Contains(snapshot.ProjectionContractId) == false)
+            if (projectionContracts.Contains(snapshot.ProjectionName) == false)
                 return;
 
             var columnFamily = projectionVersion.GetSnapshotColumnFamily();
