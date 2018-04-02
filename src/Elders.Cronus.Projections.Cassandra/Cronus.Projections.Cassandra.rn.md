@@ -1,3 +1,6 @@
+#### 5.0.0-beta0003 - 02.04.2018
+* Updates Cronus
+
 #### 5.0.0-beta0002 - 02.04.2018
 * Updates Cronus
 
