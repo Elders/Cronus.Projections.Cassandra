@@ -297,10 +297,6 @@ namespace Elders.Cronus.Projections.Cassandra.Config
 
 
             builder.Container.RegisterSingleton<ISnapshotStrategy>(() => settings.SnapshotStrategy, builder.Name);
-
-            // the 2 lines below MUST be moved to Cronus
-            builder.Container.RegisterSingleton<InMemoryProjectionVersionStore>(() => new InMemoryProjectionVersionStore(), builder.Name);
-            builder.Container.RegisterSingleton<IProjectionLoader>(() => new ProjectionRepository(builder.Container.Resolve<IProjectionStore>(builder.Name), builder.Container.Resolve<ISnapshotStore>(builder.Name), builder.Container.Resolve<ISnapshotStrategy>(builder.Name), builder.Container.Resolve<InMemoryProjectionVersionStore>(builder.Name)), builder.Name);
         }
 
         string ICassandraProjectionsStoreSettings.Keyspace { get; set; }
