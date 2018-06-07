@@ -1,3 +1,6 @@
+#### 5.0.0-beta0005 - 07.06.2018
+* Enabled SourceLink
+
 #### 5.0.0-beta0004 - 07.06.2018
 * Removed UseSnapshot because it caused problems to snapshots if used. By default snapshots used 
 
