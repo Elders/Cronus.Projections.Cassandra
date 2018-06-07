@@ -195,19 +195,6 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         }
 
         /// <summary>
-        /// Set the projections that will use snapshots
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="self"></param>
-        /// <param name="projectionTypes">The projection types.</param>
-        /// <returns></returns>
-        public static T UseSnapshots<T>(this T self, IEnumerable<Type> projectionTypes) where T : ICassandraProjectionsStoreSettings
-        {
-            self.ProjectionsToSnapshot = projectionTypes;
-            return self;
-        }
-
-        /// <summary>
         /// Set snapshot strategy
         /// </summary>
         /// <typeparam name="T"></typeparam>
@@ -232,7 +219,6 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         DataStaxCassandra.IRetryPolicy RetryPolicy { get; set; }
         DataStaxCassandra.IReconnectionPolicy ReconnectionPolicy { get; set; }
         ICassandraReplicationStrategy ReplicationStrategy { get; set; }
-        IEnumerable<Type> ProjectionsToSnapshot { get; set; }
         ISnapshotStrategy SnapshotStrategy { get; set; }
     }
 
@@ -286,13 +272,13 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             var publisher = builder.Container.Resolve<ITransport>(builder.Name).GetPublisher<ICommand>(serializer);
 
             builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(settings.ProjectionTypes, session, serializer, publisher), builder.Name);
-            if (ReferenceEquals(null, settings.ProjectionsToSnapshot))
+            if (ReferenceEquals(null, settings.ProjectionTypes))
             {
                 builder.Container.RegisterSingleton<ISnapshotStore>(() => new NoSnapshotStore(), builder.Name);
             }
             else
             {
-                builder.Container.RegisterSingleton<ISnapshotStore>(() => new CassandraSnapshotStore(settings.ProjectionsToSnapshot, session, serializer), builder.Name);
+                builder.Container.RegisterSingleton<ISnapshotStore>(() => new CassandraSnapshotStore(settings.ProjectionTypes, session, serializer), builder.Name);
             }
 
 
@@ -316,8 +302,6 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         DataStaxCassandra.IReconnectionPolicy ICassandraProjectionsStoreSettings.ReconnectionPolicy { get; set; }
 
         ICassandraReplicationStrategy ICassandraProjectionsStoreSettings.ReplicationStrategy { get; set; }
-
-        IEnumerable<Type> ICassandraProjectionsStoreSettings.ProjectionsToSnapshot { get; set; }
 
         ISnapshotStrategy ICassandraProjectionsStoreSettings.SnapshotStrategy { get; set; }
     }

@@ -1,3 +1,6 @@
+#### 5.0.0-beta0004 - 07.06.2018
+* Removed UseSnapshot because it caused problems to snapshots if used. By default snapshots used 
+
 #### 5.0.0-beta0003 - 02.04.2018
 * Updates Cronus
 
