@@ -24,7 +24,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             settings.SetProjectionsReplicationStrategy(new SimpleReplicationStrategy(1));
             settings.SetProjectionsWriteConsistencyLevel(DataStaxCassandra.ConsistencyLevel.All);
             settings.SetProjectionsReadConsistencyLevel(DataStaxCassandra.ConsistencyLevel.Quorum);
-            settings.UseSnapshotStrategy(new DefaultSnapshotStrategy(snapshotOffset: TimeSpan.FromDays(1), eventsInSnapshot: 500));
+            settings.UseSnapshotStrategy(new TimeOffsetSnapshotStrategy(snapshotOffset: TimeSpan.FromDays(1), eventsInSnapshot: 500));
 
             configure?.Invoke(settings);
 
@@ -45,7 +45,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             settings.SetProjectionsReplicationStrategy(new SimpleReplicationStrategy(1));
             settings.SetProjectionsWriteConsistencyLevel(DataStaxCassandra.ConsistencyLevel.All);
             settings.SetProjectionsReadConsistencyLevel(DataStaxCassandra.ConsistencyLevel.Quorum);
-            settings.UseSnapshotStrategy(new DefaultSnapshotStrategy(snapshotOffset: TimeSpan.FromDays(1), eventsInSnapshot: 500));
+            settings.UseSnapshotStrategy(new EventsCountSnapshotStrategy(eventsInSnapshot: 500));
 
             (settings as ICassandraProjectionsStoreSettings).ProjectionTypes = self.HandlerRegistrations;
 
