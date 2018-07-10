@@ -1,3 +1,6 @@
+#### 5.0.0-beta0007 - 10.07.2018
+* Using Cronus 5.0.0-beta0021
+
 #### 5.0.0-beta0006 - 18.06.2018
 * Implements a method to return a SnapshotMeta information without the snapshot state
 * TimeOffsetSnapshotStrategy is the default strategy for projection reads
