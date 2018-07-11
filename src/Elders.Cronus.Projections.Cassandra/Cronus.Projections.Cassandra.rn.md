@@ -1,3 +1,7 @@
+#### 5.0.0-beta0008 - 11.07.2018
+* Using Cronus 5.0.0-beta0022
+* The version revisions are now part of the cassandra column family names
+
 #### 5.0.0-beta0007 - 10.07.2018
 * Using Cronus 5.0.0-beta0021
 
