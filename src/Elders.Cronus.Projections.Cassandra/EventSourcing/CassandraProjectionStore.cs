@@ -50,7 +50,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public IEnumerable<ProjectionCommit> Load(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
         {
-            var columnFamily = version.ProjectionName.GetColumnFamily("_" + version.Hash);
+            var columnFamily = version.ProjectionName.GetColumnFamily(version);
             return Load(version.ProjectionName, projectionId, snapshotMarker, columnFamily);
         }
 
@@ -104,7 +104,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public void Save(ProjectionCommit commit)
         {
-            string projectionCommitLocationBasedOnVersion = commit.Version.ProjectionName.GetColumnFamily("_" + commit.Version.Hash);
+            string projectionCommitLocationBasedOnVersion = commit.Version.ProjectionName.GetColumnFamily(commit.Version);
             Save(commit, projectionCommitLocationBasedOnVersion);
         }
 

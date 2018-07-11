@@ -8,16 +8,10 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         {
             var versionSuffix = string.Empty;
             if (ReferenceEquals(null, version) == false)
-                versionSuffix = "_" + version.Hash;
+                versionSuffix = "_" + version.Hash + "_" + version.Revision;
 
             versionSuffix = versionSuffix + suffix;
             return version.ProjectionName.GetColumnFamily(versionSuffix);
-        }
-
-        public static string GetLiveColumnFamily(this ProjectionVersions versions)
-        {
-            ProjectionVersion liveVersion = versions.GetLive();
-            return GetColumnFamily(liveVersion);
         }
 
         public static string GetSnapshotColumnFamily(this ProjectionVersion version, string suffix = "_sp")
