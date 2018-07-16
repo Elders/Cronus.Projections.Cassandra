@@ -15,35 +15,33 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
     {
         static ILog log = LogProvider.GetLogger(typeof(CassandraProjectionStore));
 
-        static readonly object createMutex = new object();
-        static readonly object dropMutex = new object();
-
-        const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, sm int, evarid text, evarrev int, evarts bigint, evarpos int, data blob, PRIMARY KEY ((id, sm), evarid, evarrev, evarpos, evarts)) WITH CLUSTERING ORDER BY (evarid ASC);";
         const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id, sm, evarid, evarrev, evarpos, evarts, data) VALUES (?,?,?,?,?,?,?);";
         const string GetQueryTemplate = @"SELECT data FROM ""{0}"" WHERE id=? AND sm=?;";
-        const string DropQueryTemplate = @"DROP TABLE IF EXISTS ""{0}"";";
+
 
         readonly ISession session;
         readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
         readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
-        readonly ConcurrentDictionary<string, PreparedStatement> CreatePreparedStatements;
-        readonly ConcurrentDictionary<string, PreparedStatement> DropPreparedStatements;
+
         readonly ISerializer serializer;
         private readonly IPublisher<ICommand> publisher;
+        private readonly CassandraProjectionStoreSchema schema;
 
-        public CassandraProjectionStore(IEnumerable<Type> projections, ISession session, ISerializer serializer, IPublisher<ICommand> publisher)
+        public CassandraProjectionStore(IEnumerable<Type> projections, ISession session, ISerializer serializer, IPublisher<ICommand> publisher, CassandraProjectionStoreSchema schema)
         {
             if (ReferenceEquals(null, projections) == true) throw new ArgumentNullException(nameof(projections));
             if (ReferenceEquals(null, session) == true) throw new ArgumentNullException(nameof(session));
             if (ReferenceEquals(null, serializer) == true) throw new ArgumentNullException(nameof(serializer));
+            if (ReferenceEquals(null, publisher) == true) throw new ArgumentNullException(nameof(publisher));
+            if (ReferenceEquals(null, schema) == true) throw new ArgumentNullException(nameof(schema));
 
             this.serializer = serializer;
             this.publisher = publisher;
+            this.schema = schema;
             this.session = session;
             this.SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             this.GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            this.CreatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            this.DropPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+
 
             log.Debug($"[{nameof(CassandraProjectionStore)}] Initialized with keyspace {session.Keyspace}");
         }
@@ -67,7 +65,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             }
             catch (InvalidQueryException)
             {
-                CreateTable(CreateProjectionEventsTableTemplate, columnFamily);
+                schema.CreateTable(columnFamily);
                 var id = new ProjectionVersionManagerId(contractId);
                 var command = new RegisterProjection(id, contractId.GetTypeByContract().GetProjectionHash());
                 publisher.Publish(command);
@@ -82,7 +80,6 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
                     yield return (ProjectionCommit)serializer.Deserialize(stream);
                 }
             }
-
         }
 
         public IEnumerable<ProjectionCommit> EnumerateProjection(ProjectionVersion version, IBlobId projectionId)
@@ -124,48 +121,14 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
                 ));
         }
 
-        public void DropTable(string location)
-        {
-            // https://issues.apache.org/jira/browse/CASSANDRA-10699
-            // https://issues.apache.org/jira/browse/CASSANDRA-11429
-            lock (dropMutex)
-            {
-                var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildDropPreparedStatemnt(x));
-                statement.SetConsistencyLevel(ConsistencyLevel.All);
-                session.Execute(statement.Bind());
-            }
-        }
-
-        public void CreateTable(string template, string location)
-        {
-            // https://issues.apache.org/jira/browse/CASSANDRA-10699
-            // https://issues.apache.org/jira/browse/CASSANDRA-11429
-            lock (createMutex)
-            {
-                var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildCreatePreparedStatement(template, x));
-                statement.SetConsistencyLevel(ConsistencyLevel.All);
-                session.Execute(statement.Bind());
-            }
-        }
-
         PreparedStatement BuildInsertPreparedStatemnt(string columnFamily)
         {
             return session.Prepare(string.Format(InsertQueryTemplate, columnFamily));
         }
 
-        PreparedStatement BuildDropPreparedStatemnt(string columnFamily)
-        {
-            return session.Prepare(string.Format(DropQueryTemplate, columnFamily));
-        }
-
-        PreparedStatement BuildCreatePreparedStatement(string template, string columnFamily)
-        {
-            return session.Prepare(string.Format(template, columnFamily));
-        }
-
         public void InitializeProjectionStore(ProjectionVersion projectionVersion)
         {
-            CreateTable(CreateProjectionEventsTableTemplate, projectionVersion.GetColumnFamily());
+            schema.CreateTable(projectionVersion.GetColumnFamily());
         }
 
         PreparedStatement GetPreparedStatementToGetProjection(string columnFamily)

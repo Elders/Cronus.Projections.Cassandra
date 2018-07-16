@@ -258,6 +258,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
                     .WithReconnectionPolicy(settings.ReconnectionPolicy)
                     .WithRetryPolicy(settings.RetryPolicy)
                     .WithConnectionString(settings.ConnectionString)
+                    .WithDefaultKeyspace(settings.Keyspace)
                     .Build();
             }
             else
@@ -271,7 +272,22 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             var serializer = builder.Container.Resolve<ISerializer>();
             var publisher = builder.Container.Resolve<ITransport>(builder.Name).GetPublisher<ICommand>(serializer);
 
-            builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(settings.ProjectionTypes, session, serializer, publisher), builder.Name);
+            var schemaCreatorVoltron = session.Cluster.AllHosts().FirstOrDefault(x => x.IsUp);
+            if (ReferenceEquals(null, schemaCreatorVoltron)) throw new InvalidOperationException("Could not find a live Cassandra node!");
+
+            var schemaCluster = DataStaxCassandra.Cluster
+                    .Builder()
+                    .WithReconnectionPolicy(settings.ReconnectionPolicy)
+                    .WithRetryPolicy(settings.RetryPolicy)
+                    .AddContactPoint(schemaCreatorVoltron.Address)
+                    .WithDefaultKeyspace(settings.Keyspace)
+                    .WithPort(9042)
+                    .Build();
+
+            var schemaSession = schemaCluster.Connect();
+            var projectionStoreSchema = new CassandraProjectionStoreSchema(schemaSession);
+
+            builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(settings.ProjectionTypes, session, serializer, publisher, projectionStoreSchema), builder.Name);
             if (ReferenceEquals(null, settings.ProjectionTypes))
             {
                 builder.Container.RegisterSingleton<ISnapshotStore>(() => new NoSnapshotStore(), builder.Name);
