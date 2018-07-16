@@ -1,3 +1,8 @@
+#### 5.0.0-beta0010 - 16.07.2018
+* Create projection store schema against a single node
+* Create snapshot store schema against a single node
+* Updates Cronus to 5.0.0-beta0029
+
 #### 5.0.0-beta0009 - 12.07.2018
 * Using Cronus 5.0.0-beta0026
 
