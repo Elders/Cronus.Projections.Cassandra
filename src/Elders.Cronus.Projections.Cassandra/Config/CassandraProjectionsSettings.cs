@@ -294,7 +294,8 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             }
             else
             {
-                builder.Container.RegisterSingleton<ISnapshotStore>(() => new CassandraSnapshotStore(settings.ProjectionTypes, session, serializer), builder.Name);
+                var snapshotStoreSchema = new CassandraSnapshotStoreSchema(schemaSession);
+                builder.Container.RegisterSingleton<ISnapshotStore>(() => new CassandraSnapshotStore(settings.ProjectionTypes, session, serializer, snapshotStoreSchema), builder.Name);
             }
 
 

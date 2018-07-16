@@ -12,11 +12,6 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
 {
     public sealed class CassandraSnapshotStore : ISnapshotStore
     {
-        static readonly object createMutex = new object();
-        static readonly object dropMutex = new object();
-
-        const string CreateSnapshopEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, rev int, data blob, PRIMARY KEY (id, rev)) WITH CLUSTERING ORDER BY (rev DESC);";
-        const string DropQueryTemplate = @"DROP TABLE IF EXISTS ""{0}"";";
         const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id, rev, data) VALUES (?,?,?);";
         const string GetQueryTemplate = @"SELECT data, rev FROM ""{0}"" WHERE id=? LIMIT 1;";
         const string GetSnapshotMetaQueryTemplate = @"SELECT rev FROM ""{0}"" WHERE id=? LIMIT 1;";
@@ -26,31 +21,29 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
         readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
         readonly ConcurrentDictionary<string, PreparedStatement> GetSnapshotMetaPreparedStatements;
-        readonly ConcurrentDictionary<string, PreparedStatement> CreatePreparedStatements;
-        readonly ConcurrentDictionary<string, PreparedStatement> DropPreparedStatements;
         readonly ISerializer serializer;
+        private readonly CassandraSnapshotStoreSchema schema;
 
-        public CassandraSnapshotStore(IEnumerable<Type> projections, ISession session, ISerializer serializer)
+        public CassandraSnapshotStore(IEnumerable<Type> projections, ISession session, ISerializer serializer, CassandraSnapshotStoreSchema schema)
         {
             if (ReferenceEquals(null, projections) == true) throw new ArgumentNullException(nameof(projections));
-            this.projectionContracts = new HashSet<string>(
+            if (ReferenceEquals(null, session) == true) throw new ArgumentNullException(nameof(session));
+            if (ReferenceEquals(null, serializer) == true) throw new ArgumentNullException(nameof(serializer));
+            if (ReferenceEquals(null, schema) == true) throw new ArgumentNullException(nameof(schema));
+
+            projectionContracts = new HashSet<string>(
                 projections
                 .Where(x => typeof(IProjectionDefinition).IsAssignableFrom(x))
                 .Where(x => x.GetInterfaces().Any(y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IEventHandler<>)))
                 .Select(proj => proj.GetContractId()));
 
-            if (ReferenceEquals(null, session) == true) throw new ArgumentNullException(nameof(session));
-            if (ReferenceEquals(null, serializer) == true) throw new ArgumentNullException(nameof(serializer));
-
-            this.serializer = serializer;
             this.session = session;
+            this.serializer = serializer;
+            this.schema = schema;
 
-            this.SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            this.GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            this.GetSnapshotMetaPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            this.CreatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            this.DropPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            //InitializeSnapshotsDatabase();
+            SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+            GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+            GetSnapshotMetaPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }
 
         public ISnapshot Load(string projectionName, IBlobId id, ProjectionVersion version)
@@ -127,43 +120,9 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
                 ));
         }
 
-        public void DropTable(string location)
-        {
-            // https://issues.apache.org/jira/browse/CASSANDRA-10699
-            // https://issues.apache.org/jira/browse/CASSANDRA-11429
-            lock (dropMutex)
-            {
-                var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildDropPreparedStatemnt(x));
-                statement.SetConsistencyLevel(ConsistencyLevel.All);
-                session.Execute(statement.Bind());
-            }
-        }
-
-        public void CreateTable(string template, string location)
-        {
-            // https://issues.apache.org/jira/browse/CASSANDRA-10699
-            // https://issues.apache.org/jira/browse/CASSANDRA-11429
-            lock (createMutex)
-            {
-                var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildCreatePreparedStatement(template, x));
-                statement.SetConsistencyLevel(ConsistencyLevel.All);
-                session.Execute(statement.Bind());
-            }
-        }
-
         public void InitializeProjectionSnapshotStore(ProjectionVersion projectionVersion)
         {
-            CreateTable(CreateSnapshopEventsTableTemplate, projectionVersion.GetSnapshotColumnFamily());
-        }
-
-        PreparedStatement BuildDropPreparedStatemnt(string columnFamily)
-        {
-            return session.Prepare(string.Format(DropQueryTemplate, columnFamily));
-        }
-
-        PreparedStatement BuildCreatePreparedStatement(string template, string columnFamily)
-        {
-            return session.Prepare(string.Format(template, columnFamily));
+            schema.CreateTable(projectionVersion.GetSnapshotColumnFamily());
         }
 
         PreparedStatement BuildeInsertPreparedStatemnt(string columnFamily)
