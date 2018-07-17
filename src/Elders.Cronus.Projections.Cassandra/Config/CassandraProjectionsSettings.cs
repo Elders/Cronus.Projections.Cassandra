@@ -258,7 +258,6 @@ namespace Elders.Cronus.Projections.Cassandra.Config
                     .WithReconnectionPolicy(settings.ReconnectionPolicy)
                     .WithRetryPolicy(settings.RetryPolicy)
                     .WithConnectionString(settings.ConnectionString)
-                    .WithDefaultKeyspace(settings.Keyspace)
                     .Build();
             }
             else
@@ -266,25 +265,24 @@ namespace Elders.Cronus.Projections.Cassandra.Config
                 cluster = settings.Cluster;
             }
 
-            var session = cluster.Connect();
-            session.CreateKeyspace(settings.ReplicationStrategy, settings.Keyspace);
+            var schemaCreatorVoltron = cluster.AllHosts().FirstOrDefault(x => x.IsUp);
+            if (ReferenceEquals(null, schemaCreatorVoltron)) throw new InvalidOperationException("Could not find a live Cassandra node!");
+
+            var schemaCluster = DataStaxCassandra.Cluster
+                   .Builder()
+                   .WithReconnectionPolicy(settings.ReconnectionPolicy)
+                   .WithRetryPolicy(settings.RetryPolicy)
+                   .AddContactPoint(schemaCreatorVoltron.Address)
+                   .WithPort(9042)
+                   .Build();
+
+            var schemaSession = schemaCluster.Connect();
+            schemaSession.CreateKeyspace(settings.ReplicationStrategy, settings.Keyspace);
 
             var serializer = builder.Container.Resolve<ISerializer>();
             var publisher = builder.Container.Resolve<ITransport>(builder.Name).GetPublisher<ICommand>(serializer);
 
-            var schemaCreatorVoltron = session.Cluster.AllHosts().FirstOrDefault(x => x.IsUp);
-            if (ReferenceEquals(null, schemaCreatorVoltron)) throw new InvalidOperationException("Could not find a live Cassandra node!");
-
-            var schemaCluster = DataStaxCassandra.Cluster
-                    .Builder()
-                    .WithReconnectionPolicy(settings.ReconnectionPolicy)
-                    .WithRetryPolicy(settings.RetryPolicy)
-                    .AddContactPoint(schemaCreatorVoltron.Address)
-                    .WithDefaultKeyspace(settings.Keyspace)
-                    .WithPort(9042)
-                    .Build();
-
-            var schemaSession = schemaCluster.Connect();
+            var session = cluster.Connect(settings.Keyspace);
             var projectionStoreSchema = new CassandraProjectionStoreSchema(schemaSession);
 
             builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(settings.ProjectionTypes, session, serializer, publisher, projectionStoreSchema), builder.Name);
@@ -297,7 +295,6 @@ namespace Elders.Cronus.Projections.Cassandra.Config
                 var snapshotStoreSchema = new CassandraSnapshotStoreSchema(schemaSession);
                 builder.Container.RegisterSingleton<ISnapshotStore>(() => new CassandraSnapshotStore(settings.ProjectionTypes, session, serializer, snapshotStoreSchema), builder.Name);
             }
-
 
             builder.Container.RegisterSingleton<ISnapshotStrategy>(() => settings.SnapshotStrategy, builder.Name);
         }
