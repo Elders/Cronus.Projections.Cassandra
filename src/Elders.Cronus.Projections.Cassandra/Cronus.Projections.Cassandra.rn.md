@@ -1,3 +1,6 @@
+#### 5.0.0-beta0011 - 17.07.2018
+* Create default keyspace before connecting to the cluster
+
 #### 5.0.0-beta0010 - 16.07.2018
 * Create projection store schema against a single node
 * Create snapshot store schema against a single node
