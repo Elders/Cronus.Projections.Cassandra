@@ -273,7 +273,6 @@ namespace Elders.Cronus.Projections.Cassandra.Config
                    .WithReconnectionPolicy(settings.ReconnectionPolicy)
                    .WithRetryPolicy(settings.RetryPolicy)
                    .AddContactPoint(schemaCreatorVoltron.Address)
-                   .WithPort(9042)
                    .Build();
 
             var schemaSession = schemaCluster.Connect();
