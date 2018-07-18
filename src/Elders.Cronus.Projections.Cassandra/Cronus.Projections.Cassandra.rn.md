@@ -1,3 +1,6 @@
+#### 5.0.0-beta0012 - 18.07.2018
+* Do not set Cassandra port
+
 #### 5.0.0-beta0011 - 17.07.2018
 * Create default keyspace before connecting to the cluster
 
