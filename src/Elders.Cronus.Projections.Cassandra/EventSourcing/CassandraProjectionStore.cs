@@ -128,7 +128,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         {
             if (ReferenceEquals(null, schema) == false)
             {
-                log.Debug(() => $"Creating table '{projectionVersion.GetColumnFamily()}' for projection version '{projectionVersion}'");
+                log.Debug(() => $"Initializing projection store with column family '{projectionVersion.GetColumnFamily()}' for projection version '{projectionVersion}'");
                 schema.CreateTable(projectionVersion.GetColumnFamily());
                 return;
             }
