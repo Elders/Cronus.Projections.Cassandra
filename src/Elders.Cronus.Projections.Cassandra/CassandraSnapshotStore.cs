@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using Cassandra;
 using Elders.Cronus.Projections.Cassandra.EventSourcing;
+using Elders.Cronus.Projections.Cassandra.Logging;
 using Elders.Cronus.Projections.Snapshotting;
 using Elders.Cronus.Serializer;
 
@@ -12,6 +13,8 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
 {
     public sealed class CassandraSnapshotStore : ISnapshotStore
     {
+        static ILog log = LogProvider.GetLogger(typeof(CassandraSnapshotStore));
+
         const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id, rev, data) VALUES (?,?,?);";
         const string GetQueryTemplate = @"SELECT data, rev FROM ""{0}"" WHERE id=? LIMIT 1;";
         const string GetSnapshotMetaQueryTemplate = @"SELECT rev FROM ""{0}"" WHERE id=? LIMIT 1;";
@@ -29,7 +32,6 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
             if (ReferenceEquals(null, projections) == true) throw new ArgumentNullException(nameof(projections));
             if (ReferenceEquals(null, session) == true) throw new ArgumentNullException(nameof(session));
             if (ReferenceEquals(null, serializer) == true) throw new ArgumentNullException(nameof(serializer));
-            if (ReferenceEquals(null, schema) == true) throw new ArgumentNullException(nameof(schema));
 
             projectionContracts = new HashSet<string>(
                 projections
@@ -122,7 +124,14 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
 
         public void InitializeProjectionSnapshotStore(ProjectionVersion projectionVersion)
         {
-            schema.CreateTable(projectionVersion.GetSnapshotColumnFamily());
+            if (ReferenceEquals(null, schema) == false)
+            {
+                log.Debug(() => $"Creating snapshot table '{projectionVersion.GetColumnFamily()}' for projection version '{projectionVersion}'");
+                schema.CreateTable(projectionVersion.GetColumnFamily());
+                return;
+            }
+
+            log.Debug(() => "This node can not change Cassandra schema.");
         }
 
         PreparedStatement BuildeInsertPreparedStatemnt(string columnFamily)

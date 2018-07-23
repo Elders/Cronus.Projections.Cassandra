@@ -27,21 +27,19 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         private readonly IPublisher<ICommand> publisher;
         private readonly CassandraProjectionStoreSchema schema;
 
-        public CassandraProjectionStore(IEnumerable<Type> projections, ISession session, ISerializer serializer, IPublisher<ICommand> publisher, CassandraProjectionStoreSchema schema)
+        public CassandraProjectionStore(ISession session, ISerializer serializer, IPublisher<ICommand> publisher, CassandraProjectionStoreSchema schema)
         {
-            if (ReferenceEquals(null, projections) == true) throw new ArgumentNullException(nameof(projections));
             if (ReferenceEquals(null, session) == true) throw new ArgumentNullException(nameof(session));
             if (ReferenceEquals(null, serializer) == true) throw new ArgumentNullException(nameof(serializer));
             if (ReferenceEquals(null, publisher) == true) throw new ArgumentNullException(nameof(publisher));
-            if (ReferenceEquals(null, schema) == true) throw new ArgumentNullException(nameof(schema));
 
+            this.session = session;
             this.serializer = serializer;
             this.publisher = publisher;
             this.schema = schema;
-            this.session = session;
-            this.SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            this.GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
 
+            SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+            GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
 
             log.Debug($"[{nameof(CassandraProjectionStore)}] Initialized with keyspace {session.Keyspace}");
         }
@@ -65,7 +63,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             }
             catch (InvalidQueryException)
             {
-                schema.CreateTable(columnFamily);
+                //schema?.CreateTable(columnFamily);
                 var id = new ProjectionVersionManagerId(contractId);
                 var command = new RegisterProjection(id, contractId.GetTypeByContract().GetProjectionHash());
                 publisher.Publish(command);
@@ -128,7 +126,14 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public void InitializeProjectionStore(ProjectionVersion projectionVersion)
         {
-            schema.CreateTable(projectionVersion.GetColumnFamily());
+            if (ReferenceEquals(null, schema) == false)
+            {
+                log.Debug(() => $"Creating table '{projectionVersion.GetColumnFamily()}' for projection version '{projectionVersion}'");
+                schema.CreateTable(projectionVersion.GetColumnFamily());
+                return;
+            }
+
+            log.Debug(() => "This node can not change Cassandra schema.");
         }
 
         PreparedStatement GetPreparedStatementToGetProjection(string columnFamily)

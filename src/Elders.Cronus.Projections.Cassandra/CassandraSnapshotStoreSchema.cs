@@ -48,17 +48,12 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         {
             if (string.IsNullOrWhiteSpace(location)) throw new ArgumentNullException(nameof(location));
 
-            CreateTable(CreateSnapshopEventsTableTemplate, location);
-        }
-
-        void CreateTable(string template, string location)
-        {
             // https://issues.apache.org/jira/browse/CASSANDRA-10699
             // https://issues.apache.org/jira/browse/CASSANDRA-11429
             lock (createMutex)
             {
                 log.Info(() => $"Creating snapshot table `{location}` with `{sessionForSchemaChanges.Cluster.AllHosts().First().Address}`...");
-                var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildCreatePreparedStatement(template, x));
+                var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildCreatePreparedStatement(CreateSnapshopEventsTableTemplate, x));
                 statement.SetConsistencyLevel(ConsistencyLevel.All);
                 sessionForSchemaChanges.Execute(statement.Bind());
                 log.Info(() => $"Created snapshot table `{location}`... Maybe?!");

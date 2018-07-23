@@ -48,16 +48,10 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public void CreateTable(string location)
         {
-            CreateTable(CreateProjectionEventsTableTemplate, location);
-        }
-
-
-        void CreateTable(string template, string location)
-        {
             lock (createMutex)
             {
                 log.Info(() => $"Creating table `{location}` with `{sessionForSchemaChanges.Cluster.AllHosts().First().Address}`...");
-                var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildCreatePreparedStatement(template, x));
+                var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildCreatePreparedStatement(CreateProjectionEventsTableTemplate, x));
                 statement.SetConsistencyLevel(ConsistencyLevel.All);
                 sessionForSchemaChanges.Execute(statement.Bind());
                 log.Info(() => $"Created table `{location}`... Maybe?!");

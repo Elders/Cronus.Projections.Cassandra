@@ -206,6 +206,19 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             self.SnapshotStrategy = snapshotStrategy;
             return self;
         }
+
+        /// <summary>
+        /// Can change Cassandra schema
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="self"></param>
+        /// <param name="canChangeSchema"></param>
+        /// <returns></returns>
+        public static T CanChangeSchema<T>(this T self, bool canChangeSchema) where T : ICassandraProjectionsStoreSettings
+        {
+            self.CanChangeSchema = canChangeSchema;
+            return self;
+        }
     }
 
     public interface ICassandraProjectionsStoreSettings : ISettingsBuilder
@@ -220,6 +233,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         DataStaxCassandra.IReconnectionPolicy ReconnectionPolicy { get; set; }
         ICassandraReplicationStrategy ReplicationStrategy { get; set; }
         ISnapshotStrategy SnapshotStrategy { get; set; }
+        bool CanChangeSchema { get; set; }
     }
 
     public class CassandraProjectionsSettings : CassandraProjectionsStoreSettings
@@ -265,24 +279,28 @@ namespace Elders.Cronus.Projections.Cassandra.Config
                 cluster = settings.Cluster;
             }
 
-
-            DataStaxCassandra.ISession schemaSession = GetLiveSchemaSession(cluster, settings);
-            schemaSession.CreateKeyspace(settings.ReplicationStrategy, settings.Keyspace);
-
             var serializer = builder.Container.Resolve<ISerializer>();
             var publisher = builder.Container.Resolve<ITransport>(builder.Name).GetPublisher<ICommand>(serializer);
 
             var session = cluster.Connect(settings.Keyspace);
-            var projectionStoreSchema = new CassandraProjectionStoreSchema(schemaSession);
+            CassandraProjectionStoreSchema projectionStoreSchema = null;
+            CassandraSnapshotStoreSchema snapshotStoreSchema = null;
 
-            builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(settings.ProjectionTypes, session, serializer, publisher, projectionStoreSchema), builder.Name);
+            if (settings.CanChangeSchema)
+            {
+                DataStaxCassandra.ISession schemaSession = GetLiveSchemaSession(cluster, settings);
+                schemaSession.CreateKeyspace(settings.ReplicationStrategy, settings.Keyspace);
+                projectionStoreSchema = new CassandraProjectionStoreSchema(schemaSession);
+                snapshotStoreSchema = new CassandraSnapshotStoreSchema(schemaSession);
+            }
+
+            builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(session, serializer, publisher, projectionStoreSchema), builder.Name);
             if (ReferenceEquals(null, settings.ProjectionTypes))
             {
                 builder.Container.RegisterSingleton<ISnapshotStore>(() => new NoSnapshotStore(), builder.Name);
             }
             else
             {
-                var snapshotStoreSchema = new CassandraSnapshotStoreSchema(schemaSession);
                 builder.Container.RegisterSingleton<ISnapshotStore>(() => new CassandraSnapshotStore(settings.ProjectionTypes, session, serializer, snapshotStoreSchema), builder.Name);
             }
 
@@ -297,19 +315,19 @@ namespace Elders.Cronus.Projections.Cassandra.Config
 
             while (ReferenceEquals(null, schemaSession))
             {
+                var schemaCreatorVoltron = hosts.ElementAtOrDefault(counter++);
+                if (ReferenceEquals(null, schemaCreatorVoltron))
+                    throw new InvalidOperationException($"Could not find a Cassandra node! Hosts: '{string.Join(", ", hosts.Select(x => x.Address))}'");
+
+                var schemaCluster = DataStaxCassandra.Cluster
+                       .Builder()
+                       .WithReconnectionPolicy(settings.ReconnectionPolicy)
+                       .WithRetryPolicy(settings.RetryPolicy)
+                       .AddContactPoint(schemaCreatorVoltron.Address)
+                       .Build();
+
                 try
                 {
-                    var schemaCreatorVoltron = hosts.ElementAtOrDefault(counter++);
-                    if (ReferenceEquals(null, schemaCreatorVoltron))
-                        throw new InvalidOperationException($"Could not find a Cassandra node! Hosts: '{string.Join(", ", hosts.Select(x => x.Address))}'");
-
-                    var schemaCluster = DataStaxCassandra.Cluster
-                           .Builder()
-                           .WithReconnectionPolicy(settings.ReconnectionPolicy)
-                           .WithRetryPolicy(settings.RetryPolicy)
-                           .AddContactPoint(schemaCreatorVoltron.Address)
-                           .Build();
-
                     schemaSession = schemaCluster.Connect();
                 }
                 catch (DataStaxCassandra.NoHostAvailableException)
@@ -343,5 +361,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         ICassandraReplicationStrategy ICassandraProjectionsStoreSettings.ReplicationStrategy { get; set; }
 
         ISnapshotStrategy ICassandraProjectionsStoreSettings.SnapshotStrategy { get; set; }
+
+        bool ICassandraProjectionsStoreSettings.CanChangeSchema { get; set; }
     }
 }
