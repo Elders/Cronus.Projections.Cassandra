@@ -282,14 +282,15 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             var serializer = builder.Container.Resolve<ISerializer>();
             var publisher = builder.Container.Resolve<ITransport>(builder.Name).GetPublisher<ICommand>(serializer);
 
-            var session = cluster.Connect(settings.Keyspace);
+            var session = cluster.Connect();
+            session.CreateKeyspace(settings.ReplicationStrategy, settings.Keyspace); // it is ok to create a keyspace from multiple threads
+
             CassandraProjectionStoreSchema projectionStoreSchema = null;
             CassandraSnapshotStoreSchema snapshotStoreSchema = null;
 
             if (settings.CanChangeSchema)
             {
                 DataStaxCassandra.ISession schemaSession = GetLiveSchemaSession(cluster, settings);
-                schemaSession.CreateKeyspace(settings.ReplicationStrategy, settings.Keyspace);
                 projectionStoreSchema = new CassandraProjectionStoreSchema(schemaSession);
                 snapshotStoreSchema = new CassandraSnapshotStoreSchema(schemaSession);
             }
