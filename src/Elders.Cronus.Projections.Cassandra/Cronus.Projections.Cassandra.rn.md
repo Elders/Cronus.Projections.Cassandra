@@ -1,3 +1,10 @@
+#### 5.0.0-beta0014 - 23.07.2018
+* Create snapshot tables if the load query fails
+* Create schema session with the already created keyspace
+* Create table if projection query fails
+* Improved logging when initializing projection store
+* Improved logging when initializing projection snapshot store
+
 #### 5.0.0-beta0013 - 23.07.2018
 * Getting live session for projection schema creation
 * Only certain nodes can create and delete Cassandra tables and keyspaces
