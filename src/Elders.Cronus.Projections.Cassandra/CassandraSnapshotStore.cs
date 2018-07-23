@@ -158,7 +158,7 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         {
             if (ReferenceEquals(null, schema) == false)
             {
-                log.Debug(() => $"Creating snapshot table '{projectionVersion.GetColumnFamily()}' for projection version '{projectionVersion}'");
+                log.Debug(() => $"Initializing projection snapshot store with column family '{projectionVersion.GetColumnFamily()}' for projection version '{projectionVersion}'");
                 schema.CreateTable(projectionVersion.GetColumnFamily());
                 return;
             }
