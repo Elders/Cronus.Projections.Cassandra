@@ -60,9 +60,25 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
 
         ISnapshot Load(string projectionName, IBlobId id, string columnFamily)
         {
-            BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(Convert.ToBase64String(id.RawId));
-            var result = session.Execute(bs);
-            var row = result.GetRows().FirstOrDefault();
+            Row row = null;
+
+            try
+            {
+                var bs = GetPreparedStatementToGetProjection(columnFamily).Bind(Convert.ToBase64String(id.RawId));
+                var result = session.Execute(bs);
+                row = result.GetRows().FirstOrDefault();
+            }
+            catch (InvalidQueryException)
+            {
+                if (ReferenceEquals(null, schema) == false)
+                {
+                    schema.CreateTable(columnFamily);
+                }
+                else
+                {
+                    log.Debug(() => "This node can not change Cassandra schema.");
+                }
+            }
 
             if (row == null)
                 return new NoSnapshot(id, projectionName);
@@ -88,9 +104,25 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
 
         SnapshotMeta LoadMeta(string projectionName, IBlobId id, string columnFamily)
         {
-            BoundStatement bs = GetPreparedStatementToGetSnapshotMeta(columnFamily).Bind(Convert.ToBase64String(id.RawId));
-            var result = session.Execute(bs);
-            var row = result.GetRows().FirstOrDefault();
+            Row row = null;
+
+            try
+            {
+                var bs = GetPreparedStatementToGetSnapshotMeta(columnFamily).Bind(Convert.ToBase64String(id.RawId));
+                var result = session.Execute(bs);
+                row = result.GetRows().FirstOrDefault();
+            }
+            catch (InvalidQueryException)
+            {
+                if (ReferenceEquals(null, schema) == false)
+                {
+                    schema.CreateTable(columnFamily);
+                }
+                else
+                {
+                    log.Debug(() => "This node can not change Cassandra schema.");
+                }
+            }
 
             if (row == null)
                 return new NoSnapshot(id, projectionName).GetMeta();
