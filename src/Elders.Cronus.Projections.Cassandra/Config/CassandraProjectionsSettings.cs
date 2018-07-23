@@ -329,7 +329,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
 
                 try
                 {
-                    schemaSession = schemaCluster.Connect();
+                    schemaSession = schemaCluster.Connect(settings.Keyspace);
                 }
                 catch (DataStaxCassandra.NoHostAvailableException)
                 {
