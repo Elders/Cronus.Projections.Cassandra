@@ -1,3 +1,8 @@
+#### 5.0.0-beta0013 - 23.07.2018
+* Getting live session for projection schema creation
+* Only certain nodes can create and delete Cassandra tables and keyspaces
+* It is ok to create a keyspace from multiple threads
+
 #### 5.0.0-beta0012 - 18.07.2018
 * Do not set Cassandra port
 
