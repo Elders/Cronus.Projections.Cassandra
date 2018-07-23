@@ -265,17 +265,8 @@ namespace Elders.Cronus.Projections.Cassandra.Config
                 cluster = settings.Cluster;
             }
 
-            var schemaCreatorVoltron = cluster.AllHosts().FirstOrDefault(x => x.IsUp);
-            if (ReferenceEquals(null, schemaCreatorVoltron)) throw new InvalidOperationException("Could not find a live Cassandra node!");
 
-            var schemaCluster = DataStaxCassandra.Cluster
-                   .Builder()
-                   .WithReconnectionPolicy(settings.ReconnectionPolicy)
-                   .WithRetryPolicy(settings.RetryPolicy)
-                   .AddContactPoint(schemaCreatorVoltron.Address)
-                   .Build();
-
-            var schemaSession = schemaCluster.Connect();
+            DataStaxCassandra.ISession schemaSession = GetLiveSchemaSession(cluster, settings);
             schemaSession.CreateKeyspace(settings.ReplicationStrategy, settings.Keyspace);
 
             var serializer = builder.Container.Resolve<ISerializer>();
@@ -296,6 +287,41 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             }
 
             builder.Container.RegisterSingleton<ISnapshotStrategy>(() => settings.SnapshotStrategy, builder.Name);
+        }
+
+        private DataStaxCassandra.ISession GetLiveSchemaSession(DataStaxCassandra.Cluster cluster, ICassandraProjectionsStoreSettings settings)
+        {
+            var hosts = cluster.AllHosts().ToList();
+            DataStaxCassandra.ISession schemaSession = null;
+            var counter = 0;
+
+            while (ReferenceEquals(null, schemaSession))
+            {
+                try
+                {
+                    var schemaCreatorVoltron = hosts.ElementAtOrDefault(counter++);
+                    if (ReferenceEquals(null, schemaCreatorVoltron))
+                        throw new InvalidOperationException($"Could not find a Cassandra node! Hosts: '{string.Join(", ", hosts.Select(x => x.Address))}'");
+
+                    var schemaCluster = DataStaxCassandra.Cluster
+                           .Builder()
+                           .WithReconnectionPolicy(settings.ReconnectionPolicy)
+                           .WithRetryPolicy(settings.RetryPolicy)
+                           .AddContactPoint(schemaCreatorVoltron.Address)
+                           .Build();
+
+                    schemaSession = schemaCluster.Connect();
+                }
+                catch (DataStaxCassandra.NoHostAvailableException)
+                {
+                    if (counter < hosts.Count)
+                        continue;
+                    else
+                        throw;
+                }
+            }
+
+            return schemaSession;
         }
 
         string ICassandraProjectionsStoreSettings.Keyspace { get; set; }
