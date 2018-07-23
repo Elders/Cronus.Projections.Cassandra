@@ -63,7 +63,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             }
             catch (InvalidQueryException)
             {
-                //schema?.CreateTable(columnFamily);
+                schema?.CreateTable(columnFamily);
                 var id = new ProjectionVersionManagerId(contractId);
                 var command = new RegisterProjection(id, contractId.GetTypeByContract().GetProjectionHash());
                 publisher.Publish(command);
