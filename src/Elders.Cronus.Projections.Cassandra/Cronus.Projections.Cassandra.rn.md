@@ -1,3 +1,7 @@
+#### 5.0.0-beta0015 - 25.07.2018
+* Expose locking for creating and dropping tables
+* Removed CanChangeSchema
+
 #### 5.0.0-beta0014 - 23.07.2018
 * Create snapshot tables if the load query fails
 * Create schema session with the already created keyspace

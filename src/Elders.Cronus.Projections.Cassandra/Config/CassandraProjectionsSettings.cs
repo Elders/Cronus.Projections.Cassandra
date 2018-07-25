@@ -10,7 +10,8 @@ using System.Reflection;
 using System.Linq;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
 using Elders.Cronus.Projections.Snapshotting;
-using Elders.Cronus.Projections.Versioning;
+using Elders.Cronus.AtomicAction;
+using Elders.Cronus.AtomicAction.InMemory;
 
 namespace Elders.Cronus.Projections.Cassandra.Config
 {
@@ -25,6 +26,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             settings.SetProjectionsWriteConsistencyLevel(DataStaxCassandra.ConsistencyLevel.All);
             settings.SetProjectionsReadConsistencyLevel(DataStaxCassandra.ConsistencyLevel.Quorum);
             settings.UseSnapshotStrategy(new TimeOffsetSnapshotStrategy(snapshotOffset: TimeSpan.FromDays(1), eventsInSnapshot: 500));
+            settings.UseLock(new InMemoryLock());
 
             configure?.Invoke(settings);
 
@@ -46,6 +48,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             settings.SetProjectionsWriteConsistencyLevel(DataStaxCassandra.ConsistencyLevel.All);
             settings.SetProjectionsReadConsistencyLevel(DataStaxCassandra.ConsistencyLevel.Quorum);
             settings.UseSnapshotStrategy(new EventsCountSnapshotStrategy(eventsInSnapshot: 500));
+            settings.UseLock(new InMemoryLock());
 
             (settings as ICassandraProjectionsStoreSettings).ProjectionTypes = self.HandlerRegistrations;
 
@@ -208,15 +211,17 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         }
 
         /// <summary>
-        /// Can change Cassandra schema
+        /// Set custom lock mechanism when performing schema changes
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="self"></param>
-        /// <param name="canChangeSchema"></param>
+        /// <param name="lock">Lock algorithm</param>
+        /// <param name="ttl">Defaults to 2 seconds</param>
         /// <returns></returns>
-        public static T CanChangeSchema<T>(this T self, bool canChangeSchema) where T : ICassandraProjectionsStoreSettings
+        public static T UseLock<T>(this T self, ILock @lock, TimeSpan? ttl = null) where T : ICassandraProjectionsStoreSettings
         {
-            self.CanChangeSchema = canChangeSchema;
+            self.Lock = @lock;
+            self.LockTtl = ttl.GetValueOrDefault(TimeSpan.FromSeconds(2));
             return self;
         }
     }
@@ -233,7 +238,8 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         DataStaxCassandra.IReconnectionPolicy ReconnectionPolicy { get; set; }
         ICassandraReplicationStrategy ReplicationStrategy { get; set; }
         ISnapshotStrategy SnapshotStrategy { get; set; }
-        bool CanChangeSchema { get; set; }
+        ILock Lock { get; set; }
+        TimeSpan LockTtl { get; set; }
     }
 
     public class CassandraProjectionsSettings : CassandraProjectionsStoreSettings
@@ -285,15 +291,9 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             var session = cluster.Connect();
             session.CreateKeyspace(settings.ReplicationStrategy, settings.Keyspace); // it is ok to create a keyspace from multiple threads
 
-            CassandraProjectionStoreSchema projectionStoreSchema = null;
-            CassandraSnapshotStoreSchema snapshotStoreSchema = null;
-
-            if (settings.CanChangeSchema)
-            {
-                DataStaxCassandra.ISession schemaSession = GetLiveSchemaSession(cluster, settings);
-                projectionStoreSchema = new CassandraProjectionStoreSchema(schemaSession);
-                snapshotStoreSchema = new CassandraSnapshotStoreSchema(schemaSession);
-            }
+            var schemaSession = GetLiveSchemaSession(cluster, settings);
+            var projectionStoreSchema = new CassandraProjectionStoreSchema(schemaSession, settings.Lock, settings.LockTtl);
+            var snapshotStoreSchema = new CassandraSnapshotStoreSchema(schemaSession, settings.Lock, settings.LockTtl);
 
             builder.Container.RegisterSingleton<IProjectionStore>(() => new CassandraProjectionStore(session, serializer, publisher, projectionStoreSchema), builder.Name);
             if (ReferenceEquals(null, settings.ProjectionTypes))
@@ -363,6 +363,8 @@ namespace Elders.Cronus.Projections.Cassandra.Config
 
         ISnapshotStrategy ICassandraProjectionsStoreSettings.SnapshotStrategy { get; set; }
 
-        bool ICassandraProjectionsStoreSettings.CanChangeSchema { get; set; }
+        ILock ICassandraProjectionsStoreSettings.Lock { get; set; }
+
+        TimeSpan ICassandraProjectionsStoreSettings.LockTtl { get; set; }
     }
 }
