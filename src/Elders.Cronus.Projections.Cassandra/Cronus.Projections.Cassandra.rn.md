@@ -1,3 +1,7 @@
+#### 5.0.0-beta0016 - 02.10.2018
+* Updates Cronus
+* Implements Async functionalities for IProjectionStore
+
 #### 5.0.0-beta0015 - 25.07.2018
 * Expose locking for creating and dropping tables
 * Removed CanChangeSchema
