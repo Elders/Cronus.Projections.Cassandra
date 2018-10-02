@@ -8,6 +8,7 @@ using System.Linq;
 using Elders.Cronus.Projections.Cassandra.Logging;
 using Elders.Cronus.Projections.Cassandra.Config;
 using Elders.Cronus.Projections.Versioning;
+using System.Threading.Tasks;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
@@ -44,6 +45,12 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             log.Debug($"[{nameof(CassandraProjectionStore)}] Initialized with keyspace {session.Keyspace}");
         }
 
+        public async Task<IEnumerable<ProjectionCommit>> LoadAsync(ProjectionVersion version, IBlobId projcetionId, int snapshotMarker)
+        {
+            var columnFamily = version.ProjectionName.GetColumnFamily(version);
+            return await LoadAsync(version.ProjectionName, projcetionId, snapshotMarker, columnFamily);
+        }
+
         public IEnumerable<ProjectionCommit> Load(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
         {
             var columnFamily = version.ProjectionName.GetColumnFamily(version);
@@ -78,6 +85,39 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
                     yield return (ProjectionCommit)serializer.Deserialize(stream);
                 }
             }
+        }
+
+        async Task<IEnumerable<ProjectionCommit>> LoadAsync(string contractId, IBlobId projectionId, int snapshotMarker, string columnFamily)
+        {
+            IEnumerable<Row> rows = null;
+            try
+            {
+                string projId = Convert.ToBase64String(projectionId.RawId);
+
+                BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(projId, snapshotMarker);
+                var result = await session.ExecuteAsync(bs);
+                rows = result.GetRows();
+            }
+            catch (InvalidQueryException)
+            {
+                schema?.CreateTable(columnFamily);
+                var id = new ProjectionVersionManagerId(contractId);
+                var command = new RegisterProjection(id, contractId.GetTypeByContract().GetProjectionHash());
+                publisher.Publish(command);
+                throw;
+            }
+
+            var projectionCommits = new List<ProjectionCommit>();
+            foreach (var row in rows)
+            {
+                var data = row.GetValue<byte[]>("data");
+                using (var stream = new MemoryStream(data))
+                {
+                    projectionCommits.Add((ProjectionCommit)serializer.Deserialize(stream));
+                }
+            }
+
+            return projectionCommits;
         }
 
         public IEnumerable<ProjectionCommit> EnumerateProjection(ProjectionVersion version, IBlobId projectionId)
