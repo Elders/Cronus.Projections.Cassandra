@@ -1,3 +1,6 @@
+#### 5.0.0-discovery0001 - 08.10.2018
+* Adds IProjectionLoader discovery
+
 #### 5.0.0-beta0016 - 02.10.2018
 * Updates Cronus
 * Implements Async functionalities for IProjectionStore
