@@ -1,53 +1,59 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks>netstandard2.0;net472</TargetFrameworks>
   </PropertyGroup>
 
   <!--Nuget-->
   <PropertyGroup>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <PackageId>Cronus.Projections.Cassandra</PackageId>
-    <PackageLicenseUrl>https://github.com/Elders/Cronus/blob/master/LICENSE</PackageLicenseUrl>
-    <PackageProjectUrl>http://Elders.github.io/Cronus</PackageProjectUrl>
+    <Product>Cronus</Product>
+    <Title>Cronus</Title>
+    <Authors>Elders OSS</Authors>
+    <Copyright>Copyright © Elders OSS 2013</Copyright>
+    <Description>Cronus is a lightweight framework for dispatching and receiving messages between microservices with DDD/CQRS in mind</Description>
     <PackageTags>CQRS DDD ES Event store sourcing</PackageTags>
-    <RepositoryUrl>https://github.com/Elders/Cronus</RepositoryUrl>
+    <PackageLicenseUrl>https://github.com/Elders/Cronus/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/Elders/Cronus</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Elders/Cronus.Projections.Cassandra.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <PackageIconUrl>https://raw.githubusercontent.com/Elders/logo/master/cronus/frame.png</PackageIconUrl>
-    <RepositoryType>Framework</RepositoryType>
-    <Authors>Elders</Authors>
-    <IncludeSymbolsInPackage>true</IncludeSymbolsInPackage>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AssemblyName>Elders.Cronus.Projections.Cassandra</AssemblyName>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <RootNamespace>Elders.Cronus.Projections.Cassandra</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <DefineConstants>TRACE;DEBUG</DefineConstants>
   </PropertyGroup>
 
   <!--netstandard2.0-->
-  <PropertyGroup Condition="'$(TargetFramework)'=='netstandard2.0'">
-    <DefineConstants>TRACE;DEBUG;NETSTANDARD2_0;LIBLOG_PORTABLE</DefineConstants>
-  </PropertyGroup>
   <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.0'">
     <PackageReference Include="Microsoft.CSharp" Version="4.5.0" />
   </ItemGroup>
 
+  <!--netstandard2.0 == false-->
+  <ItemGroup Condition="'$(TargetFramework)'!='netstandard2.0'">
+    <Reference Include="mscorlib" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
+
   <ItemGroup>
-    <PackageReference Include="LibLog" Version="5.0.2" />
-    <PackageReference Include="Cronus" Version="5.0.0-beta0037" />
+    <PackageReference Include="LibLog" Version="5.0.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Cronus" Version="5.0.0-discovery0002" />
     <PackageReference Include="CassandraCSharpDriver" Version="3.6.0" />
   </ItemGroup>
 
-  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <DebugType>portable</DebugType>
-    <DebugSymbols>true</DebugSymbols>
-    <EmbedSources>true</EmbedSources>
-    <CheckForOverflowUnderflow>True</CheckForOverflowUnderflow>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+  <PropertyGroup>
     <DebugType>portable</DebugType>
     <DebugSymbols>true</DebugSymbols>
     <EmbedSources>true</EmbedSources>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="SourceLink.Create.CommandLine" Version="2.8.0" PrivateAssets="All" />
-    <!--<DotNetCliToolReference Include="dotnet-sourcelink" Version="2.8.0" />-->
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="SourceLink.Create.CommandLine" Version="2.8.3" PrivateAssets="All" />
