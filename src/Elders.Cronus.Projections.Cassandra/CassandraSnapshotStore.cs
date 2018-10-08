@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Cassandra;
+using Elders.Cronus.Projections.Cassandra.Config;
 using Elders.Cronus.Projections.Cassandra.EventSourcing;
 using Elders.Cronus.Projections.Cassandra.Logging;
 using Elders.Cronus.Projections.Snapshotting;
@@ -11,6 +12,21 @@ using Elders.Cronus.Serializer;
 
 namespace Elders.Cronus.Projections.Cassandra.Snapshots
 {
+    public class ProjectionsProvider
+    {
+        private readonly IEnumerable<Type> projectionTypes;
+
+        public ProjectionsProvider(IEnumerable<Type> projectionTypes)
+        {
+            this.projectionTypes = projectionTypes;
+        }
+
+        public IEnumerable<Type> GetProjections()
+        {
+            return projectionTypes;
+        }
+    }
+
     public sealed class CassandraSnapshotStore : ISnapshotStore
     {
         static ILog log = LogProvider.GetLogger(typeof(CassandraSnapshotStore));
@@ -46,6 +62,12 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
             SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetSnapshotMetaPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+        }
+
+        public CassandraSnapshotStore(ProjectionsProvider projectionsProvider, CassandraProvider cassandraProvider, ISerializer serializer, CassandraSnapshotStoreSchema schema)
+            : this(projectionsProvider.GetProjections(), cassandraProvider.GetSession(), serializer, schema)
+        {
+
         }
 
         public ISnapshot Load(string projectionName, IBlobId id, ProjectionVersion version)

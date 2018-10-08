@@ -1,9 +1,11 @@
 ﻿using Cassandra;
+using DataStaxCassandra = Cassandra;
 using System.Collections.Concurrent;
 using System.Linq;
 using Elders.Cronus.Projections.Cassandra.Logging;
 using System;
 using Elders.Cronus.AtomicAction;
+using Elders.Cronus.Projections.Cassandra.Config;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
@@ -40,6 +42,12 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             this.lockTtl = lockTtl;
             CreatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             DropPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+        }
+
+        public CassandraProjectionStoreSchema(CassandraProvider cassandraProvider, ILock @lock)
+            : this(GetLiveSchemaSession(cassandraProvider), @lock, TimeSpan.FromSeconds(2))
+        {
+
         }
 
         public void DropTable(string location)
@@ -102,6 +110,41 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         PreparedStatement BuildCreatePreparedStatement(string template, string columnFamily)
         {
             return sessionForSchemaChanges.Prepare(string.Format(template, columnFamily));
+        }
+
+        private static ISession GetLiveSchemaSession(CassandraProvider cassandraProvider)
+        {
+            var hosts = cassandraProvider.GetCluster().AllHosts().ToList();
+            ISession schemaSession = null;
+            var counter = 0;
+
+            while (ReferenceEquals(null, schemaSession))
+            {
+                var schemaCreatorVoltron = hosts.ElementAtOrDefault(counter++);
+                if (ReferenceEquals(null, schemaCreatorVoltron))
+                    throw new InvalidOperationException($"Could not find a Cassandra node! Hosts: '{string.Join(", ", hosts.Select(x => x.Address))}'");
+
+                var schemaCluster = DataStaxCassandra.Cluster
+                    .Builder()
+                    .WithReconnectionPolicy(new DataStaxCassandra.ExponentialReconnectionPolicy(100, 100000))
+                    .WithRetryPolicy(new NoHintedHandOffRetryPolicy())
+                    .AddContactPoint(schemaCreatorVoltron.Address)
+                    .Build();
+
+                try
+                {
+                    schemaSession = schemaCluster.Connect("mynkow");
+                }
+                catch (DataStaxCassandra.NoHostAvailableException)
+                {
+                    if (counter < hosts.Count)
+                        continue;
+                    else
+                        throw;
+                }
+            }
+
+            return schemaSession;
         }
     }
 }

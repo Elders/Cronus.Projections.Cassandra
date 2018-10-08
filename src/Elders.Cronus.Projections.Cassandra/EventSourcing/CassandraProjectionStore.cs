@@ -45,6 +45,12 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             log.Debug($"[{nameof(CassandraProjectionStore)}] Initialized with keyspace {session.Keyspace}");
         }
 
+        public CassandraProjectionStore(CassandraProvider cassandraProvider, ISerializer serializer, IPublisher<ICommand> publisher, CassandraProjectionStoreSchema schema)
+            : this(cassandraProvider.GetSession(), serializer, publisher, schema)
+        {
+
+        }
+
         public async Task<IEnumerable<ProjectionCommit>> LoadAsync(ProjectionVersion version, IBlobId projcetionId, int snapshotMarker)
         {
             var columnFamily = version.ProjectionName.GetColumnFamily(version);

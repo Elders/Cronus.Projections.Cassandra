@@ -2,7 +2,9 @@
 using System.Collections.Concurrent;
 using System.Linq;
 using Cassandra;
+using DataStaxCassandra = Cassandra;
 using Elders.Cronus.AtomicAction;
+using Elders.Cronus.Projections.Cassandra.Config;
 using Elders.Cronus.Projections.Cassandra.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra.Snapshots
@@ -34,6 +36,47 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
             this.lockTtl = lockTtl;
             CreatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             DropPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+        }
+
+        public CassandraSnapshotStoreSchema(CassandraProvider cassandraProvider, ILock @lock)
+            : this(GetLiveSchemaSession(cassandraProvider), @lock, TimeSpan.FromSeconds(2))
+        {
+
+        }
+
+        private static ISession GetLiveSchemaSession(CassandraProvider cassandraProvider)
+        {
+            var hosts = cassandraProvider.GetCluster().AllHosts().ToList();
+            ISession schemaSession = null;
+            var counter = 0;
+
+            while (ReferenceEquals(null, schemaSession))
+            {
+                var schemaCreatorVoltron = hosts.ElementAtOrDefault(counter++);
+                if (ReferenceEquals(null, schemaCreatorVoltron))
+                    throw new InvalidOperationException($"Could not find a Cassandra node! Hosts: '{string.Join(", ", hosts.Select(x => x.Address))}'");
+
+                var schemaCluster = DataStaxCassandra.Cluster
+                    .Builder()
+                    .WithReconnectionPolicy(new DataStaxCassandra.ExponentialReconnectionPolicy(100, 100000))
+                    .WithRetryPolicy(new NoHintedHandOffRetryPolicy())
+                    .AddContactPoint(schemaCreatorVoltron.Address)
+                    .Build();
+
+                try
+                {
+                    schemaSession = schemaCluster.Connect("mynkow");
+                }
+                catch (DataStaxCassandra.NoHostAvailableException)
+                {
+                    if (counter < hosts.Count)
+                        continue;
+                    else
+                        throw;
+                }
+            }
+
+            return schemaSession;
         }
 
         public void DropTable(string location)
