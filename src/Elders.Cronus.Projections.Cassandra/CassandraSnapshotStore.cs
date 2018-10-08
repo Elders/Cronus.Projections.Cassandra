@@ -8,7 +8,6 @@ using Elders.Cronus.Projections.Cassandra.Config;
 using Elders.Cronus.Projections.Cassandra.EventSourcing;
 using Elders.Cronus.Projections.Cassandra.Logging;
 using Elders.Cronus.Projections.Snapshotting;
-using Elders.Cronus.Serializer;
 
 namespace Elders.Cronus.Projections.Cassandra.Snapshots
 {
