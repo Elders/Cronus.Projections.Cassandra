@@ -5,7 +5,6 @@ using Elders.Cronus.Projections.Cassandra.ReplicationStrategies;
 using DataStaxCassandra = Cassandra;
 using System.Collections.Generic;
 using Elders.Cronus.Projections.Cassandra.EventSourcing;
-using Elders.Cronus.Serializer;
 using System.Reflection;
 using System.Linq;
 using Elders.Cronus.Projections.Cassandra.Snapshots;

@@ -2,7 +2,6 @@
 using System;
 using Cassandra;
 using System.Collections.Concurrent;
-using Elders.Cronus.Serializer;
 using System.IO;
 using System.Linq;
 using Elders.Cronus.Projections.Cassandra.Logging;
