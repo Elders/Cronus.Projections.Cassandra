@@ -271,6 +271,8 @@ namespace Elders.Cronus.Projections.Cassandra.Config
 
         private readonly string _defaultKeyspace;
 
+        public string Keyspace { get { return _defaultKeyspace; } }
+
         public CassandraProvider(IConfiguration configuration)
         {
             if (configuration is null) throw new ArgumentNullException(nameof(configuration));

@@ -133,7 +133,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
                 try
                 {
-                    schemaSession = schemaCluster.Connect("mynkow");
+                    schemaSession = schemaCluster.Connect(cassandraProvider.Keyspace);
                 }
                 catch (DataStaxCassandra.NoHostAvailableException)
                 {
