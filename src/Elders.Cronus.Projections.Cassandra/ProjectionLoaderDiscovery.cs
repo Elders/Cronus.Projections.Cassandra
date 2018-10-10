@@ -12,7 +12,7 @@ namespace Elders.Cronus.Projections.Cassandra
     {
         protected override DiscoveryResult<IProjectionLoader> DiscoverFromAssemblies(DiscoveryContext context)
         {
-            var projectionTypes = context.Assemblies.SelectMany(ass => ass.GetTypes().Where(x => typeof(IProjectionDefinition).IsAssignableFrom(x)));
+            var projectionTypes = context.Assemblies.SelectMany(ass => ass.GetLoadableTypes().Where(x => typeof(IProjectionDefinition).IsAssignableFrom(x)));
 
             DiscoveryResult<IProjectionLoader> result = new DiscoveryResult<IProjectionLoader>();
 
