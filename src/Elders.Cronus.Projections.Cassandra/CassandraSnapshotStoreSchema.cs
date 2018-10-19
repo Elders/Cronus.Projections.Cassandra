@@ -25,23 +25,17 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         readonly ConcurrentDictionary<string, PreparedStatement> CreatePreparedStatements;
         readonly ConcurrentDictionary<string, PreparedStatement> DropPreparedStatements;
 
-        public CassandraSnapshotStoreSchema(ISession sessionForSchemaChanges, ILock @lock, TimeSpan lockTtl)
+        public CassandraSnapshotStoreSchema(CassandraProvider cassandraProvider, ILock @lock)
         {
             if (sessionForSchemaChanges is null) throw new ArgumentNullException(nameof(sessionForSchemaChanges));
             if (@lock is null) throw new ArgumentNullException(nameof(@lock));
             if (lockTtl == TimeSpan.Zero) throw new ArgumentException("Lock ttl must be more than 0", nameof(lockTtl));
 
-            this.sessionForSchemaChanges = sessionForSchemaChanges;
+            this.sessionForSchemaChanges = cassandraProvider.GetLiveSchemaSession();
             this.@lock = @lock;
-            this.lockTtl = lockTtl;
+            this.lockTtl = TimeSpan.FromSeconds(2);
             CreatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             DropPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-        }
-
-        public CassandraSnapshotStoreSchema(CassandraProvider cassandraProvider, ILock @lock)
-            : this(GetLiveSchemaSession(cassandraProvider), @lock, TimeSpan.FromSeconds(2))
-        {
-
         }
 
         private static ISession GetLiveSchemaSession(CassandraProvider cassandraProvider)

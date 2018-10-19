@@ -8,16 +8,17 @@ using Elders.Cronus.Projections.Cassandra.Logging;
 using Elders.Cronus.Projections.Cassandra.Config;
 using Elders.Cronus.Projections.Versioning;
 using System.Threading.Tasks;
+using Elders.Cronus.Multitenancy;
+using Elders.Cronus.Projections.Cassandra.Snapshots;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
-    public class CassandraProjectionStore : IProjectionStore
+    public class CassandraProjectionStore : IProjectionStore, IInitializable
     {
         static ILog log = LogProvider.GetLogger(typeof(CassandraProjectionStore));
 
         const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id, sm, evarid, evarrev, evarpos, evarts, data) VALUES (?,?,?,?,?,?,?);";
         const string GetQueryTemplate = @"SELECT data FROM ""{0}"" WHERE id=? AND sm=?;";
-
 
         readonly ISession session;
         readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
@@ -25,29 +26,28 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         readonly ISerializer serializer;
         private readonly IPublisher<ICommand> publisher;
-        private readonly CassandraProjectionStoreSchema schema;
+        private readonly IProjectionStoreStorageManager projectionStoreStorageManager;
+        private readonly CassandraSnapshotStoreSchema snapshotSchema;
 
-        public CassandraProjectionStore(ISession session, ISerializer serializer, IPublisher<ICommand> publisher, CassandraProjectionStoreSchema schema)
+
+        public CassandraProjectionStore(CassandraProvider cassandraProvider, ISerializer serializer, IPublisher<ICommand> publisher, CassandraProjectionStoreStorageManager schema, CassandraSnapshotStoreSchema snapshotSchema)
         {
             if (ReferenceEquals(null, session) == true) throw new ArgumentNullException(nameof(session));
             if (ReferenceEquals(null, serializer) == true) throw new ArgumentNullException(nameof(serializer));
             if (ReferenceEquals(null, publisher) == true) throw new ArgumentNullException(nameof(publisher));
+            if (ReferenceEquals(null, schema) == true) throw new ArgumentNullException(nameof(schema));
+            if (ReferenceEquals(null, snapshotSchema) == true) throw new ArgumentNullException(nameof(snapshotSchema));
 
-            this.session = session;
+            this.session = cassandraProvider.GetLiveSchemaSession();
             this.serializer = serializer;
             this.publisher = publisher;
-            this.schema = schema;
+            this.projectionStoreStorageManager = schema;
+            this.snapshotSchema = snapshotSchema;
 
             SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
 
             log.Debug($"[{nameof(CassandraProjectionStore)}] Initialized with keyspace {session.Keyspace}");
-        }
-
-        public CassandraProjectionStore(CassandraProvider cassandraProvider, ISerializer serializer, IPublisher<ICommand> publisher, CassandraProjectionStoreSchema schema)
-            : this(cassandraProvider.GetSession(), serializer, publisher, schema)
-        {
-
         }
 
         public async Task<IEnumerable<ProjectionCommit>> LoadAsync(ProjectionVersion version, IBlobId projcetionId, int snapshotMarker)
@@ -75,10 +75,10 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             }
             catch (InvalidQueryException)
             {
-                schema?.CreateTable(columnFamily);
-                var id = new ProjectionVersionManagerId(contractId);
-                var command = new RegisterProjection(id, contractId.GetTypeByContract().GetProjectionHash());
-                publisher.Publish(command);
+                //projectionStoreStorageManager?.CreateProjectionsStorage(columnFamily);
+                //var id = new ProjectionVersionManagerId(contractId);
+                //var command = new RegisterProjection(id, contractId.GetTypeByContract().GetProjectionHash());
+                //publisher.Publish(command);
                 throw;
             }
 
@@ -105,7 +105,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             }
             catch (InvalidQueryException)
             {
-                schema?.CreateTable(columnFamily);
+                projectionStoreStorageManager?.CreateProjectionsStorage(columnFamily);
                 var id = new ProjectionVersionManagerId(contractId);
                 var command = new RegisterProjection(id, contractId.GetTypeByContract().GetProjectionHash());
                 publisher.Publish(command);
@@ -169,18 +169,6 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             return session.Prepare(string.Format(InsertQueryTemplate, columnFamily));
         }
 
-        public void InitializeProjectionStore(ProjectionVersion projectionVersion)
-        {
-            if (ReferenceEquals(null, schema) == false)
-            {
-                log.Debug(() => $"Initializing projection store with column family '{projectionVersion.GetColumnFamily()}' for projection version '{projectionVersion}'");
-                schema.CreateTable(projectionVersion.GetColumnFamily());
-                return;
-            }
-
-            log.Debug(() => "This node can not change Cassandra schema.");
-        }
-
         PreparedStatement GetPreparedStatementToGetProjection(string columnFamily)
         {
             PreparedStatement loadAggregatePreparedStatement;
@@ -202,6 +190,15 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
                 return Convert.ToBase64String((id as IBlobId).RawId);
             }
             throw new NotImplementedException(String.Format("Unknow type id {0}", id.GetType()));
+        }
+
+        public void Initialize(ProjectionVersion version)
+        {
+            log.Debug(() => $"Initializing projection store with column family '{version}'.");
+            projectionStoreStorageManager.CreateProjectionsStorage(version.GetColumnFamily());
+
+            log.Debug(() => $"Initializing snapshot store with column family '{version}'.");
+            snapshotSchema.CreateTable(version.GetSnapshotColumnFamily());
         }
     }
 }
