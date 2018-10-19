@@ -3,6 +3,7 @@ using Elders.Cronus.Projections.Cassandra.ReplicationStrategies;
 using DataStaxCassandra = Cassandra;
 using Cassandra;
 using Microsoft.Extensions.Configuration;
+using System.Linq;
 
 namespace Elders.Cronus.Projections.Cassandra.Config
 {
@@ -59,6 +60,41 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             }
 
             return session;
+        }
+
+        public ISession GetLiveSchemaSession()
+        {
+            var hosts = GetCluster().AllHosts().ToList();
+            ISession schemaSession = null;
+            var counter = 0;
+
+            while (ReferenceEquals(null, schemaSession))
+            {
+                var schemaCreatorVoltron = hosts.ElementAtOrDefault(counter++);
+                if (ReferenceEquals(null, schemaCreatorVoltron))
+                    throw new InvalidOperationException($"Could not find a Cassandra node! Hosts: '{string.Join(", ", hosts.Select(x => x.Address))}'");
+
+                var schemaCluster = Cluster
+                    .Builder()
+                    .WithReconnectionPolicy(new ExponentialReconnectionPolicy(100, 100000))
+                    .WithRetryPolicy(new NoHintedHandOffRetryPolicy())
+                    .AddContactPoint(schemaCreatorVoltron.Address)
+                    .Build();
+
+                try
+                {
+                    schemaSession = schemaCluster.Connect(Keyspace);
+                }
+                catch (NoHostAvailableException)
+                {
+                    if (counter < hosts.Count)
+                        continue;
+                    else
+                        throw;
+                }
+            }
+
+            return schemaSession;
         }
     }
 }

@@ -42,31 +42,25 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         readonly ISerializer serializer;
         private readonly CassandraSnapshotStoreSchema schema;
 
-        public CassandraSnapshotStore(IEnumerable<Type> projections, ISession session, ISerializer serializer, CassandraSnapshotStoreSchema schema)
+        public CassandraSnapshotStore(ProjectionsProvider projectionsProvider, CassandraProvider cassandraProvider, ISerializer serializer, CassandraSnapshotStoreSchema schema)
         {
-            if (ReferenceEquals(null, projections) == true) throw new ArgumentNullException(nameof(projections));
+            if (ReferenceEquals(null, projectionsProvider) == true) throw new ArgumentNullException(nameof(projectionsProvider));
             if (ReferenceEquals(null, session) == true) throw new ArgumentNullException(nameof(session));
             if (ReferenceEquals(null, serializer) == true) throw new ArgumentNullException(nameof(serializer));
 
             projectionContracts = new HashSet<string>(
-                projections
+                projectionsProvider.GetProjections()
                 .Where(x => typeof(IProjectionDefinition).IsAssignableFrom(x))
                 .Where(x => x.GetInterfaces().Any(y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IEventHandler<>)))
                 .Select(proj => proj.GetContractId()));
 
-            this.session = session;
+            this.session = cassandraProvider.GetLiveSchemaSession();
             this.serializer = serializer;
             this.schema = schema;
 
             SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetSnapshotMetaPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-        }
-
-        public CassandraSnapshotStore(ProjectionsProvider projectionsProvider, CassandraProvider cassandraProvider, ISerializer serializer, CassandraSnapshotStoreSchema schema)
-            : this(projectionsProvider.GetProjections(), cassandraProvider.GetSession(), serializer, schema)
-        {
-
         }
 
         public ISnapshot Load(string projectionName, IBlobId id, ProjectionVersion version)

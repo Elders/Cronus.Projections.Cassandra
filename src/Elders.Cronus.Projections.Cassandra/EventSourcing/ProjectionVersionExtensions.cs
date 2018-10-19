@@ -4,13 +4,18 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
     public static class ProjectionVersionExtensions
     {
-        public static string GetColumnFamily(this ProjectionVersion version, string suffix = "")
+        public static string GetColumnFamily(this ProjectionVersion version, string preffix = "", string suffix = "")
         {
+            var versionPreffix = string.Empty;
+            if (ReferenceEquals(null, version) == false)
+                versionPreffix = preffix;
+
+
             var versionSuffix = string.Empty;
             if (ReferenceEquals(null, version) == false)
                 versionSuffix = "_" + version.Hash + "_" + version.Revision;
 
-            versionSuffix = versionSuffix + suffix;
+            versionSuffix = versionPreffix + versionSuffix + suffix;
             return version.ProjectionName.GetColumnFamily(versionSuffix);
         }
 
