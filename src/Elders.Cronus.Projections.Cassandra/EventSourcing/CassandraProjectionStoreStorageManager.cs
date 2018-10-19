@@ -9,9 +9,9 @@ using Elders.Cronus.Projections.Cassandra.Config;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
-    public class CassandraProjectionStoreSchema
+    public class CassandraProjectionStoreStorageManager : IProjectionStoreStorageManager
     {
-        static ILog log = LogProvider.GetLogger(typeof(CassandraProjectionStoreSchema));
+        static ILog log = LogProvider.GetLogger(typeof(CassandraProjectionStoreStorageManager));
 
         static readonly object createMutex = new object();
         static readonly object dropMutex = new object();
@@ -31,7 +31,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         /// https://issues.apache.org/jira/browse/CASSANDRA-11429
         /// </summary>
         /// <param name="sessionForSchemaChanges"></param>
-        public CassandraProjectionStoreSchema(ISession sessionForSchemaChanges, ILock @lock, TimeSpan lockTtl)
+        public CassandraProjectionStoreStorageManager(ISession sessionForSchemaChanges, ILock @lock, TimeSpan lockTtl)
         {
             if (ReferenceEquals(null, sessionForSchemaChanges)) throw new ArgumentNullException(nameof(sessionForSchemaChanges));
             if (ReferenceEquals(null, @lock)) throw new ArgumentNullException(nameof(@lock));
@@ -44,7 +44,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             DropPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }
 
-        public CassandraProjectionStoreSchema(CassandraProvider cassandraProvider, ILock @lock)
+        public CassandraProjectionStoreStorageManager(CassandraProvider cassandraProvider, ILock @lock)
             : this(GetLiveSchemaSession(cassandraProvider), @lock, TimeSpan.FromSeconds(2))
         {
 
@@ -145,6 +145,11 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             }
 
             return schemaSession;
+        }
+
+        public void CreateProjectionsStorage(string location)
+        {
+            throw new NotImplementedException();
         }
     }
 }
