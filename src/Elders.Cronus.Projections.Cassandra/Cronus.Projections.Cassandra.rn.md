@@ -1,3 +1,6 @@
+#### 5.0.0-discovery0003 - 21.10.2018
+* Updates the projection discovery
+
 #### 5.0.0-discovery0002 - 08.10.2018
 * Updates Cronus
 
