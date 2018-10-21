@@ -44,7 +44,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             DropPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }
 
-        public CassandraProjectionStoreStorageManager(CassandraProvider cassandraProvider, ILock @lock)
+        public CassandraProjectionStoreStorageManager(ICassandraProvider cassandraProvider, ILock @lock)
             : this(GetLiveSchemaSession(cassandraProvider), @lock, TimeSpan.FromSeconds(2))
         {
 
@@ -112,7 +112,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             return sessionForSchemaChanges.Prepare(string.Format(template, columnFamily));
         }
 
-        private static ISession GetLiveSchemaSession(CassandraProvider cassandraProvider)
+        private static ISession GetLiveSchemaSession(ICassandraProvider cassandraProvider)
         {
             var hosts = cassandraProvider.GetCluster().AllHosts().ToList();
             ISession schemaSession = null;

@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace Elders.Cronus.Projections.Cassandra.Config
 {
-    public class CassandraProvider
+    public class CassandraProvider : ICassandraProvider
     {
         private DataStaxCassandra.Cluster cluster;
 

@@ -8,7 +8,6 @@ using Elders.Cronus.Projections.Cassandra.Logging;
 using Elders.Cronus.Projections.Cassandra.Config;
 using Elders.Cronus.Projections.Versioning;
 using System.Threading.Tasks;
-using Elders.Cronus.Multitenancy;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
@@ -30,9 +29,9 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         private readonly CassandraSnapshotStoreSchema snapshotSchema;
 
 
-        public CassandraProjectionStore(CassandraProvider cassandraProvider, ISerializer serializer, IPublisher<ICommand> publisher, CassandraProjectionStoreStorageManager schema, CassandraSnapshotStoreSchema snapshotSchema)
+        public CassandraProjectionStore(CassandraProvider cassandraProvider, ISerializer serializer, IPublisher<ICommand> publisher, IProjectionStoreStorageManager schema, CassandraSnapshotStoreSchema snapshotSchema)
         {
-            if (ReferenceEquals(null, session) == true) throw new ArgumentNullException(nameof(session));
+            if (ReferenceEquals(null, cassandraProvider) == true) throw new ArgumentNullException(nameof(cassandraProvider));
             if (ReferenceEquals(null, serializer) == true) throw new ArgumentNullException(nameof(serializer));
             if (ReferenceEquals(null, publisher) == true) throw new ArgumentNullException(nameof(publisher));
             if (ReferenceEquals(null, schema) == true) throw new ArgumentNullException(nameof(schema));
