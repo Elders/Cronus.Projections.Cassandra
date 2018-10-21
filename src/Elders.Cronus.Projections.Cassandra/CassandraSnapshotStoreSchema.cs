@@ -27,13 +27,14 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
 
         public CassandraSnapshotStoreSchema(CassandraProvider cassandraProvider, ILock @lock)
         {
-            if (sessionForSchemaChanges is null) throw new ArgumentNullException(nameof(sessionForSchemaChanges));
+            if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
             if (@lock is null) throw new ArgumentNullException(nameof(@lock));
-            if (lockTtl == TimeSpan.Zero) throw new ArgumentException("Lock ttl must be more than 0", nameof(lockTtl));
+
 
             this.sessionForSchemaChanges = cassandraProvider.GetLiveSchemaSession();
             this.@lock = @lock;
             this.lockTtl = TimeSpan.FromSeconds(2);
+            if (lockTtl == TimeSpan.Zero) throw new ArgumentException("Lock ttl must be more than 0", nameof(lockTtl));
             CreatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             DropPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }

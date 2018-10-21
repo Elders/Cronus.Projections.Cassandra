@@ -45,8 +45,9 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         public CassandraSnapshotStore(ProjectionsProvider projectionsProvider, CassandraProvider cassandraProvider, ISerializer serializer, CassandraSnapshotStoreSchema schema)
         {
             if (ReferenceEquals(null, projectionsProvider) == true) throw new ArgumentNullException(nameof(projectionsProvider));
-            if (ReferenceEquals(null, session) == true) throw new ArgumentNullException(nameof(session));
+            if (ReferenceEquals(null, cassandraProvider) == true) throw new ArgumentNullException(nameof(cassandraProvider));
             if (ReferenceEquals(null, serializer) == true) throw new ArgumentNullException(nameof(serializer));
+            if (ReferenceEquals(null, schema) == true) throw new ArgumentNullException(nameof(schema));
 
             projectionContracts = new HashSet<string>(
                 projectionsProvider.GetProjections()
