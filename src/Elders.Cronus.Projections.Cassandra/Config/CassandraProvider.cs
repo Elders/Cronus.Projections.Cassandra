@@ -4,6 +4,7 @@ using DataStaxCassandra = Cassandra;
 using Cassandra;
 using Microsoft.Extensions.Configuration;
 using System.Linq;
+using Elders.Cronus.MessageProcessing;
 
 namespace Elders.Cronus.Projections.Cassandra.Config
 {
@@ -16,10 +17,11 @@ namespace Elders.Cronus.Projections.Cassandra.Config
         private readonly string _connectionString;
 
         private readonly string _defaultKeyspace;
+        private readonly CronusContext context;
 
-        public string Keyspace { get { return _defaultKeyspace; } }
+        public string Keyspace { get; private set; }
 
-        public CassandraProvider(IConfiguration configuration)
+        public CassandraProvider(IConfiguration configuration, CronusContext context)
         {
             if (configuration is null) throw new ArgumentNullException(nameof(configuration));
 
@@ -34,6 +36,8 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             {
                 this._connectionString = connectionString;
             }
+
+            this.context = context;
         }
 
         public DataStaxCassandra.Cluster GetCluster()
@@ -53,11 +57,12 @@ namespace Elders.Cronus.Projections.Cassandra.Config
 
         public ISession GetSession()
         {
-            if (session is null)
-            {
-                session = GetCluster().Connect();
-                session.CreateKeyspace(new SimpleReplicationStrategy(1), _defaultKeyspace);
-            }
+            string tenantPrefix = string.IsNullOrEmpty(context.Tenant) ? string.Empty : $"{context.Tenant}_";
+            Keyspace = $"{tenantPrefix}{_defaultKeyspace}";
+            if (Keyspace.Length > 48) throw new ArgumentException($"Cassandra keyspace exceeds maximum length of 48. Keyspace: {Keyspace}");
+
+            ISession session = GetCluster().Connect(); // TODO Should we use GetLiveSchemaSession();
+            session.CreateKeyspace(new SimpleReplicationStrategy(1), Keyspace);
 
             return session;
         }
