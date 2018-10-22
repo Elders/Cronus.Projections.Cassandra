@@ -45,7 +45,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         }
 
         public CassandraProjectionStoreStorageManager(ICassandraProvider cassandraProvider, ILock @lock)
-            : this(GetLiveSchemaSession(cassandraProvider), @lock, TimeSpan.FromSeconds(2))
+            : this(cassandraProvider.GetSession(), @lock, TimeSpan.FromSeconds(2))
         {
 
         }

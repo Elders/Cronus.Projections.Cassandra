@@ -12,7 +12,7 @@ using Elders.Cronus.Projections.Cassandra.Snapshots;
 
 namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 {
-    public class CassandraProjectionStore : IProjectionStore, IInitializable
+    public class CassandraProjectionStore : IProjectionStore, IInitializableProjectionStore
     {
         static ILog log = LogProvider.GetLogger(typeof(CassandraProjectionStore));
 
@@ -104,10 +104,10 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             }
             catch (InvalidQueryException)
             {
-                projectionStoreStorageManager?.CreateProjectionsStorage(columnFamily);
-                var id = new ProjectionVersionManagerId(contractId);
-                var command = new RegisterProjection(id, contractId.GetTypeByContract().GetProjectionHash());
-                publisher.Publish(command);
+                //projectionStoreStorageManager?.CreateProjectionsStorage(columnFamily);
+                //var id = new ProjectionVersionManagerId(contractId);
+                //var command = new RegisterProjection(id, contractId.GetTypeByContract().GetProjectionHash());
+                //publisher.Publish(command);
                 throw;
             }
 
