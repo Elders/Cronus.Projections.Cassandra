@@ -193,11 +193,13 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public void Initialize(ProjectionVersion version)
         {
-            log.Debug(() => $"Initializing projection store with column family '{version}'.");
+            log.Debug(() => $"[Projections Store] Initializing projection store with column family '{version.GetColumnFamily()}'...");
             projectionStoreStorageManager.CreateProjectionsStorage(version.GetColumnFamily());
+            log.Debug(() => $"[Projections Store] Initialized projection store with column family '{version.GetColumnFamily()}'...");
 
-            log.Debug(() => $"Initializing snapshot store with column family '{version}'.");
-            snapshotSchema.CreateTable(version.GetSnapshotColumnFamily());
+            //log.Debug(() => $"[Snapshot Store] Initializing snapshot store with column family '{version}'.");
+            //snapshotSchema.CreateTable(version.GetSnapshotColumnFamily());
+            //log.Debug(() => $"[Snapshot Store] Initialized projection store with column family '{version.GetColumnFamily()}'...");
         }
     }
 }
