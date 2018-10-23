@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using Elders.Cronus.Projections.Cassandra.Logging;
 using Elders.Cronus.Projections.Cassandra.Config;
-using Elders.Cronus.Projections.Versioning;
 using System.Threading.Tasks;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
 
