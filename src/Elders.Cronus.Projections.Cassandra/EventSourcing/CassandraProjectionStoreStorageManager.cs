@@ -149,7 +149,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         public void CreateProjectionsStorage(string location)
         {
-            throw new NotImplementedException();
+            CreateTable(location);
         }
     }
 }
