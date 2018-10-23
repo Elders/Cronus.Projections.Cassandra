@@ -12,8 +12,6 @@ namespace Elders.Cronus.Projections.Cassandra.Config
     {
         private DataStaxCassandra.Cluster cluster;
 
-        private DataStaxCassandra.ISession session;
-
         private readonly string _connectionString;
 
         private readonly string _defaultKeyspace;
