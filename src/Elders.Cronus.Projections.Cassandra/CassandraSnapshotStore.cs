@@ -26,7 +26,7 @@ namespace Elders.Cronus.Projections.Cassandra
         readonly ISerializer serializer;
         private readonly CassandraSnapshotStoreSchema schema;
 
-        public CassandraSnapshotStore(ProjectionsProvider projectionsProvider, CassandraProvider cassandraProvider, ISerializer serializer, CassandraSnapshotStoreSchema schema)
+        public CassandraSnapshotStore(ProjectionsProvider projectionsProvider, ICassandraProvider cassandraProvider, ISerializer serializer, CassandraSnapshotStoreSchema schema)
         {
             if (projectionsProvider is null) throw new ArgumentNullException(nameof(projectionsProvider));
             if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
