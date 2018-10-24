@@ -1,3 +1,6 @@
+#### 5.0.0-discovery0005 - 24.10.2018
+* Uses ICassandra provider in the ctors
+
 #### 5.0.0-discovery0004 - 24.10.2018
 * Code cleanup
 
