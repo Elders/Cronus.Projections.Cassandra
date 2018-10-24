@@ -4,28 +4,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Cassandra;
-using Elders.Cronus.Projections.Cassandra.Config;
 using Elders.Cronus.Projections.Cassandra.EventSourcing;
 using Elders.Cronus.Projections.Cassandra.Logging;
 using Elders.Cronus.Projections.Snapshotting;
 
-namespace Elders.Cronus.Projections.Cassandra.Snapshots
+namespace Elders.Cronus.Projections.Cassandra
 {
-    public class ProjectionsProvider
-    {
-        private readonly IEnumerable<Type> projectionTypes;
-
-        public ProjectionsProvider(IEnumerable<Type> projectionTypes)
-        {
-            this.projectionTypes = projectionTypes;
-        }
-
-        public IEnumerable<Type> GetProjections()
-        {
-            return projectionTypes;
-        }
-    }
-
     public sealed class CassandraSnapshotStore : ISnapshotStore
     {
         static ILog log = LogProvider.GetLogger(typeof(CassandraSnapshotStore));
@@ -44,10 +28,10 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
 
         public CassandraSnapshotStore(ProjectionsProvider projectionsProvider, CassandraProvider cassandraProvider, ISerializer serializer, CassandraSnapshotStoreSchema schema)
         {
-            if (ReferenceEquals(null, projectionsProvider) == true) throw new ArgumentNullException(nameof(projectionsProvider));
-            if (ReferenceEquals(null, cassandraProvider) == true) throw new ArgumentNullException(nameof(cassandraProvider));
-            if (ReferenceEquals(null, serializer) == true) throw new ArgumentNullException(nameof(serializer));
-            if (ReferenceEquals(null, schema) == true) throw new ArgumentNullException(nameof(schema));
+            if (projectionsProvider is null) throw new ArgumentNullException(nameof(projectionsProvider));
+            if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
+            if (serializer is null) throw new ArgumentNullException(nameof(serializer));
+            if (schema is null) throw new ArgumentNullException(nameof(schema));
 
             projectionContracts = new HashSet<string>(
                 projectionsProvider.GetProjections()
@@ -174,12 +158,12 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
         {
             if (ReferenceEquals(null, schema) == false)
             {
-                log.Debug(() => $"Initializing projection snapshot store with column family '{projectionVersion.GetColumnFamily()}' for projection version '{projectionVersion}'");
+                log.Debug(() => $"[Projections] Initializing projection snapshot store with column family '{projectionVersion.GetColumnFamily()}' for projection version '{projectionVersion}'");
                 schema.CreateTable(projectionVersion.GetColumnFamily());
                 return;
             }
 
-            log.Debug(() => "This node can not change Cassandra schema.");
+            log.Warn(() => "[Projections] This node can not change Cassandra schema.");
         }
 
         PreparedStatement BuildeInsertPreparedStatemnt(string columnFamily)

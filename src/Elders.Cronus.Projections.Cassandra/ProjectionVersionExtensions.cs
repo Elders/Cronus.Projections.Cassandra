@@ -1,8 +1,6 @@
-﻿using Elders.Cronus.Projections.Cassandra.Config;
-
-namespace Elders.Cronus.Projections.Cassandra.EventSourcing
+﻿namespace Elders.Cronus.Projections.Cassandra
 {
-    public static class ProjectionVersionExtensions
+    static class ProjectionVersionExtensions
     {
         public static string GetColumnFamily(this ProjectionVersion version, string preffix = "", string suffix = "")
         {

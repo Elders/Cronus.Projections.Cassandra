@@ -1,20 +1,15 @@
-﻿using Cassandra;
-using DataStaxCassandra = Cassandra;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Linq;
-using Elders.Cronus.Projections.Cassandra.Logging;
-using System;
+using Cassandra;
 using Elders.Cronus.AtomicAction;
-using Elders.Cronus.Projections.Cassandra.Config;
+using Elders.Cronus.Projections.Cassandra.Logging;
 
-namespace Elders.Cronus.Projections.Cassandra.EventSourcing
+namespace Elders.Cronus.Projections.Cassandra
 {
-    public class CassandraProjectionStoreStorageManager : IProjectionStoreStorageManager
+    public class CassandraProjectionStoreSchema
     {
-        static ILog log = LogProvider.GetLogger(typeof(CassandraProjectionStoreStorageManager));
-
-        static readonly object createMutex = new object();
-        static readonly object dropMutex = new object();
+        static ILog log = LogProvider.GetLogger(typeof(CassandraProjectionStoreSchema));
 
         const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, sm int, evarid text, evarrev int, evarts bigint, evarpos int, data blob, PRIMARY KEY ((id, sm), evarid, evarrev, evarpos, evarts)) WITH CLUSTERING ORDER BY (evarid ASC);";
         const string DropQueryTemplate = @"DROP TABLE IF EXISTS ""{0}"";";
@@ -31,7 +26,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         /// https://issues.apache.org/jira/browse/CASSANDRA-11429
         /// </summary>
         /// <param name="sessionForSchemaChanges"></param>
-        public CassandraProjectionStoreStorageManager(ICassandraProvider cassandraProvider, ILock @lock)
+        public CassandraProjectionStoreSchema(ICassandraProvider cassandraProvider, ILock @lock)
         {
             if (ReferenceEquals(null, cassandraProvider)) throw new ArgumentNullException(nameof(cassandraProvider));
             if (ReferenceEquals(null, @lock)) throw new ArgumentNullException(nameof(@lock));
@@ -65,7 +60,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             }
             else
             {
-                log.Info($"[Projections] Could not acquire lock for `{location}` to drop projections table");
+                log.Debug($"[Projections] Could not acquire lock for `{location}` to drop projections table");
             }
         }
 
@@ -75,11 +70,11 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             {
                 try
                 {
-                    log.Info(() => $"Creating table `{location}` with `{sessionForSchemaChanges.Cluster.AllHosts().First().Address}`...");
+                    log.Debug(() => $"[Projections] Creating table `{location}` with `{sessionForSchemaChanges.Cluster.AllHosts().First().Address}`...");
                     var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildCreatePreparedStatement(CreateProjectionEventsTableTemplate, x));
                     statement.SetConsistencyLevel(ConsistencyLevel.All);
                     sessionForSchemaChanges.Execute(statement.Bind());
-                    log.Info(() => $"Created table `{location}`... Maybe?!");
+                    log.Debug(() => $"[Projections] Created table `{location}`... Maybe?!");
                 }
                 catch (Exception)
                 {
@@ -92,7 +87,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             }
             else
             {
-                log.Info($"[Projections] Could not acquire lock for `{location}` to create projections table");
+                log.Warn($"[Projections] Could not acquire lock for `{location}` to create projections table");
             }
         }
 

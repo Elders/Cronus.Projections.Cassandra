@@ -5,13 +5,11 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
 using Elders.Cronus.Projections.Cassandra.Logging;
-using Elders.Cronus.Projections.Cassandra.Config;
 using System.Threading.Tasks;
-using Elders.Cronus.Projections.Cassandra.Snapshots;
 
-namespace Elders.Cronus.Projections.Cassandra.EventSourcing
+namespace Elders.Cronus.Projections.Cassandra
 {
-    public class CassandraProjectionStore : IProjectionStore, IInitializableProjectionStore
+    public sealed class CassandraProjectionStore : IProjectionStore, IInitializableProjectionStore
     {
         static ILog log = LogProvider.GetLogger(typeof(CassandraProjectionStore));
 
@@ -24,17 +22,17 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
         readonly ISerializer serializer;
         private readonly IPublisher<ICommand> publisher;
-        private readonly IProjectionStoreStorageManager projectionStoreStorageManager;
+        private readonly CassandraProjectionStoreSchema projectionStoreStorageManager;
         private readonly CassandraSnapshotStoreSchema snapshotSchema;
 
 
-        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, IPublisher<ICommand> publisher, IProjectionStoreStorageManager schema, CassandraSnapshotStoreSchema snapshotSchema)
+        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, IPublisher<ICommand> publisher, CassandraProjectionStoreSchema schema, CassandraSnapshotStoreSchema snapshotSchema)
         {
-            if (ReferenceEquals(null, cassandraProvider) == true) throw new ArgumentNullException(nameof(cassandraProvider));
-            if (ReferenceEquals(null, serializer) == true) throw new ArgumentNullException(nameof(serializer));
-            if (ReferenceEquals(null, publisher) == true) throw new ArgumentNullException(nameof(publisher));
-            if (ReferenceEquals(null, schema) == true) throw new ArgumentNullException(nameof(schema));
-            if (ReferenceEquals(null, snapshotSchema) == true) throw new ArgumentNullException(nameof(snapshotSchema));
+            if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
+            if (serializer is null) throw new ArgumentNullException(nameof(serializer));
+            if (publisher is null) throw new ArgumentNullException(nameof(publisher));
+            if (schema is null) throw new ArgumentNullException(nameof(schema));
+            if (snapshotSchema is null) throw new ArgumentNullException(nameof(snapshotSchema));
 
             this.session = cassandraProvider.GetSession();
             this.serializer = serializer;
