@@ -31,47 +31,12 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
             if (@lock is null) throw new ArgumentNullException(nameof(@lock));
 
 
-            this.sessionForSchemaChanges = cassandraProvider.GetLiveSchemaSession();
+            this.sessionForSchemaChanges = cassandraProvider.GetSchemaSession();
             this.@lock = @lock;
             this.lockTtl = TimeSpan.FromSeconds(2);
             if (lockTtl == TimeSpan.Zero) throw new ArgumentException("Lock ttl must be more than 0", nameof(lockTtl));
             CreatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             DropPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-        }
-
-        private static ISession GetLiveSchemaSession(CassandraProvider cassandraProvider)
-        {
-            var hosts = cassandraProvider.GetCluster().AllHosts().ToList();
-            ISession schemaSession = null;
-            var counter = 0;
-
-            while (ReferenceEquals(null, schemaSession))
-            {
-                var schemaCreatorVoltron = hosts.ElementAtOrDefault(counter++);
-                if (ReferenceEquals(null, schemaCreatorVoltron))
-                    throw new InvalidOperationException($"Could not find a Cassandra node! Hosts: '{string.Join(", ", hosts.Select(x => x.Address))}'");
-
-                var schemaCluster = DataStaxCassandra.Cluster
-                    .Builder()
-                    .WithReconnectionPolicy(new DataStaxCassandra.ExponentialReconnectionPolicy(100, 100000))
-                    .WithRetryPolicy(new NoHintedHandOffRetryPolicy())
-                    .AddContactPoint(schemaCreatorVoltron.Address)
-                    .Build();
-
-                try
-                {
-                    schemaSession = schemaCluster.Connect(cassandraProvider.Keyspace);
-                }
-                catch (DataStaxCassandra.NoHostAvailableException)
-                {
-                    if (counter < hosts.Count)
-                        continue;
-                    else
-                        throw;
-                }
-            }
-
-            return schemaSession;
         }
 
         public void DropTable(string location)

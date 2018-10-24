@@ -1,12 +1,15 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Cassandra;
 using Elders.Cronus.Discoveries;
 using Elders.Cronus.Projections.Cassandra.Config;
 using Elders.Cronus.Projections.Cassandra.EventSourcing;
+using Elders.Cronus.Projections.Cassandra.ReplicationStrategies;
 using Elders.Cronus.Projections.Cassandra.Snapshots;
 using Elders.Cronus.Projections.Snapshotting;
 using Elders.Cronus.Projections.Versioning;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Elders.Cronus.Projections.Cassandra
@@ -34,12 +37,50 @@ namespace Elders.Cronus.Projections.Cassandra
             yield return new DiscoveredModel(typeof(ProjectionsProvider), provider => new ProjectionsProvider(projectionTypes), ServiceLifetime.Transient);
             yield return new DiscoveredModel(typeof(CassandraSnapshotStoreSchema), typeof(CassandraSnapshotStoreSchema), ServiceLifetime.Transient);
             yield return new DiscoveredModel(typeof(ISnapshotStore), typeof(CassandraSnapshotStore), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(ICassandraReplicationStrategy), provider => GetReplicationStrategy(context.Configuration), ServiceLifetime.Transient);
 
             yield return new DiscoveredModel(typeof(ISnapshotStrategy), provider => new EventsCountSnapshotStrategy(100), ServiceLifetime.Transient);
 
             yield return new DiscoveredModel(typeof(InMemoryProjectionVersionStore), typeof(InMemoryProjectionVersionStore), ServiceLifetime.Transient);
 
 
+        }
+
+
+        int GetReplicationFactor(IConfiguration configuration)
+        {
+            var replFactorCfg = configuration["cronus_projections_cassandra_replication_factor"];
+            return string.IsNullOrEmpty(replFactorCfg) ? 1 : int.Parse(replFactorCfg);
+        }
+
+        ICassandraReplicationStrategy GetReplicationStrategy(IConfiguration configuration)
+        {
+            var replStratefyCfg = configuration["cronus_projections_cassandra_replication_strategy"];
+            var replFactorCfg = configuration["cronus_projections_cassandra_replication_factor"];
+
+            ICassandraReplicationStrategy replicationStrategy = null;
+            if (string.IsNullOrEmpty(replStratefyCfg))
+            {
+                replicationStrategy = new SimpleReplicationStrategy(1);
+            }
+            else if (replStratefyCfg.Equals("simple", StringComparison.OrdinalIgnoreCase))
+            {
+                replicationStrategy = new SimpleReplicationStrategy(GetReplicationFactor(configuration));
+            }
+            else if (replStratefyCfg.Equals("network_topology", StringComparison.OrdinalIgnoreCase))
+            {
+                int replicationFactor = GetReplicationFactor(configuration);
+                var settings = new List<NetworkTopologyReplicationStrategy.DataCenterSettings>();
+                string[] datacenters = configuration["cronus_projections_cassandra__datacenters"].Split(',');
+                foreach (var datacenter in datacenters)
+                {
+                    var setting = new NetworkTopologyReplicationStrategy.DataCenterSettings(datacenter, replicationFactor);
+                    settings.Add(setting);
+                }
+                replicationStrategy = new NetworkTopologyReplicationStrategy(settings);
+            }
+
+            return replicationStrategy;
         }
     }
 }
