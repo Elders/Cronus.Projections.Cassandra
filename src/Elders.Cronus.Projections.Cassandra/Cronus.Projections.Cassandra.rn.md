@@ -1,3 +1,6 @@
+#### 5.0.0-discovery0005 - 25.10.2018
+* Fixes the CassandraProjectionStoreSchema dependencies
+
 #### 5.0.0-discovery0004 - 24.10.2018
 * Uses ICassandra provider in the ctors
 * Code cleanup
