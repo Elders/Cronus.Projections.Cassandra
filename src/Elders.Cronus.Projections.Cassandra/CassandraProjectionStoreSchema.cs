@@ -7,7 +7,7 @@ using Elders.Cronus.Projections.Cassandra.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
-    public class CassandraProjectionStoreSchema
+    public class CassandraProjectionStoreSchema : IProjectionStoreStorageManager
     {
         static ILog log = LogProvider.GetLogger(typeof(CassandraProjectionStoreSchema));
 
