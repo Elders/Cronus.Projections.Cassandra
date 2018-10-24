@@ -3,10 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cassandra;
 using Elders.Cronus.Discoveries;
-using Elders.Cronus.Projections.Cassandra.Config;
-using Elders.Cronus.Projections.Cassandra.EventSourcing;
 using Elders.Cronus.Projections.Cassandra.ReplicationStrategies;
-using Elders.Cronus.Projections.Cassandra.Snapshots;
 using Elders.Cronus.Projections.Snapshotting;
 using Elders.Cronus.Projections.Versioning;
 using Microsoft.Extensions.Configuration;
@@ -26,7 +23,7 @@ namespace Elders.Cronus.Projections.Cassandra
             yield return new DiscoveredModel(typeof(IProjectionReader), typeof(ProjectionRepository), ServiceLifetime.Transient);
             yield return new DiscoveredModel(typeof(IProjectionWriter), typeof(ProjectionRepository), ServiceLifetime.Transient);
 
-            yield return new DiscoveredModel(typeof(IProjectionStoreStorageManager), typeof(CassandraProjectionStoreStorageManager), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(IProjectionStoreStorageManager), typeof(CassandraProjectionStoreSchema), ServiceLifetime.Transient);
             yield return new DiscoveredModel(typeof(IProjectionStore), typeof(CassandraProjectionStore), ServiceLifetime.Transient);
 
             yield return new DiscoveredModel(typeof(CassandraProvider), typeof(CassandraProvider), ServiceLifetime.Transient);
@@ -42,8 +39,6 @@ namespace Elders.Cronus.Projections.Cassandra
             yield return new DiscoveredModel(typeof(ISnapshotStrategy), provider => new EventsCountSnapshotStrategy(100), ServiceLifetime.Transient);
 
             yield return new DiscoveredModel(typeof(InMemoryProjectionVersionStore), typeof(InMemoryProjectionVersionStore), ServiceLifetime.Transient);
-
-
         }
 
 
