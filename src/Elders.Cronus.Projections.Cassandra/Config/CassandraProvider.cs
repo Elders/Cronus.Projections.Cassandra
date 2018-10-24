@@ -16,10 +16,9 @@ namespace Elders.Cronus.Projections.Cassandra.Config
 
         private readonly string _defaultKeyspace;
         private readonly CronusContext context;
+        private readonly ICassandraReplicationStrategy replicationStrategy;
 
-        public string Keyspace { get; private set; }
-
-        public CassandraProvider(IConfiguration configuration, CronusContext context)
+        public CassandraProvider(IConfiguration configuration, CronusContext context, ICassandraReplicationStrategy replicationStrategy)
         {
             if (configuration is null) throw new ArgumentNullException(nameof(configuration));
 
@@ -36,6 +35,7 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             }
 
             this.context = context;
+            this.replicationStrategy = replicationStrategy;
         }
 
         public DataStaxCassandra.Cluster GetCluster()
@@ -53,19 +53,24 @@ namespace Elders.Cronus.Projections.Cassandra.Config
             return cluster;
         }
 
-        public ISession GetSession()
+        string GetKeyspace()
         {
             string tenantPrefix = string.IsNullOrEmpty(context.Tenant) ? string.Empty : $"{context.Tenant}_";
-            Keyspace = $"{tenantPrefix}{_defaultKeyspace}";
-            if (Keyspace.Length > 48) throw new ArgumentException($"Cassandra keyspace exceeds maximum length of 48. Keyspace: {Keyspace}");
+            var keyspace = $"{tenantPrefix}{_defaultKeyspace}";
+            if (keyspace.Length > 48) throw new ArgumentException($"Cassandra keyspace exceeds maximum length of 48. Keyspace: {keyspace}");
 
-            ISession session = GetCluster().Connect(); // TODO Should we use GetLiveSchemaSession();
-            session.CreateKeyspace(new SimpleReplicationStrategy(1), Keyspace);
+            return keyspace;
+        }
+
+        public ISession GetSession()
+        {
+            ISession session = GetCluster().Connect();
+            session.CreateKeyspace(new SimpleReplicationStrategy(1), GetKeyspace());
 
             return session;
         }
 
-        public ISession GetLiveSchemaSession()
+        public ISession GetSchemaSession()
         {
             var hosts = GetCluster().AllHosts().ToList();
             ISession schemaSession = null;
@@ -79,14 +84,13 @@ namespace Elders.Cronus.Projections.Cassandra.Config
 
                 var schemaCluster = Cluster
                     .Builder()
-                    .WithReconnectionPolicy(new ExponentialReconnectionPolicy(100, 100000))
-                    .WithRetryPolicy(new NoHintedHandOffRetryPolicy())
                     .AddContactPoint(schemaCreatorVoltron.Address)
                     .Build();
 
                 try
                 {
-                    schemaSession = schemaCluster.Connect(Keyspace);
+                    schemaSession = schemaCluster.Connect();
+                    schemaSession.CreateKeyspace(new SimpleReplicationStrategy(1), GetKeyspace());
                 }
                 catch (NoHostAvailableException)
                 {

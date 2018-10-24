@@ -31,23 +31,17 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         /// https://issues.apache.org/jira/browse/CASSANDRA-11429
         /// </summary>
         /// <param name="sessionForSchemaChanges"></param>
-        public CassandraProjectionStoreStorageManager(ISession sessionForSchemaChanges, ILock @lock, TimeSpan lockTtl)
+        public CassandraProjectionStoreStorageManager(ICassandraProvider cassandraProvider, ILock @lock)
         {
-            if (ReferenceEquals(null, sessionForSchemaChanges)) throw new ArgumentNullException(nameof(sessionForSchemaChanges));
+            if (ReferenceEquals(null, cassandraProvider)) throw new ArgumentNullException(nameof(cassandraProvider));
             if (ReferenceEquals(null, @lock)) throw new ArgumentNullException(nameof(@lock));
-            if (lockTtl == TimeSpan.Zero) throw new ArgumentException("Lock ttl must be more than 0", nameof(lockTtl));
 
-            this.sessionForSchemaChanges = sessionForSchemaChanges;
+            this.sessionForSchemaChanges = cassandraProvider.GetSchemaSession();
             this.@lock = @lock;
-            this.lockTtl = lockTtl;
+            this.lockTtl = TimeSpan.FromSeconds(2);
+            if (lockTtl == TimeSpan.Zero) throw new ArgumentException("Lock ttl must be more than 0", nameof(lockTtl));
             CreatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             DropPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-        }
-
-        public CassandraProjectionStoreStorageManager(ICassandraProvider cassandraProvider, ILock @lock)
-            : this(cassandraProvider.GetSession(), @lock, TimeSpan.FromSeconds(2))
-        {
-
         }
 
         public void DropTable(string location)
@@ -110,41 +104,6 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         PreparedStatement BuildCreatePreparedStatement(string template, string columnFamily)
         {
             return sessionForSchemaChanges.Prepare(string.Format(template, columnFamily));
-        }
-
-        private static ISession GetLiveSchemaSession(ICassandraProvider cassandraProvider)
-        {
-            var hosts = cassandraProvider.GetCluster().AllHosts().ToList();
-            ISession schemaSession = null;
-            var counter = 0;
-
-            while (ReferenceEquals(null, schemaSession))
-            {
-                var schemaCreatorVoltron = hosts.ElementAtOrDefault(counter++);
-                if (ReferenceEquals(null, schemaCreatorVoltron))
-                    throw new InvalidOperationException($"Could not find a Cassandra node! Hosts: '{string.Join(", ", hosts.Select(x => x.Address))}'");
-
-                var schemaCluster = DataStaxCassandra.Cluster
-                    .Builder()
-                    .WithReconnectionPolicy(new DataStaxCassandra.ExponentialReconnectionPolicy(100, 100000))
-                    .WithRetryPolicy(new NoHintedHandOffRetryPolicy())
-                    .AddContactPoint(schemaCreatorVoltron.Address)
-                    .Build();
-
-                try
-                {
-                    schemaSession = schemaCluster.Connect(cassandraProvider.Keyspace);
-                }
-                catch (DataStaxCassandra.NoHostAvailableException)
-                {
-                    if (counter < hosts.Count)
-                        continue;
-                    else
-                        throw;
-                }
-            }
-
-            return schemaSession;
         }
 
         public void CreateProjectionsStorage(string location)

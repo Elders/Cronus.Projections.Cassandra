@@ -28,7 +28,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
         private readonly CassandraSnapshotStoreSchema snapshotSchema;
 
 
-        public CassandraProjectionStore(CassandraProvider cassandraProvider, ISerializer serializer, IPublisher<ICommand> publisher, IProjectionStoreStorageManager schema, CassandraSnapshotStoreSchema snapshotSchema)
+        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, IPublisher<ICommand> publisher, IProjectionStoreStorageManager schema, CassandraSnapshotStoreSchema snapshotSchema)
         {
             if (ReferenceEquals(null, cassandraProvider) == true) throw new ArgumentNullException(nameof(cassandraProvider));
             if (ReferenceEquals(null, serializer) == true) throw new ArgumentNullException(nameof(serializer));
@@ -36,7 +36,7 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             if (ReferenceEquals(null, schema) == true) throw new ArgumentNullException(nameof(schema));
             if (ReferenceEquals(null, snapshotSchema) == true) throw new ArgumentNullException(nameof(snapshotSchema));
 
-            this.session = cassandraProvider.GetLiveSchemaSession();
+            this.session = cassandraProvider.GetSession();
             this.serializer = serializer;
             this.publisher = publisher;
             this.projectionStoreStorageManager = schema;
@@ -44,8 +44,6 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
 
             SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-
-            log.Debug($"[{nameof(CassandraProjectionStore)}] Initialized with keyspace {session.Keyspace}");
         }
 
         public async Task<IEnumerable<ProjectionCommit>> LoadAsync(ProjectionVersion version, IBlobId projcetionId, int snapshotMarker)
@@ -73,10 +71,6 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             }
             catch (InvalidQueryException)
             {
-                //projectionStoreStorageManager?.CreateProjectionsStorage(columnFamily);
-                //var id = new ProjectionVersionManagerId(contractId);
-                //var command = new RegisterProjection(id, contractId.GetTypeByContract().GetProjectionHash());
-                //publisher.Publish(command);
                 throw;
             }
 
@@ -196,9 +190,9 @@ namespace Elders.Cronus.Projections.Cassandra.EventSourcing
             projectionStoreStorageManager.CreateProjectionsStorage(version.GetColumnFamily());
             log.Debug(() => $"[Projections Store] Initialized projection store with column family '{version.GetColumnFamily()}'...");
 
-            //log.Debug(() => $"[Snapshot Store] Initializing snapshot store with column family '{version}'.");
-            //snapshotSchema.CreateTable(version.GetSnapshotColumnFamily());
-            //log.Debug(() => $"[Snapshot Store] Initialized projection store with column family '{version.GetColumnFamily()}'...");
+            log.Debug(() => $"[Snapshot Store] Initializing snapshot store with column family '{version}'.");
+            snapshotSchema.CreateTable(version.GetSnapshotColumnFamily());
+            log.Debug(() => $"[Snapshot Store] Initialized projection store with column family '{version.GetColumnFamily()}'...");
         }
     }
 }

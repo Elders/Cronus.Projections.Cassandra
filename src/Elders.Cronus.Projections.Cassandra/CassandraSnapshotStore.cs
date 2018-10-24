@@ -55,7 +55,7 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
                 .Where(x => x.GetInterfaces().Any(y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IEventHandler<>)))
                 .Select(proj => proj.GetContractId()));
 
-            this.session = cassandraProvider.GetLiveSchemaSession();
+            this.session = cassandraProvider.GetSchemaSession();
             this.serializer = serializer;
             this.schema = schema;
 
