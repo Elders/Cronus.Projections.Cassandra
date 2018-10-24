@@ -1,6 +1,7 @@
 #### 5.0.0-discovery0004 - 24.10.2018
 * Uses ICassandra provider in the ctors
 * Code cleanup
+* Trigger
 
 #### 5.0.0-discovery0003 - 21.10.2018
 * Updates the projection discovery
