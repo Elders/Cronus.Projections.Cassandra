@@ -23,7 +23,7 @@ namespace Elders.Cronus.Projections.Cassandra
         readonly ConcurrentDictionary<string, PreparedStatement> CreatePreparedStatements;
         readonly ConcurrentDictionary<string, PreparedStatement> DropPreparedStatements;
 
-        public CassandraSnapshotStoreSchema(CassandraProvider cassandraProvider, ILock @lock)
+        public CassandraSnapshotStoreSchema(ICassandraProvider cassandraProvider, ILock @lock)
         {
             if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
             if (@lock is null) throw new ArgumentNullException(nameof(@lock));
