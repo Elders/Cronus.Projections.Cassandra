@@ -1,3 +1,6 @@
+#### 5.0.0-discovery0006 - 28.10.2018
+* Bumps Cronus
+
 #### 5.0.0-discovery0005 - 25.10.2018
 * Fixes the CassandraProjectionStoreSchema dependencies
 
