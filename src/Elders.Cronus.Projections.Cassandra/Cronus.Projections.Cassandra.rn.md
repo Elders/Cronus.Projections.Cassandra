@@ -1,4 +1,4 @@
-#### 5.0.0-discovery0006 - 02.11.2018
+#### 5.0.0-discovery0007 - 02.11.2018
 * Reworks the CassandraProvider
 
 #### 5.0.0-discovery0006 - 28.10.2018
