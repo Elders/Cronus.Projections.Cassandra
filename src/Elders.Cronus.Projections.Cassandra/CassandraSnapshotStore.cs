@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Cassandra;
-using Elders.Cronus.Projections.Cassandra.EventSourcing;
 using Elders.Cronus.Projections.Cassandra.Logging;
 using Elders.Cronus.Projections.Snapshotting;
 

@@ -11,62 +11,73 @@ namespace Elders.Cronus.Projections.Cassandra
     {
         Cluster GetCluster();
         ISession GetSession();
-        ISession GetSchemaSession();
     }
 
     public class CassandraProvider : ICassandraProvider
     {
-        private Cluster cluster;
+        public const string ConnectionStringSettingKey = "cronus_projections_cassandra_connectionstring";
+
+        protected Cluster cluster;
+        protected ISession session;
 
         private readonly string connectionString;
 
-        private readonly string defaultKeyspace;
+        private string baseConfigurationKeyspace;
+        private readonly IConfiguration configuration;
         private readonly CronusContext context;
         private readonly ICassandraReplicationStrategy replicationStrategy;
+        private readonly IInitializer initializer;
 
-        public CassandraProvider(IConfiguration configuration, CronusContext context, ICassandraReplicationStrategy replicationStrategy)
+        public CassandraProvider(IConfiguration configuration, CronusContext context, ICassandraReplicationStrategy replicationStrategy, IInitializer initializer = null)
         {
             if (configuration is null) throw new ArgumentNullException(nameof(configuration));
             if (context is null) throw new ArgumentNullException(nameof(context));
             if (replicationStrategy is null) throw new ArgumentNullException(nameof(replicationStrategy));
 
-            string connectionString = configuration["cronus_projections_cassandra_connectionstring"];
-            if (string.IsNullOrEmpty(connectionString)) throw new ArgumentException("Missing setting: cronus_projections_cassandra_connectionstring");
-
-            var builder = new CassandraConnectionStringBuilder(connectionString);
-            if (string.IsNullOrWhiteSpace(builder.DefaultKeyspace) == false)
-            {
-                this.connectionString = connectionString.Replace(builder.DefaultKeyspace, "");
-                this.defaultKeyspace = builder.DefaultKeyspace;
-            }
-            else
-            {
-                this.connectionString = connectionString;
-            }
-
+            this.configuration = configuration;
             this.context = context;
             this.replicationStrategy = replicationStrategy;
+            this.initializer = initializer;
         }
 
         public Cluster GetCluster()
         {
-            if (cluster is null)
+            if (cluster is null == false)
+                return cluster;
+
+            Builder builder = initializer as Builder;
+            if (builder is null)
             {
-                cluster = Cluster
-                    .Builder()
+                builder = Cluster.Builder();
+                //  TODO: check inside the `cfg` (var cfg = builder.GetConfiguration();) if we already have connectionString specified
+
+                string connectionString = configuration.GetRequired(ConnectionStringSettingKey);
+
+                var hackyBuilder = new CassandraConnectionStringBuilder(connectionString);
+                if (string.IsNullOrEmpty(hackyBuilder.DefaultKeyspace) == false)
+                    connectionString = connectionString.Replace(hackyBuilder.DefaultKeyspace, "");
+                baseConfigurationKeyspace = hackyBuilder.DefaultKeyspace;
+
+                var connStrBuilder = new CassandraConnectionStringBuilder(connectionString);
+                cluster = connStrBuilder
+                    .ApplyToBuilder(builder)
                     .WithReconnectionPolicy(new ExponentialReconnectionPolicy(100, 100000))
                     .WithRetryPolicy(new NoHintedHandOffRetryPolicy())
-                    .WithConnectionString(connectionString)
                     .Build();
+            }
+
+            else
+            {
+                cluster = Cluster.BuildFrom(initializer);
             }
 
             return cluster;
         }
 
-        string GetKeyspace()
+        protected virtual string GetKeyspace()
         {
             string tenantPrefix = string.IsNullOrEmpty(context.Tenant) ? string.Empty : $"{context.Tenant}_";
-            var keyspace = $"{tenantPrefix}{defaultKeyspace}";
+            var keyspace = $"{tenantPrefix}{baseConfigurationKeyspace}";
             if (keyspace.Length > 48) throw new ArgumentException($"Cassandra keyspace exceeds maximum length of 48. Keyspace: {keyspace}");
 
             return keyspace;
@@ -74,44 +85,20 @@ namespace Elders.Cronus.Projections.Cassandra
 
         public ISession GetSession()
         {
-            ISession session = GetCluster().Connect();
-            session.CreateKeyspace(replicationStrategy, GetKeyspace());
+            if (session is null)
+            {
+                session = GetCluster().Connect();
+                CreateKeyspace(replicationStrategy, GetKeyspace());
+            }
 
             return session;
         }
 
-        public ISession GetSchemaSession()
+        private void CreateKeyspace(ICassandraReplicationStrategy replicationStrategy, string keyspace)
         {
-            var hosts = GetCluster().AllHosts().ToList();
-            ISession schemaSession = null;
-            var counter = 0;
-
-            while (ReferenceEquals(null, schemaSession))
-            {
-                var schemaCreatorVoltron = hosts.ElementAtOrDefault(counter++);
-                if (ReferenceEquals(null, schemaCreatorVoltron))
-                    throw new InvalidOperationException($"Could not find a Cassandra node! Hosts: '{string.Join(", ", hosts.Select(x => x.Address))}'");
-
-                var schemaCluster = Cluster
-                    .Builder()
-                    .AddContactPoint(schemaCreatorVoltron.Address)
-                    .Build();
-
-                try
-                {
-                    schemaSession = schemaCluster.Connect();
-                    schemaSession.CreateKeyspace(replicationStrategy, GetKeyspace());
-                }
-                catch (NoHostAvailableException)
-                {
-                    if (counter < hosts.Count)
-                        continue;
-                    else
-                        throw;
-                }
-            }
-
-            return schemaSession;
+            var createKeySpaceQuery = replicationStrategy.CreateKeySpaceTemplate(keyspace);
+            session.Execute(createKeySpaceQuery);
+            session.ChangeKeyspace(keyspace);
         }
     }
 }

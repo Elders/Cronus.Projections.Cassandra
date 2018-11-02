@@ -1,6 +1,4 @@
 ﻿using System;
-using Cassandra;
-using Elders.Cronus.Projections.Cassandra.ReplicationStrategies;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
@@ -19,13 +17,6 @@ namespace Elders.Cronus.Projections.Cassandra
         internal static string GetColumnFamily(this string contractId, ProjectionVersion version)
         {
             return contractId.Replace("-", "").ToLower() + "_" + version.Hash + "_" + version.Revision;
-        }
-
-        internal static void CreateKeyspace(this ISession session, ICassandraReplicationStrategy replicationStrategy, string keyspace)
-        {
-            var createKeySpaceQuery = replicationStrategy.CreateKeySpaceTemplate(keyspace);
-            session.Execute(createKeySpaceQuery);
-            session.ChangeKeyspace(keyspace);
         }
     }
 }
