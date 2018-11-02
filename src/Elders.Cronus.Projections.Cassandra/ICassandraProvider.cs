@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using Cassandra;
 using Elders.Cronus.MessageProcessing;
 using Elders.Cronus.Projections.Cassandra.ReplicationStrategies;
@@ -19,8 +18,6 @@ namespace Elders.Cronus.Projections.Cassandra
 
         protected Cluster cluster;
         protected ISession session;
-
-        private readonly string connectionString;
 
         private string baseConfigurationKeyspace;
         private readonly IConfiguration configuration;
