@@ -31,7 +31,7 @@ namespace Elders.Cronus.Projections.Cassandra
             if (ReferenceEquals(null, cassandraProvider)) throw new ArgumentNullException(nameof(cassandraProvider));
             if (ReferenceEquals(null, @lock)) throw new ArgumentNullException(nameof(@lock));
 
-            this.sessionForSchemaChanges = cassandraProvider.GetSchemaSession();
+            this.sessionForSchemaChanges = cassandraProvider.GetSession();
             this.@lock = @lock;
             this.lockTtl = TimeSpan.FromSeconds(2);
             if (lockTtl == TimeSpan.Zero) throw new ArgumentException("Lock ttl must be more than 0", nameof(lockTtl));
