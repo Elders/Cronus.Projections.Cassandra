@@ -1,3 +1,6 @@
+#### 5.0.0-discovery0008 - 19.11.2018
+* Replaces extensions which were providing column family naming with IProjectionsNamingStrategy
+
 #### 5.0.0-discovery0007 - 02.11.2018
 * Reworks the CassandraProvider
 
