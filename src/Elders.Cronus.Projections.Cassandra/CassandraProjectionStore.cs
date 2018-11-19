@@ -16,29 +16,30 @@ namespace Elders.Cronus.Projections.Cassandra
         const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id, sm, evarid, evarrev, evarpos, evarts, data) VALUES (?,?,?,?,?,?,?);";
         const string GetQueryTemplate = @"SELECT data FROM ""{0}"" WHERE id=? AND sm=?;";
 
-        readonly ISession session;
-        readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
-        readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
 
-        readonly ISerializer serializer;
-        private readonly IPublisher<ICommand> publisher;
-        private readonly CassandraProjectionStoreSchema projectionStoreStorageManager;
-        private readonly CassandraSnapshotStoreSchema snapshotSchema;
+        private readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
+        private readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
+
+        private readonly ISerializer serializer;
+        private readonly IProjectionsNamingStrategy naming;
+        private readonly ISession session;
+        private readonly CassandraProjectionStoreSchema projectionsSchema;
+        private readonly CassandraSnapshotStoreSchema snapshotsSchema;
 
 
-        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, IPublisher<ICommand> publisher, CassandraProjectionStoreSchema schema, CassandraSnapshotStoreSchema snapshotSchema)
+        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, IProjectionsNamingStrategy naming, CassandraProjectionStoreSchema projectionsSchema, CassandraSnapshotStoreSchema snapshotsSchema)
         {
             if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));
-            if (publisher is null) throw new ArgumentNullException(nameof(publisher));
-            if (schema is null) throw new ArgumentNullException(nameof(schema));
-            if (snapshotSchema is null) throw new ArgumentNullException(nameof(snapshotSchema));
+            if (naming is null) throw new ArgumentNullException(nameof(naming));
+            if (projectionsSchema is null) throw new ArgumentNullException(nameof(projectionsSchema));
+            if (snapshotsSchema is null) throw new ArgumentNullException(nameof(snapshotsSchema));
 
             this.session = cassandraProvider.GetSession();
             this.serializer = serializer;
-            this.publisher = publisher;
-            this.projectionStoreStorageManager = schema;
-            this.snapshotSchema = snapshotSchema;
+            this.naming = naming;
+            this.projectionsSchema = projectionsSchema;
+            this.snapshotsSchema = snapshotsSchema;
 
             SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
@@ -46,13 +47,13 @@ namespace Elders.Cronus.Projections.Cassandra
 
         public async Task<IEnumerable<ProjectionCommit>> LoadAsync(ProjectionVersion version, IBlobId projcetionId, int snapshotMarker)
         {
-            var columnFamily = version.ProjectionName.GetColumnFamily(version);
+            string columnFamily = naming.GetColumnFamily(version);
             return await LoadAsync(version.ProjectionName, projcetionId, snapshotMarker, columnFamily);
         }
 
         public IEnumerable<ProjectionCommit> Load(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
         {
-            var columnFamily = version.ProjectionName.GetColumnFamily(version);
+            string columnFamily = naming.GetColumnFamily(version);
             return Load(version.ProjectionName, projectionId, snapshotMarker, columnFamily);
         }
 
@@ -134,7 +135,7 @@ namespace Elders.Cronus.Projections.Cassandra
 
         public void Save(ProjectionCommit commit)
         {
-            string projectionCommitLocationBasedOnVersion = commit.Version.ProjectionName.GetColumnFamily(commit.Version);
+            string projectionCommitLocationBasedOnVersion = naming.GetColumnFamily(commit.Version);
             Save(commit, projectionCommitLocationBasedOnVersion);
         }
 
@@ -179,18 +180,20 @@ namespace Elders.Cronus.Projections.Cassandra
             {
                 return Convert.ToBase64String((id as IBlobId).RawId);
             }
-            throw new NotImplementedException(String.Format("Unknow type id {0}", id.GetType()));
+            throw new NotImplementedException(string.Format("Unknow type id {0}", id.GetType()));
         }
 
         public void Initialize(ProjectionVersion version)
         {
-            log.Debug(() => $"[Projections Store] Initializing projection store with column family '{version.GetColumnFamily()}'...");
-            projectionStoreStorageManager.CreateProjectionsStorage(version.GetColumnFamily());
-            log.Debug(() => $"[Projections Store] Initialized projection store with column family '{version.GetColumnFamily()}'...");
+            string projectionColumnFamily = naming.GetColumnFamily(version);
+            log.Debug(() => $"[Projection Store] Initializing projection store with column family `{projectionColumnFamily}`...");
+            projectionsSchema.CreateProjectionsStorage(projectionColumnFamily);
+            log.Debug(() => $"[Projection Store] Initialized projection store with column family `{projectionColumnFamily}`");
 
-            log.Debug(() => $"[Snapshot Store] Initializing snapshot store with column family '{version}'.");
-            snapshotSchema.CreateTable(version.GetSnapshotColumnFamily());
-            log.Debug(() => $"[Snapshot Store] Initialized projection store with column family '{version.GetColumnFamily()}'...");
+            string snapshotColumnFamily = naming.GetSnapshotColumnFamily(version);
+            log.Debug(() => $"[Snapshot Store] Initializing snapshot store with column family `{snapshotColumnFamily}`....");
+            snapshotsSchema.CreateTable(snapshotColumnFamily);
+            log.Debug(() => $"[Snapshot Store] Initialized snapshot store with column family `{snapshotColumnFamily}`");
         }
     }
 }

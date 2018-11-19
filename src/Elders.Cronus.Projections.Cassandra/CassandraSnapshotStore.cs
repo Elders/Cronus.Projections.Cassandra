@@ -23,13 +23,15 @@ namespace Elders.Cronus.Projections.Cassandra
         readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
         readonly ConcurrentDictionary<string, PreparedStatement> GetSnapshotMetaPreparedStatements;
         readonly ISerializer serializer;
+        private readonly IProjectionsNamingStrategy naming;
         private readonly CassandraSnapshotStoreSchema schema;
 
-        public CassandraSnapshotStore(ProjectionsProvider projectionsProvider, ICassandraProvider cassandraProvider, ISerializer serializer, CassandraSnapshotStoreSchema schema)
+        public CassandraSnapshotStore(ProjectionsProvider projectionsProvider, ICassandraProvider cassandraProvider, ISerializer serializer, IProjectionsNamingStrategy naming, CassandraSnapshotStoreSchema schema)
         {
             if (projectionsProvider is null) throw new ArgumentNullException(nameof(projectionsProvider));
             if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));
+            if (naming is null) throw new ArgumentNullException(nameof(naming));
             if (schema is null) throw new ArgumentNullException(nameof(schema));
 
             projectionContracts = new HashSet<string>(
@@ -40,6 +42,7 @@ namespace Elders.Cronus.Projections.Cassandra
 
             this.session = cassandraProvider.GetSession();
             this.serializer = serializer;
+            this.naming = naming;
             this.schema = schema;
 
             SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
@@ -52,7 +55,7 @@ namespace Elders.Cronus.Projections.Cassandra
             if (projectionContracts.Contains(projectionName) == false)
                 return new NoSnapshot(id, projectionName);
 
-            var columnFamily = version.GetSnapshotColumnFamily();
+            string columnFamily = naming.GetSnapshotColumnFamily(version);
 
             return Load(projectionName, id, columnFamily);
         }
@@ -69,14 +72,7 @@ namespace Elders.Cronus.Projections.Cassandra
             }
             catch (InvalidQueryException)
             {
-                if (ReferenceEquals(null, schema) == false)
-                {
-                    schema.CreateTable(columnFamily);
-                }
-                else
-                {
-                    log.Debug(() => "This node can not change Cassandra schema.");
-                }
+                schema.CreateTable(columnFamily);
             }
 
             if (row == null)
@@ -96,7 +92,7 @@ namespace Elders.Cronus.Projections.Cassandra
             if (projectionContracts.Contains(projectionName) == false)
                 return new NoSnapshot(id, projectionName).GetMeta();
 
-            var columnFamily = version.GetSnapshotColumnFamily();
+            string columnFamily = naming.GetSnapshotColumnFamily(version);
 
             return LoadMeta(projectionName, id, columnFamily);
         }
@@ -113,14 +109,7 @@ namespace Elders.Cronus.Projections.Cassandra
             }
             catch (InvalidQueryException)
             {
-                if (ReferenceEquals(null, schema) == false)
-                {
-                    schema.CreateTable(columnFamily);
-                }
-                else
-                {
-                    log.Debug(() => "This node can not change Cassandra schema.");
-                }
+                schema.CreateTable(columnFamily);
             }
 
             if (row == null)
@@ -131,12 +120,12 @@ namespace Elders.Cronus.Projections.Cassandra
             return new SnapshotMeta(rev, projectionName);
         }
 
-        public void Save(ISnapshot snapshot, ProjectionVersion projectionVersion)
+        public void Save(ISnapshot snapshot, ProjectionVersion version)
         {
             if (projectionContracts.Contains(snapshot.ProjectionName) == false)
                 return;
 
-            var columnFamily = projectionVersion.GetSnapshotColumnFamily();
+            string columnFamily = naming.GetSnapshotColumnFamily(version);
 
             Save(snapshot, columnFamily);
         }
@@ -153,16 +142,11 @@ namespace Elders.Cronus.Projections.Cassandra
                 ));
         }
 
-        public void InitializeProjectionSnapshotStore(ProjectionVersion projectionVersion)
+        public void InitializeProjectionSnapshotStore(ProjectionVersion version)
         {
-            if (ReferenceEquals(null, schema) == false)
-            {
-                log.Debug(() => $"[Projections] Initializing projection snapshot store with column family '{projectionVersion.GetColumnFamily()}' for projection version '{projectionVersion}'");
-                schema.CreateTable(projectionVersion.GetColumnFamily());
-                return;
-            }
-
-            log.Warn(() => "[Projections] This node can not change Cassandra schema.");
+            string columnFamily = naming.GetSnapshotColumnFamily(version);
+            log.Debug(() => $"[Projections] Initializing projection snapshot store with column family '{columnFamily}' for projection version '{version}'");
+            schema.CreateTable(columnFamily);
         }
 
         PreparedStatement BuildeInsertPreparedStatemnt(string columnFamily)
