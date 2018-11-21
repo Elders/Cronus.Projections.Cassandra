@@ -9,7 +9,12 @@ using System.Threading.Tasks;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
-    public sealed class CassandraProjectionStore : IProjectionStore, IInitializableProjectionStore
+    public class CassandraProjectionStore<TSettings> : CassandraProjectionStore where TSettings : ICassandraProjectionStoreSettings
+    {
+        public CassandraProjectionStore(TSettings settings) : base(settings.CassandraProvider, settings.Serializer, settings.ProjectionsNamingStrategy) { }
+    }
+
+    public class CassandraProjectionStore : IProjectionStore
     {
         static ILog log = LogProvider.GetLogger(typeof(CassandraProjectionStore));
 
@@ -23,23 +28,16 @@ namespace Elders.Cronus.Projections.Cassandra
         private readonly ISerializer serializer;
         private readonly IProjectionsNamingStrategy naming;
         private readonly ISession session;
-        private readonly CassandraProjectionStoreSchema projectionsSchema;
-        private readonly CassandraSnapshotStoreSchema snapshotsSchema;
 
-
-        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, IProjectionsNamingStrategy naming, CassandraProjectionStoreSchema projectionsSchema, CassandraSnapshotStoreSchema snapshotsSchema)
+        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, IProjectionsNamingStrategy naming)
         {
             if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));
             if (naming is null) throw new ArgumentNullException(nameof(naming));
-            if (projectionsSchema is null) throw new ArgumentNullException(nameof(projectionsSchema));
-            if (snapshotsSchema is null) throw new ArgumentNullException(nameof(snapshotsSchema));
 
             this.session = cassandraProvider.GetSession();
             this.serializer = serializer;
             this.naming = naming;
-            this.projectionsSchema = projectionsSchema;
-            this.snapshotsSchema = snapshotsSchema;
 
             SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
@@ -181,19 +179,6 @@ namespace Elders.Cronus.Projections.Cassandra
                 return Convert.ToBase64String((id as IBlobId).RawId);
             }
             throw new NotImplementedException(string.Format("Unknow type id {0}", id.GetType()));
-        }
-
-        public void Initialize(ProjectionVersion version)
-        {
-            string projectionColumnFamily = naming.GetColumnFamily(version);
-            log.Debug(() => $"[Projection Store] Initializing projection store with column family `{projectionColumnFamily}`...");
-            projectionsSchema.CreateProjectionsStorage(projectionColumnFamily);
-            log.Debug(() => $"[Projection Store] Initialized projection store with column family `{projectionColumnFamily}`");
-
-            string snapshotColumnFamily = naming.GetSnapshotColumnFamily(version);
-            log.Debug(() => $"[Snapshot Store] Initializing snapshot store with column family `{snapshotColumnFamily}`....");
-            snapshotsSchema.CreateTable(snapshotColumnFamily);
-            log.Debug(() => $"[Snapshot Store] Initialized snapshot store with column family `{snapshotColumnFamily}`");
         }
     }
 }
