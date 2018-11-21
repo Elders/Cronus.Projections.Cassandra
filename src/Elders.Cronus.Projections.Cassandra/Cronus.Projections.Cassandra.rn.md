@@ -1,3 +1,6 @@
+#### 5.0.0-discovery0009 - 21.11.2018
+* Various fixes and improvements
+
 #### 5.0.0-discovery0008 - 19.11.2018
 * Replaces extensions which were providing column family naming with IProjectionsNamingStrategy
 
