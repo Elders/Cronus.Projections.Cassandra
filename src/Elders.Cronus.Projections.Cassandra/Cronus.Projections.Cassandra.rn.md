@@ -1,3 +1,6 @@
+#### 5.0.0-discovery0010 - 22.11.2018
+* Adds CassandraSnapshotStore with open generics registration in the DI
+
 #### 5.0.0-discovery0009 - 21.11.2018
 * Various fixes and improvements
 
