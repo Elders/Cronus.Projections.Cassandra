@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Cassandra;
 using Elders.Cronus.Discoveries;
 using Elders.Cronus.Projections.Cassandra.ReplicationStrategies;
 using Elders.Cronus.Projections.Snapshotting;
@@ -20,20 +19,7 @@ namespace Elders.Cronus.Projections.Cassandra
 
         IEnumerable<DiscoveredModel> GetModels(DiscoveryContext context)
         {
-            yield return new DiscoveredModel(typeof(IProjectionReader), typeof(ProjectionRepository), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(IProjectionWriter), typeof(ProjectionRepository), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(ProjectionRepository), typeof(ProjectionRepository), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(ProjectionRepositoryWithFallback<>), typeof(ProjectionRepositoryWithFallback<>), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(ProjectionRepositoryWithFallback<,>), typeof(ProjectionRepositoryWithFallback<,>), ServiceLifetime.Transient);
-
-            yield return new DiscoveredModel(typeof(IProjectionStoreStorageManager), typeof(CassandraProjectionStoreSchema), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(CassandraProjectionStoreSchema), typeof(CassandraProjectionStoreSchema), ServiceLifetime.Transient);
-
-            yield return new DiscoveredModel(typeof(IProjectionStore), typeof(CassandraProjectionStore), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(CassandraProjectionStore), typeof(CassandraProjectionStore), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(CassandraProjectionStore<>), typeof(CassandraProjectionStore<>), ServiceLifetime.Transient);
-
-
+            // settings
             var cassandraSettings = context.Assemblies.SelectMany(asm => asm.GetLoadableTypes())
                 .Where(type => type.IsAbstract == false && type.IsInterface == false && typeof(ICassandraProjectionStoreSettings).IsAssignableFrom(type));
             foreach (var setting in cassandraSettings)
@@ -41,17 +27,41 @@ namespace Elders.Cronus.Projections.Cassandra
                 yield return new DiscoveredModel(setting, setting, ServiceLifetime.Transient);
             }
 
+            // main interfaces
+            yield return new DiscoveredModel(typeof(IProjectionReader), typeof(ProjectionRepository), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(IProjectionWriter), typeof(ProjectionRepository), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(ProjectionRepository), typeof(ProjectionRepository), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(ProjectionRepositoryWithFallback<>), typeof(ProjectionRepositoryWithFallback<>), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(ProjectionRepositoryWithFallback<,>), typeof(ProjectionRepositoryWithFallback<,>), ServiceLifetime.Transient);
+
+            // schema
+            yield return new DiscoveredModel(typeof(IInitializableProjectionStore), typeof(CassandraProjectionStoreInitializer), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(IProjectionStoreStorageManager), typeof(CassandraProjectionStoreSchema), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(CassandraProjectionStoreSchema), typeof(CassandraProjectionStoreSchema), ServiceLifetime.Transient);
+
+            // projection store
+            yield return new DiscoveredModel(typeof(IProjectionStore), typeof(CassandraProjectionStore), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(CassandraProjectionStore), typeof(CassandraProjectionStore), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(CassandraProjectionStore<>), typeof(CassandraProjectionStore<>), ServiceLifetime.Transient);
+
+            // snapshot store
+            yield return new DiscoveredModel(typeof(ISnapshotStore), typeof(CassandraSnapshotStore), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(CassandraSnapshotStore), typeof(CassandraSnapshotStore), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(CassandraSnapshotStore<>), typeof(CassandraSnapshotStore<>), ServiceLifetime.Transient);
+
+            // cassandra
             yield return new DiscoveredModel(typeof(CassandraProvider), typeof(CassandraProvider), ServiceLifetime.Transient);
             yield return new DiscoveredModel(typeof(ICassandraProvider), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProvider>>().Get(), ServiceLifetime.Transient);
 
+            // naming
             yield return new DiscoveredModel(typeof(IKeyspaceNamingStrategy), typeof(KeyspacePerTenantKeyspace), ServiceLifetime.Transient);
             yield return new DiscoveredModel(typeof(NoKeyspaceNamingStrategy), typeof(NoKeyspaceNamingStrategy), ServiceLifetime.Transient);
             yield return new DiscoveredModel(typeof(KeyspacePerTenantKeyspace), typeof(KeyspacePerTenantKeyspace), ServiceLifetime.Transient);
 
-            var projectionTypes = context.Assemblies.SelectMany(ass => ass.GetLoadableTypes().Where(x => typeof(IProjectionDefinition).IsAssignableFrom(x)));
-            yield return new DiscoveredModel(typeof(ProjectionsProvider), provider => new ProjectionsProvider(projectionTypes), ServiceLifetime.Transient);
+            var projectionTypes = context.Assemblies.SelectMany(ass => ass.GetLoadableTypes().Where(x => typeof(IProjectionDefinition).IsAssignableFrom(x))).ToList();
+            yield return new DiscoveredModel(typeof(ProjectionsProvider), provider => new ProjectionsProvider(projectionTypes), ServiceLifetime.Singleton);
             yield return new DiscoveredModel(typeof(CassandraSnapshotStoreSchema), typeof(CassandraSnapshotStoreSchema), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(ISnapshotStore), typeof(CassandraSnapshotStore), ServiceLifetime.Transient);
+
             yield return new DiscoveredModel(typeof(ICassandraReplicationStrategy), provider => GetReplicationStrategy(context.Configuration), ServiceLifetime.Transient);
 
             yield return new DiscoveredModel(typeof(IProjectionsNamingStrategy), typeof(VersionedProjectionsNaming), ServiceLifetime.Transient);
