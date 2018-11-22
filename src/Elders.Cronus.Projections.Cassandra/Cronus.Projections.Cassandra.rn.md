@@ -1,3 +1,6 @@
+#### 5.0.0-discovery0011 - 22.11.2018
+* Updates Cronus
+
 #### 5.0.0-discovery0010 - 22.11.2018
 * Adds CassandraSnapshotStore with open generics registration in the DI
 
