@@ -51,10 +51,6 @@ namespace Elders.Cronus.Projections.Cassandra
                     statement.SetConsistencyLevel(ConsistencyLevel.All);
                     sessionForSchemaChanges.Execute(statement.Bind());
                 }
-                catch (Exception)
-                {
-                    throw;
-                }
                 finally
                 {
                     @lock.Unlock(location);
@@ -81,10 +77,6 @@ namespace Elders.Cronus.Projections.Cassandra
                     statement.SetConsistencyLevel(ConsistencyLevel.All);
                     sessionForSchemaChanges.Execute(statement.Bind());
                     log.Debug(() => $"[Projections] Created snapshot table `{location}`... Maybe?!");
-                }
-                catch (Exception)
-                {
-                    throw;
                 }
                 finally
                 {

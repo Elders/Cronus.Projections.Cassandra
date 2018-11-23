@@ -57,19 +57,11 @@ namespace Elders.Cronus.Projections.Cassandra
 
         IEnumerable<ProjectionCommit> Load(string contractId, IBlobId projectionId, int snapshotMarker, string columnFamily)
         {
-            IEnumerable<Row> rows = null;
-            try
-            {
-                string projId = Convert.ToBase64String(projectionId.RawId);
+            string projId = Convert.ToBase64String(projectionId.RawId);
 
-                BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(projId, snapshotMarker);
-                var result = session.Execute(bs);
-                rows = result.GetRows();
-            }
-            catch (InvalidQueryException)
-            {
-                throw;
-            }
+            BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(projId, snapshotMarker);
+            var result = session.Execute(bs);
+            IEnumerable<Row> rows = result.GetRows();
 
             foreach (var row in rows)
             {
@@ -83,23 +75,11 @@ namespace Elders.Cronus.Projections.Cassandra
 
         async Task<IEnumerable<ProjectionCommit>> LoadAsync(string contractId, IBlobId projectionId, int snapshotMarker, string columnFamily)
         {
-            IEnumerable<Row> rows = null;
-            try
-            {
-                string projId = Convert.ToBase64String(projectionId.RawId);
+            string projId = Convert.ToBase64String(projectionId.RawId);
 
-                BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(projId, snapshotMarker);
-                var result = await session.ExecuteAsync(bs);
-                rows = result.GetRows();
-            }
-            catch (InvalidQueryException)
-            {
-                //projectionStoreStorageManager?.CreateProjectionsStorage(columnFamily);
-                //var id = new ProjectionVersionManagerId(contractId);
-                //var command = new RegisterProjection(id, contractId.GetTypeByContract().GetProjectionHash());
-                //publisher.Publish(command);
-                throw;
-            }
+            BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(projId, snapshotMarker);
+            var result = await session.ExecuteAsync(bs);
+            IEnumerable<Row> rows = result.GetRows();
 
             var projectionCommits = new List<ProjectionCommit>();
             foreach (var row in rows)
