@@ -1,3 +1,6 @@
+#### 5.0.0-discovery0012 - 23.11.2018
+* Fixes the IProjectionsNamingStrategy interface
+
 #### 5.0.0-discovery0011 - 22.11.2018
 * Updates Cronus
 
