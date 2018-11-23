@@ -1,3 +1,6 @@
+#### 5.0.0-discovery0013 - 23.11.2018
+* Removes obsolete throw; statements
+
 #### 5.0.0-discovery0012 - 23.11.2018
 * Fixes the IProjectionsNamingStrategy interface
 
