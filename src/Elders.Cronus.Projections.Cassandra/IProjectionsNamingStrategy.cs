@@ -2,7 +2,7 @@
 {
     public interface IProjectionsNamingStrategy
     {
-        string GetColumnFamily(ProjectionVersion version, string preffix = "", string suffix = "");
-        string GetSnapshotColumnFamily(ProjectionVersion version, string suffix = "_sp");
+        string GetColumnFamily(ProjectionVersion version);
+        string GetSnapshotColumnFamily(ProjectionVersion version);
     }
 }
