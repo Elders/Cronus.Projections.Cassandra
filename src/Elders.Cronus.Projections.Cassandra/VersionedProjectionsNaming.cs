@@ -5,14 +5,14 @@ namespace Elders.Cronus.Projections.Cassandra
 {
     public class VersionedProjectionsNaming : IProjectionsNamingStrategy
     {
-        public string GetColumnFamily(ProjectionVersion version, string preffix = "", string suffix = "")
+        public string GetColumnFamily(ProjectionVersion version)
         {
-            return $"{preffix}{VersionPart(version)}{suffix}";
+            return $"{VersionPart(version)}";
         }
 
-        public string GetSnapshotColumnFamily(ProjectionVersion version, string suffix = "_sp")
+        public string GetSnapshotColumnFamily(ProjectionVersion version)
         {
-            return GetColumnFamily(version, suffix: suffix);
+            return $"{GetColumnFamily(version)}_sp";
         }
 
         string NormalizeProjectionName(string projectionName)
