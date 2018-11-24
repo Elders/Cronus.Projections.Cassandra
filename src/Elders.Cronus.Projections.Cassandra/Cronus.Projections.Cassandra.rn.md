@@ -1,3 +1,6 @@
+#### 5.0.0-discovery0014 - 24.11.2018
+* Updates Cronus
+
 #### 5.0.0-discovery0013 - 23.11.2018
 * Removes obsolete throw; statements
 
