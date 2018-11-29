@@ -1,107 +1,33 @@
-#### 5.0.0-discovery0014 - 24.11.2018
-* Updates Cronus
-
-#### 5.0.0-discovery0013 - 23.11.2018
+#### 5.0.0 - 29.11.2018
 * Removes obsolete throw; statements
-
-#### 5.0.0-discovery0012 - 23.11.2018
 * Fixes the IProjectionsNamingStrategy interface
-
-#### 5.0.0-discovery0011 - 22.11.2018
-* Updates Cronus
-
-#### 5.0.0-discovery0010 - 22.11.2018
 * Adds CassandraSnapshotStore with open generics registration in the DI
-
-#### 5.0.0-discovery0009 - 21.11.2018
 * Various fixes and improvements
-
-#### 5.0.0-discovery0008 - 19.11.2018
 * Replaces extensions which were providing column family naming with IProjectionsNamingStrategy
-
-#### 5.0.0-discovery0007 - 02.11.2018
 * Reworks the CassandraProvider
-
-#### 5.0.0-discovery0006 - 28.10.2018
-* Bumps Cronus
-
-#### 5.0.0-discovery0005 - 25.10.2018
 * Fixes the CassandraProjectionStoreSchema dependencies
-
-#### 5.0.0-discovery0004 - 24.10.2018
-* Uses ICassandra provider in the ctors
-* Code cleanup
-* Trigger
-
-#### 5.0.0-discovery0003 - 21.10.2018
 * Updates the projection discovery
-
-#### 5.0.0-discovery0002 - 08.10.2018
-* Updates Cronus
-
-#### 5.0.0-discovery0001 - 08.10.2018
 * Adds IProjectionLoader discovery
-
-#### 5.0.0-beta0016 - 02.10.2018
-* Updates Cronus
 * Implements Async functionalities for IProjectionStore
-
-#### 5.0.0-beta0015 - 25.07.2018
 * Expose locking for creating and dropping tables
 * Removed CanChangeSchema
-
-#### 5.0.0-beta0014 - 23.07.2018
 * Create snapshot tables if the load query fails
 * Create schema session with the already created keyspace
 * Create table if projection query fails
 * Improved logging when initializing projection store
 * Improved logging when initializing projection snapshot store
-
-#### 5.0.0-beta0013 - 23.07.2018
 * Getting live session for projection schema creation
 * Only certain nodes can create and delete Cassandra tables and keyspaces
 * It is ok to create a keyspace from multiple threads
-
-#### 5.0.0-beta0012 - 18.07.2018
-* Do not set Cassandra port
-
-#### 5.0.0-beta0011 - 17.07.2018
 * Create default keyspace before connecting to the cluster
-
-#### 5.0.0-beta0010 - 16.07.2018
 * Create projection store schema against a single node
 * Create snapshot store schema against a single node
-* Updates Cronus to 5.0.0-beta0029
-
-#### 5.0.0-beta0009 - 12.07.2018
-* Using Cronus 5.0.0-beta0026
-
-#### 5.0.0-beta0008 - 11.07.2018
-* Using Cronus 5.0.0-beta0022
 * The version revisions are now part of the cassandra column family names
-
-#### 5.0.0-beta0007 - 10.07.2018
-* Using Cronus 5.0.0-beta0021
-
-#### 5.0.0-beta0006 - 18.06.2018
 * Implements a method to return a SnapshotMeta information without the snapshot state
 * TimeOffsetSnapshotStrategy is the default strategy for projection reads
 * EventsCountSnapshotStrategy is the default strategy for projection writes
-
-#### 5.0.0-beta0005 - 07.06.2018
 * Enabled SourceLink
-
-#### 5.0.0-beta0004 - 07.06.2018
 * Removed UseSnapshot because it caused problems to snapshots if used. By default snapshots used 
-
-#### 5.0.0-beta0003 - 02.04.2018
-* Updates Cronus
-
-#### 5.0.0-beta0002 - 02.04.2018
-* Updates Cronus
-
-#### 5.0.0-beta0001 - 01.04.2018
-* Gets in line with Cronus v5
 
 #### 3.0.3 - 28.02.2018
 * Updates Cronus to 4.0.10
