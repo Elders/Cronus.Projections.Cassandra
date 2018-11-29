@@ -4,92 +4,120 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Cassandra;
-using Elders.Cronus.Projections.Cassandra.Config;
-using Elders.Cronus.Projections.Cassandra.EventSourcing;
+using Elders.Cronus.Projections.Cassandra.Logging;
 using Elders.Cronus.Projections.Snapshotting;
-using Elders.Cronus.Serializer;
 
-namespace Elders.Cronus.Projections.Cassandra.Snapshots
+namespace Elders.Cronus.Projections.Cassandra
 {
+    public class CassandraSnapshotStore<TSettings> : CassandraSnapshotStore where TSettings : ICassandraProjectionStoreSettings
+    {
+        public CassandraSnapshotStore(TSettings settings) : base(settings.CassandraProvider, settings.Serializer, settings.ProjectionsNamingStrategy, settings.ProjectionsProvider) { }
+    }
+
     public class CassandraSnapshotStore : ISnapshotStore
     {
-        static readonly object createMutex = new object();
-        static readonly object dropMutex = new object();
+        static ILog log = LogProvider.GetLogger(typeof(CassandraSnapshotStore));
 
-        const string CreateSnapshopEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, rev int, data blob, PRIMARY KEY (id, rev)) WITH CLUSTERING ORDER BY (rev DESC);";
-        const string DropQueryTemplate = @"DROP TABLE IF EXISTS ""{0}"";";
         const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id, rev, data) VALUES (?,?,?);";
         const string GetQueryTemplate = @"SELECT data, rev FROM ""{0}"" WHERE id=? LIMIT 1;";
+        const string GetSnapshotMetaQueryTemplate = @"SELECT rev FROM ""{0}"" WHERE id=? LIMIT 1;";
 
-        public CassandraSnapshotStore(IEnumerable<Type> projections, ISession session, ISerializer serializer)
+        readonly ISession session;
+        readonly HashSet<string> projectionContracts;
+        readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
+        readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
+        readonly ConcurrentDictionary<string, PreparedStatement> GetSnapshotMetaPreparedStatements;
+        readonly ISerializer serializer;
+        private readonly IProjectionsNamingStrategy naming;
+
+        public CassandraSnapshotStore(ICassandraProvider cassandraProvider, ISerializer serializer, IProjectionsNamingStrategy naming, ProjectionsProvider projectionsProvider)
         {
-            if (ReferenceEquals(null, projections) == true) throw new ArgumentNullException(nameof(projections));
-            this.projectionContracts = new HashSet<string>(
-                projections
+            if (projectionsProvider is null) throw new ArgumentNullException(nameof(projectionsProvider));
+            if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
+            if (serializer is null) throw new ArgumentNullException(nameof(serializer));
+            if (naming is null) throw new ArgumentNullException(nameof(naming));
+
+            projectionContracts = new HashSet<string>(
+                projectionsProvider.GetProjections()
                 .Where(x => typeof(IProjectionDefinition).IsAssignableFrom(x))
                 .Where(x => x.GetInterfaces().Any(y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IEventHandler<>)))
                 .Select(proj => proj.GetContractId()));
 
-            if (ReferenceEquals(null, session) == true) throw new ArgumentNullException(nameof(session));
-            if (ReferenceEquals(null, serializer) == true) throw new ArgumentNullException(nameof(serializer));
-
+            this.session = cassandraProvider.GetSession();
             this.serializer = serializer;
-            this.session = session;
+            this.naming = naming;
 
-            this.SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            this.GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            this.CreatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            this.DropPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            //InitializeSnapshotsDatabase();
+            SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+            GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+            GetSnapshotMetaPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }
 
-        readonly ISession session;
-        protected readonly HashSet<string> projectionContracts;
-        readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
-        readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
-        readonly ConcurrentDictionary<string, PreparedStatement> CreatePreparedStatements;
-        readonly ConcurrentDictionary<string, PreparedStatement> DropPreparedStatements;
-        readonly ISerializer serializer;
-
-        public virtual ISnapshot Load(string projectionContractId, IBlobId id, ProjectionVersion projectionVersion)
+        public ISnapshot Load(string projectionName, IBlobId id, ProjectionVersion version)
         {
-            if (projectionContracts.Contains(projectionContractId) == false)
-                return new NoSnapshot(id, projectionContractId);
+            if (projectionContracts.Contains(projectionName) == false)
+                return new NoSnapshot(id, projectionName);
 
-            var columnFamily = projectionVersion.GetSnapshotColumnFamily();
+            string columnFamily = naming.GetSnapshotColumnFamily(version);
 
-            return Load(projectionContractId, id, columnFamily);
+            return Load(projectionName, id, columnFamily);
         }
 
-        ISnapshot Load(string projectionContractId, IBlobId id, string columnFamily)
+        ISnapshot Load(string projectionName, IBlobId id, string columnFamily)
         {
-            BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(Convert.ToBase64String(id.RawId));
+            Row row = null;
+            var bs = GetPreparedStatementToGetProjection(columnFamily).Bind(Convert.ToBase64String(id.RawId));
             var result = session.Execute(bs);
-            var row = result.GetRows().FirstOrDefault();
+            row = result.GetRows().FirstOrDefault();
 
             if (row == null)
-                return new NoSnapshot(id, projectionContractId);
+                return new NoSnapshot(id, projectionName);
 
             var data = row.GetValue<byte[]>("data");
             var rev = row.GetValue<int>("rev");
 
             using (var stream = new MemoryStream(data))
             {
-                return new Snapshot(id, projectionContractId, serializer.Deserialize(stream), rev);
+                return new Snapshot(id, projectionName, serializer.Deserialize(stream), rev);
             }
         }
 
-        public virtual void Save(ISnapshot snapshot, ProjectionVersion projectionVersion)
+        public SnapshotMeta LoadMeta(string projectionName, IBlobId id, ProjectionVersion version)
         {
-            if (projectionContracts.Contains(snapshot.ProjectionContractId) == false)
+            if (projectionContracts.Contains(projectionName) == false)
+                return new NoSnapshot(id, projectionName).GetMeta();
+
+            string columnFamily = naming.GetSnapshotColumnFamily(version);
+
+            return LoadMeta(projectionName, id, columnFamily);
+        }
+
+        SnapshotMeta LoadMeta(string projectionName, IBlobId id, string columnFamily)
+        {
+            Row row = null;
+
+            var bs = GetPreparedStatementToGetSnapshotMeta(columnFamily).Bind(Convert.ToBase64String(id.RawId));
+            var result = session.Execute(bs);
+            row = result.GetRows().FirstOrDefault();
+
+            if (row == null)
+                return new NoSnapshot(id, projectionName).GetMeta();
+
+            var rev = row.GetValue<int>("rev");
+
+            return new SnapshotMeta(rev, projectionName);
+        }
+
+        public void Save(ISnapshot snapshot, ProjectionVersion version)
+        {
+            if (projectionContracts.Contains(snapshot.ProjectionName) == false)
                 return;
 
-            var columnFamily = projectionVersion.GetSnapshotColumnFamily();
+            string columnFamily = naming.GetSnapshotColumnFamily(version);
 
             Save(snapshot, columnFamily);
         }
 
-        protected void Save(ISnapshot snapshot, string columnFamily)
+        void Save(ISnapshot snapshot, string columnFamily)
         {
             var data = serializer.SerializeToBytes(snapshot.State);
             var statement = SavePreparedStatements.GetOrAdd(columnFamily, x => BuildeInsertPreparedStatemnt(x));
@@ -101,45 +129,6 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
                 ));
         }
 
-        public void DropTable(string location)
-        {
-            // https://issues.apache.org/jira/browse/CASSANDRA-10699
-            // https://issues.apache.org/jira/browse/CASSANDRA-11429
-            lock (dropMutex)
-            {
-                var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildDropPreparedStatemnt(x));
-                statement.SetConsistencyLevel(ConsistencyLevel.All);
-                session.Execute(statement.Bind());
-            }
-        }
-
-        public void CreateTable(string template, string location)
-        {
-            // https://issues.apache.org/jira/browse/CASSANDRA-10699
-            // https://issues.apache.org/jira/browse/CASSANDRA-11429
-            lock (createMutex)
-            {
-                var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildCreatePreparedStatement(template, x));
-                statement.SetConsistencyLevel(ConsistencyLevel.All);
-                session.Execute(statement.Bind());
-            }
-        }
-
-        public void InitializeProjectionSnapshotStore(ProjectionVersion projectionVersion)
-        {
-            CreateTable(CreateSnapshopEventsTableTemplate, projectionVersion.GetSnapshotColumnFamily());
-        }
-
-        PreparedStatement BuildDropPreparedStatemnt(string columnFamily)
-        {
-            return session.Prepare(string.Format(DropQueryTemplate, columnFamily));
-        }
-
-        PreparedStatement BuildCreatePreparedStatement(string template, string columnFamily)
-        {
-            return session.Prepare(string.Format(template, columnFamily));
-        }
-
         PreparedStatement BuildeInsertPreparedStatemnt(string columnFamily)
         {
             return session.Prepare(string.Format(InsertQueryTemplate, columnFamily));
@@ -147,13 +136,12 @@ namespace Elders.Cronus.Projections.Cassandra.Snapshots
 
         PreparedStatement GetPreparedStatementToGetProjection(string columnFamily)
         {
-            PreparedStatement loadAggregatePreparedStatement;
-            if (!GetPreparedStatements.TryGetValue(columnFamily, out loadAggregatePreparedStatement))
-            {
-                loadAggregatePreparedStatement = session.Prepare(string.Format(GetQueryTemplate, columnFamily));
-                GetPreparedStatements.TryAdd(columnFamily, loadAggregatePreparedStatement);
-            }
-            return loadAggregatePreparedStatement;
+            return GetPreparedStatements.GetOrAdd(columnFamily, session.Prepare(string.Format(GetQueryTemplate, columnFamily)));
+        }
+
+        PreparedStatement GetPreparedStatementToGetSnapshotMeta(string columnFamily)
+        {
+            return GetSnapshotMetaPreparedStatements.GetOrAdd(columnFamily, session.Prepare(string.Format(GetSnapshotMetaQueryTemplate, columnFamily)));
         }
     }
 }
