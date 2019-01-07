@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
-    public class ProjectionLoaderDiscovery : DiscoveryBasedOnExecutingDirAssemblies<IProjectionReader>
+    public class ProjectionLoaderDiscovery : DiscoveryBase<IProjectionReader>
     {
         protected override DiscoveryResult<IProjectionReader> DiscoverFromAssemblies(DiscoveryContext context)
         {
