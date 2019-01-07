@@ -1,15 +1,16 @@
 ﻿using System;
 using Cassandra;
 using Elders.Cronus.Projections.Cassandra.ReplicationStrategies;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
     public class CassandraProvider : ICassandraProvider
     {
-        public const string ConnectionStringSettingKey = "cronus_projections_cassandra_connectionstring";
+        private bool optionsHasChanged = true;
 
-        private readonly IConfiguration configuration;
+        protected CassandraProviderOptions options;
+
         protected readonly IKeyspaceNamingStrategy keyspaceNamingStrategy;
         protected readonly ICassandraReplicationStrategy replicationStrategy;
         protected readonly IInitializer initializer;
@@ -19,13 +20,15 @@ namespace Elders.Cronus.Projections.Cassandra
 
         private string baseConfigurationKeyspace;
 
-        public CassandraProvider(IConfiguration configuration, IKeyspaceNamingStrategy keyspaceNamingStrategy, ICassandraReplicationStrategy replicationStrategy, IInitializer initializer = null)
+        public CassandraProvider(IOptionsMonitor<CassandraProviderOptions> optionsMonitor, IKeyspaceNamingStrategy keyspaceNamingStrategy, ICassandraReplicationStrategy replicationStrategy, IInitializer initializer = null)
         {
-            if (configuration is null) throw new ArgumentNullException(nameof(configuration));
+            if (optionsMonitor is null) throw new ArgumentNullException(nameof(optionsMonitor));
             if (keyspaceNamingStrategy is null) throw new ArgumentNullException(nameof(keyspaceNamingStrategy));
             if (replicationStrategy is null) throw new ArgumentNullException(nameof(replicationStrategy));
 
-            this.configuration = configuration;
+            this.options = optionsMonitor.CurrentValue;
+            optionsMonitor.OnChange(Changed);
+
             this.keyspaceNamingStrategy = keyspaceNamingStrategy;
             this.replicationStrategy = replicationStrategy;
             this.initializer = initializer;
@@ -33,7 +36,7 @@ namespace Elders.Cronus.Projections.Cassandra
 
         public Cluster GetCluster()
         {
-            if (cluster is null == false)
+            if (cluster is null == false && optionsHasChanged == false)
                 return cluster;
 
             Builder builder = initializer as Builder;
@@ -42,11 +45,11 @@ namespace Elders.Cronus.Projections.Cassandra
                 builder = Cluster.Builder();
                 //  TODO: check inside the `cfg` (var cfg = builder.GetConfiguration();) if we already have connectionString specified
 
-                string connectionString = configuration.GetRequired(GetConnectionStringSettingKey());
+                string connectionString = options.ConnectionString;
 
                 var hackyBuilder = new CassandraConnectionStringBuilder(connectionString);
                 if (string.IsNullOrEmpty(hackyBuilder.DefaultKeyspace) == false)
-                    connectionString = connectionString.Replace(hackyBuilder.DefaultKeyspace, "");
+                    connectionString = connectionString.Replace(hackyBuilder.DefaultKeyspace, string.Empty);
                 baseConfigurationKeyspace = hackyBuilder.DefaultKeyspace;
 
                 var connStrBuilder = new CassandraConnectionStringBuilder(connectionString);
@@ -62,12 +65,9 @@ namespace Elders.Cronus.Projections.Cassandra
                 cluster = Cluster.BuildFrom(initializer);
             }
 
-            return cluster;
-        }
+            optionsHasChanged = false;
 
-        protected virtual string GetConnectionStringSettingKey()
-        {
-            return ConnectionStringSettingKey;
+            return cluster;
         }
 
         protected virtual string GetKeyspace()
@@ -77,20 +77,26 @@ namespace Elders.Cronus.Projections.Cassandra
 
         public ISession GetSession()
         {
-            if (session is null)
+            if (session is null || session.IsDisposed || optionsHasChanged)
             {
                 session = GetCluster().Connect();
-                CreateKeyspace(replicationStrategy, GetKeyspace());
+                CreateKeyspace(GetKeyspace(), replicationStrategy);
             }
 
             return session;
         }
 
-        private void CreateKeyspace(ICassandraReplicationStrategy replicationStrategy, string keyspace)
+        private void CreateKeyspace(string keyspace, ICassandraReplicationStrategy replicationStrategy)
         {
             var createKeySpaceQuery = replicationStrategy.CreateKeySpaceTemplate(keyspace);
             session.Execute(createKeySpaceQuery);
             session.ChangeKeyspace(keyspace);
+        }
+
+        private void Changed(CassandraProviderOptions newOptions)
+        {
+            options = newOptions;
+            optionsHasChanged = true;
         }
     }
 }

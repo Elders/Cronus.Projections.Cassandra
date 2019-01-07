@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Cassandra;
 using Elders.Cronus.Projections.Cassandra.Logging;
 using Elders.Cronus.Projections.Snapshotting;
@@ -22,7 +23,6 @@ namespace Elders.Cronus.Projections.Cassandra
         const string GetQueryTemplate = @"SELECT data, rev FROM ""{0}"" WHERE id=? LIMIT 1;";
         const string GetSnapshotMetaQueryTemplate = @"SELECT rev FROM ""{0}"" WHERE id=? LIMIT 1;";
 
-        readonly ISession session;
         readonly HashSet<string> projectionContracts;
         readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
         readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
@@ -30,12 +30,13 @@ namespace Elders.Cronus.Projections.Cassandra
         readonly ISerializer serializer;
         private readonly IProjectionsNamingStrategy naming;
 
+        private ISession GetSession() => cassandraProvider.GetSession();
+
+        private readonly ICassandraProvider cassandraProvider;
+
         public CassandraSnapshotStore(ICassandraProvider cassandraProvider, ISerializer serializer, IProjectionsNamingStrategy naming, ProjectionsProvider projectionsProvider)
         {
             if (projectionsProvider is null) throw new ArgumentNullException(nameof(projectionsProvider));
-            if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
-            if (serializer is null) throw new ArgumentNullException(nameof(serializer));
-            if (naming is null) throw new ArgumentNullException(nameof(naming));
 
             projectionContracts = new HashSet<string>(
                 projectionsProvider.GetProjections()
@@ -43,9 +44,9 @@ namespace Elders.Cronus.Projections.Cassandra
                 .Where(x => x.GetInterfaces().Any(y => y.IsGenericType && y.GetGenericTypeDefinition() == typeof(IEventHandler<>)))
                 .Select(proj => proj.GetContractId()));
 
-            this.session = cassandraProvider.GetSession();
-            this.serializer = serializer;
-            this.naming = naming;
+            this.cassandraProvider = cassandraProvider ?? throw new ArgumentNullException(nameof(cassandraProvider));
+            this.serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
+            this.naming = naming ?? throw new ArgumentNullException(nameof(naming));
 
             SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
@@ -59,14 +60,9 @@ namespace Elders.Cronus.Projections.Cassandra
 
             string columnFamily = naming.GetSnapshotColumnFamily(version);
 
-            return Load(projectionName, id, columnFamily);
-        }
-
-        ISnapshot Load(string projectionName, IBlobId id, string columnFamily)
-        {
             Row row = null;
             var bs = GetPreparedStatementToGetProjection(columnFamily).Bind(Convert.ToBase64String(id.RawId));
-            var result = session.Execute(bs);
+            var result = GetSession().Execute(bs);
             row = result.GetRows().FirstOrDefault();
 
             if (row == null)
@@ -88,16 +84,9 @@ namespace Elders.Cronus.Projections.Cassandra
 
             string columnFamily = naming.GetSnapshotColumnFamily(version);
 
-            return LoadMeta(projectionName, id, columnFamily);
-        }
-
-        SnapshotMeta LoadMeta(string projectionName, IBlobId id, string columnFamily)
-        {
-            Row row = null;
-
             var bs = GetPreparedStatementToGetSnapshotMeta(columnFamily).Bind(Convert.ToBase64String(id.RawId));
-            var result = session.Execute(bs);
-            row = result.GetRows().FirstOrDefault();
+            var result = GetSession().Execute(bs);
+            Row row = result.GetRows().FirstOrDefault();
 
             if (row == null)
                 return new NoSnapshot(id, projectionName).GetMeta();
@@ -114,14 +103,9 @@ namespace Elders.Cronus.Projections.Cassandra
 
             string columnFamily = naming.GetSnapshotColumnFamily(version);
 
-            Save(snapshot, columnFamily);
-        }
-
-        void Save(ISnapshot snapshot, string columnFamily)
-        {
             var data = serializer.SerializeToBytes(snapshot.State);
             var statement = SavePreparedStatements.GetOrAdd(columnFamily, x => BuildeInsertPreparedStatemnt(x));
-            var result = session.Execute(statement
+            var result = GetSession().Execute(statement
                 .Bind(
                     Convert.ToBase64String(snapshot.Id.RawId),
                     snapshot.Revision,
@@ -131,17 +115,71 @@ namespace Elders.Cronus.Projections.Cassandra
 
         PreparedStatement BuildeInsertPreparedStatemnt(string columnFamily)
         {
-            return session.Prepare(string.Format(InsertQueryTemplate, columnFamily));
+            return GetSession().Prepare(string.Format(InsertQueryTemplate, columnFamily));
         }
 
         PreparedStatement GetPreparedStatementToGetProjection(string columnFamily)
         {
-            return GetPreparedStatements.GetOrAdd(columnFamily, session.Prepare(string.Format(GetQueryTemplate, columnFamily)));
+            return GetPreparedStatements.GetOrAdd(columnFamily, GetSession().Prepare(string.Format(GetQueryTemplate, columnFamily)));
+        }
+
+        async Task<PreparedStatement> GetPreparedStatementToGetProjectionAsync(string columnFamily)
+        {
+            return GetPreparedStatements.GetOrAdd(columnFamily, await GetSession().PrepareAsync(string.Format(GetQueryTemplate, columnFamily)).ConfigureAwait(false));
         }
 
         PreparedStatement GetPreparedStatementToGetSnapshotMeta(string columnFamily)
         {
-            return GetSnapshotMetaPreparedStatements.GetOrAdd(columnFamily, session.Prepare(string.Format(GetSnapshotMetaQueryTemplate, columnFamily)));
+            return GetSnapshotMetaPreparedStatements.GetOrAdd(columnFamily, GetSession().Prepare(string.Format(GetSnapshotMetaQueryTemplate, columnFamily)));
+        }
+
+        async Task<PreparedStatement> GetPreparedStatementToGetSnapshotMetaAsync(string columnFamily)
+        {
+            return GetSnapshotMetaPreparedStatements.GetOrAdd(columnFamily, await GetSession().PrepareAsync(string.Format(GetSnapshotMetaQueryTemplate, columnFamily)).ConfigureAwait(false));
+        }
+
+        public async Task<ISnapshot> LoadAsync(string projectionName, IBlobId id, ProjectionVersion version)
+        {
+            if (projectionContracts.Contains(projectionName) == false)
+                return new NoSnapshot(id, projectionName);
+
+            string columnFamily = naming.GetSnapshotColumnFamily(version);
+
+            var preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily).ConfigureAwait(false);
+            var bs = preparedStatement.Bind(Convert.ToBase64String(id.RawId));
+            var result = await GetSession().ExecuteAsync(bs).ConfigureAwait(false);
+            Row row = result.GetRows().FirstOrDefault();
+
+            if (row == null)
+                return new NoSnapshot(id, projectionName);
+
+            var data = row.GetValue<byte[]>("data");
+            var rev = row.GetValue<int>("rev");
+
+            using (var stream = new MemoryStream(data))
+            {
+                return new Snapshot(id, projectionName, serializer.Deserialize(stream), rev);
+            }
+        }
+
+        public async Task<SnapshotMeta> LoadMetaAsync(string projectionName, IBlobId id, ProjectionVersion version)
+        {
+            if (projectionContracts.Contains(projectionName) == false)
+                return new NoSnapshot(id, projectionName).GetMeta();
+
+            string columnFamily = naming.GetSnapshotColumnFamily(version);
+
+            var preparedStatement = await GetPreparedStatementToGetSnapshotMetaAsync(columnFamily).ConfigureAwait(false);
+            var bs = preparedStatement.Bind(Convert.ToBase64String(id.RawId));
+            var result = await GetSession().ExecuteAsync(bs);
+            Row row = result.GetRows().FirstOrDefault();
+
+            if (row == null)
+                return new NoSnapshot(id, projectionName).GetMeta();
+
+            var rev = row.GetValue<int>("rev");
+
+            return new SnapshotMeta(rev, projectionName);
         }
     }
 }
