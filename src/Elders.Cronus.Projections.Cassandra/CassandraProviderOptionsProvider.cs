@@ -1,4 +1,4 @@
-﻿using Elders.Cronus.Discoveries;
+﻿using Elders.Cronus.Hosting;
 using Microsoft.Extensions.Configuration;
 
 namespace Elders.Cronus.Projections.Cassandra
