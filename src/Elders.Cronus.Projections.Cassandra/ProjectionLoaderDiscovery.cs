@@ -7,10 +7,11 @@ using Elders.Cronus.Projections.Snapshotting;
 using Elders.Cronus.Projections.Versioning;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
-    public class ProjectionLoaderDiscovery : DiscoveryBasedOnExecutingDirAssemblies<IProjectionReader>
+    public class ProjectionLoaderDiscovery : DiscoveryBase<IProjectionReader>
     {
         protected override DiscoveryResult<IProjectionReader> DiscoverFromAssemblies(DiscoveryContext context)
         {
@@ -19,6 +20,11 @@ namespace Elders.Cronus.Projections.Cassandra
 
         IEnumerable<DiscoveredModel> GetModels(DiscoveryContext context)
         {
+            // options
+            yield return new DiscoveredModel(typeof(IConfigureOptions<CassandraProviderOptions>), typeof(CassandraProviderOptionsProvider), ServiceLifetime.Singleton);
+            yield return new DiscoveredModel(typeof(IOptionsChangeTokenSource<CassandraProviderOptions>), typeof(CassandraProviderOptionsProvider), ServiceLifetime.Singleton);
+            yield return new DiscoveredModel(typeof(IOptionsFactory<CassandraProviderOptions>), typeof(CassandraProviderOptionsProvider), ServiceLifetime.Singleton);
+
             // settings
             var cassandraSettings = context.Assemblies.SelectMany(asm => asm.GetLoadableTypes())
                 .Where(type => type.IsAbstract == false && type.IsInterface == false && typeof(ICassandraProjectionStoreSettings).IsAssignableFrom(type));

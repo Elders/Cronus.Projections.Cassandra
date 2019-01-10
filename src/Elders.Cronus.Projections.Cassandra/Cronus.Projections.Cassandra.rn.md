@@ -1,3 +1,8 @@
+#### 5.2.0 - 10.12.2018
+* Adds options for the cassandra provider
+* Adds async support for the projection snapshot
+* Drops net472 because netstandard2.0 supports it out of the box
+
 #### 5.1.0 - 10.12.2018
 * Updates to DNC 2.2
 

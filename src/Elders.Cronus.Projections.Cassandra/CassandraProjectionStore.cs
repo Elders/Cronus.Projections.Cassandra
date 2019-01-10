@@ -77,8 +77,10 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             string projId = Convert.ToBase64String(projectionId.RawId);
 
-            BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(projId, snapshotMarker);
-            var result = await session.ExecuteAsync(bs);
+            PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily).ConfigureAwait(false);
+            BoundStatement bs = preparedStatement.Bind(projId, snapshotMarker);
+            var asd = bs.ToString();
+            var result = await session.ExecuteAsync(bs).ConfigureAwait(false);
             IEnumerable<Row> rows = result.GetRows();
 
             var projectionCommits = new List<ProjectionCommit>();
@@ -140,10 +142,19 @@ namespace Elders.Cronus.Projections.Cassandra
 
         PreparedStatement GetPreparedStatementToGetProjection(string columnFamily)
         {
-            PreparedStatement loadAggregatePreparedStatement;
-            if (!GetPreparedStatements.TryGetValue(columnFamily, out loadAggregatePreparedStatement))
+            if (!GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement loadAggregatePreparedStatement))
             {
                 loadAggregatePreparedStatement = session.Prepare(string.Format(GetQueryTemplate, columnFamily));
+                GetPreparedStatements.TryAdd(columnFamily, loadAggregatePreparedStatement);
+            }
+            return loadAggregatePreparedStatement;
+        }
+
+        async Task<PreparedStatement> GetPreparedStatementToGetProjectionAsync(string columnFamily)
+        {
+            if (!GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement loadAggregatePreparedStatement))
+            {
+                loadAggregatePreparedStatement = await session.PrepareAsync(string.Format(GetQueryTemplate, columnFamily)).ConfigureAwait(false);
                 GetPreparedStatements.TryAdd(columnFamily, loadAggregatePreparedStatement);
             }
             return loadAggregatePreparedStatement;
