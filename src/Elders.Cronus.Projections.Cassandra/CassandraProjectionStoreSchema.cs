@@ -17,8 +17,6 @@ namespace Elders.Cronus.Projections.Cassandra
         readonly ISession sessionForSchemaChanges;
         readonly ILock @lock;
         private readonly TimeSpan lockTtl;
-        readonly ConcurrentDictionary<string, PreparedStatement> CreatePreparedStatements;
-        readonly ConcurrentDictionary<string, PreparedStatement> DropPreparedStatements;
 
         /// <summary>
         /// Used for cassandra schema changes exclusively
@@ -35,8 +33,6 @@ namespace Elders.Cronus.Projections.Cassandra
             this.@lock = @lock;
             this.lockTtl = TimeSpan.FromSeconds(2);
             if (lockTtl == TimeSpan.Zero) throw new ArgumentException("Lock ttl must be more than 0", nameof(lockTtl));
-            CreatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            DropPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }
 
         public void DropTable(string location)
@@ -45,9 +41,8 @@ namespace Elders.Cronus.Projections.Cassandra
             {
                 try
                 {
-                    var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildDropPreparedStatemnt(x));
-                    statement.SetConsistencyLevel(ConsistencyLevel.All);
-                    sessionForSchemaChanges.Execute(statement.Bind());
+                    var query = string.Format(DropQueryTemplate, location);
+                    sessionForSchemaChanges.Execute(query, ConsistencyLevel.All);
                 }
                 finally
                 {
@@ -67,9 +62,8 @@ namespace Elders.Cronus.Projections.Cassandra
                 try
                 {
                     log.Debug(() => $"[Projections] Creating table `{location}` with `{sessionForSchemaChanges.Cluster.AllHosts().First().Address}`...");
-                    var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildCreatePreparedStatement(CreateProjectionEventsTableTemplate, x));
-                    statement.SetConsistencyLevel(ConsistencyLevel.All);
-                    sessionForSchemaChanges.Execute(statement.Bind());
+                    var query = string.Format(CreateProjectionEventsTableTemplate, location);
+                    var result = sessionForSchemaChanges.Execute(query, ConsistencyLevel.All);
                     log.Debug(() => $"[Projections] Created table `{location}`... Maybe?!");
                 }
                 finally
@@ -81,16 +75,6 @@ namespace Elders.Cronus.Projections.Cassandra
             {
                 log.Warn($"[Projections] Could not acquire lock for `{location}` to create projections table");
             }
-        }
-
-        PreparedStatement BuildDropPreparedStatemnt(string columnFamily)
-        {
-            return sessionForSchemaChanges.Prepare(string.Format(DropQueryTemplate, columnFamily));
-        }
-
-        PreparedStatement BuildCreatePreparedStatement(string template, string columnFamily)
-        {
-            return sessionForSchemaChanges.Prepare(string.Format(template, columnFamily));
         }
 
         public void CreateProjectionsStorage(string location)
