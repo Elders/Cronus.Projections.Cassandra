@@ -1,3 +1,8 @@
+#### 5.3.0 - 05.02.2019
+* CassandraProjectionStoreSchema is now used by Interface
+* Updated Cronus to 5.3.0
+* Removed Prepared statements from the Keyspace initializers as they are not supported by Azure Cassandra
+
 #### 5.2.0 - 10.12.2018
 * Adds options for the cassandra provider
 * Adds async support for the projection snapshot
