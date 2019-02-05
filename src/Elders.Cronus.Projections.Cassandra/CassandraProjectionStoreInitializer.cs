@@ -7,11 +7,11 @@ namespace Elders.Cronus.Projections.Cassandra
     {
         private static readonly ILog log = LogProvider.GetLogger(typeof(CassandraProjectionStoreInitializer));
 
-        private readonly CassandraProjectionStoreSchema projectionsSchema;
+        private readonly IProjectionStoreStorageManager projectionsSchema;
         private readonly CassandraSnapshotStoreSchema snapshotsSchema;
         private readonly IProjectionsNamingStrategy naming;
 
-        public CassandraProjectionStoreInitializer(CassandraProjectionStoreSchema projectionsSchema, CassandraSnapshotStoreSchema snapshotsSchema, IProjectionsNamingStrategy naming)
+        public CassandraProjectionStoreInitializer(IProjectionStoreStorageManager projectionsSchema, CassandraSnapshotStoreSchema snapshotsSchema, IProjectionsNamingStrategy naming)
         {
             if (projectionsSchema is null) throw new ArgumentNullException(nameof(projectionsSchema));
             if (snapshotsSchema is null) throw new ArgumentNullException(nameof(snapshotsSchema));

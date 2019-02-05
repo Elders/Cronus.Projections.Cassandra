@@ -20,8 +20,6 @@ namespace Elders.Cronus.Projections.Cassandra
         readonly ILock @lock;
         private readonly TimeSpan lockTtl;
         readonly ISession sessionForSchemaChanges;
-        readonly ConcurrentDictionary<string, PreparedStatement> CreatePreparedStatements;
-        readonly ConcurrentDictionary<string, PreparedStatement> DropPreparedStatements;
 
         public CassandraSnapshotStoreSchema(ICassandraProvider cassandraProvider, ILock @lock)
         {
@@ -33,8 +31,6 @@ namespace Elders.Cronus.Projections.Cassandra
             this.@lock = @lock;
             this.lockTtl = TimeSpan.FromSeconds(2);
             if (lockTtl == TimeSpan.Zero) throw new ArgumentException("Lock ttl must be more than 0", nameof(lockTtl));
-            CreatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            DropPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }
 
         public void DropTable(string location)
@@ -47,9 +43,8 @@ namespace Elders.Cronus.Projections.Cassandra
             {
                 try
                 {
-                    var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildDropPreparedStatemnt(x));
-                    statement.SetConsistencyLevel(ConsistencyLevel.All);
-                    sessionForSchemaChanges.Execute(statement.Bind());
+                    var query = string.Format(DropQueryTemplate, location);
+                    sessionForSchemaChanges.Execute(query, ConsistencyLevel.All);
                 }
                 finally
                 {
@@ -73,9 +68,8 @@ namespace Elders.Cronus.Projections.Cassandra
                 try
                 {
                     log.Debug(() => $"[Projections] Creating snapshot table `{location}` with `{sessionForSchemaChanges.Cluster.AllHosts().First().Address}`...");
-                    var statement = CreatePreparedStatements.GetOrAdd(location, x => BuildCreatePreparedStatement(CreateSnapshopEventsTableTemplate, x));
-                    statement.SetConsistencyLevel(ConsistencyLevel.All);
-                    sessionForSchemaChanges.Execute(statement.Bind());
+                    var query = string.Format(CreateSnapshopEventsTableTemplate, location);
+                    sessionForSchemaChanges.Execute(query, ConsistencyLevel.All);
                     log.Debug(() => $"[Projections] Created snapshot table `{location}`... Maybe?!");
                 }
                 finally
@@ -87,16 +81,6 @@ namespace Elders.Cronus.Projections.Cassandra
             {
                 log.Warn($"[Projections] Could not acquire lock for `{location}` to create snapshots table");
             }
-        }
-
-        PreparedStatement BuildDropPreparedStatemnt(string columnFamily)
-        {
-            return sessionForSchemaChanges.Prepare(string.Format(DropQueryTemplate, columnFamily));
-        }
-
-        PreparedStatement BuildCreatePreparedStatement(string template, string columnFamily)
-        {
-            return sessionForSchemaChanges.Prepare(string.Format(template, columnFamily));
         }
     }
 }
