@@ -1,3 +1,6 @@
+#### 5.3.1 - 02.05.2019
+* Fixes a memory leak due to TCP Socket management
+
 #### 5.3.0 - 05.02.2019
 * CassandraProjectionStoreSchema is now used by Interface
 * Updated Cronus to 5.3.0
