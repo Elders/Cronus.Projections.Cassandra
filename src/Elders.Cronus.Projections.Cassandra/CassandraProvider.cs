@@ -53,6 +53,7 @@ namespace Elders.Cronus.Projections.Cassandra
                 baseConfigurationKeyspace = hackyBuilder.DefaultKeyspace;
 
                 var connStrBuilder = new CassandraConnectionStringBuilder(connectionString);
+                cluster?.Shutdown(30000);
                 cluster = connStrBuilder
                     .ApplyToBuilder(builder)
                     .WithReconnectionPolicy(new ExponentialReconnectionPolicy(100, 100000))
@@ -79,6 +80,7 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             if (session is null || session.IsDisposed || optionsHasChanged)
             {
+                session?.Dispose();
                 session = GetCluster().Connect();
                 CreateKeyspace(GetKeyspace(), replicationStrategy);
             }
@@ -95,8 +97,11 @@ namespace Elders.Cronus.Projections.Cassandra
 
         private void Changed(CassandraProviderOptions newOptions)
         {
-            options = newOptions;
-            optionsHasChanged = true;
+            if (options != newOptions)
+            {
+                options = newOptions;
+                optionsHasChanged = true;
+            }
         }
     }
 }
