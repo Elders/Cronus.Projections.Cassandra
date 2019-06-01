@@ -1,6 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <OutputType>Library</OutputType>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <!--<NullableReferenceTypes>true</NullableReferenceTypes>
+    <LangVersion>8.0</LangVersion>-->
   </PropertyGroup>
 
   <!--Nuget-->
@@ -17,7 +20,7 @@
     <RepositoryUrl>https://github.com/Elders/Cronus.Projections.Cassandra.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageIconUrl>https://raw.githubusercontent.com/Elders/logo/master/cronus/frame.png</PackageIconUrl>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <AssemblyName>Elders.Cronus.Projections.Cassandra</AssemblyName>
     <NeutralLanguage>en-US</NeutralLanguage>
     <RootNamespace>Elders.Cronus.Projections.Cassandra</RootNamespace>
