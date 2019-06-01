@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Cassandra;
+using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Elders.Cronus.Projections.Cassandra.Logging;
 using Elders.Cronus.Projections.Snapshotting;
 

@@ -1,8 +1,8 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Linq;
 using Cassandra;
 using Elders.Cronus.AtomicAction;
+using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Elders.Cronus.Projections.Cassandra.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra

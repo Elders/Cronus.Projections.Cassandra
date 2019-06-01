@@ -1,6 +1,6 @@
 ﻿using Cassandra;
 
-namespace Elders.Cronus.Projections.Cassandra
+namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 {
     class NoHintedHandOffRetryPolicy : IRetryPolicy
     {

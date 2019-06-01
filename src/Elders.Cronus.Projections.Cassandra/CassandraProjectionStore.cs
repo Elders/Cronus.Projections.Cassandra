@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using Elders.Cronus.Projections.Cassandra.Logging;
 using System.Threading.Tasks;
+using Elders.Cronus.Projections.Cassandra.Infrastructure;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
@@ -43,19 +44,19 @@ namespace Elders.Cronus.Projections.Cassandra
             GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }
 
-        public async Task<IEnumerable<ProjectionCommit>> LoadAsync(ProjectionVersion version, IBlobId projcetionId, int snapshotMarker)
+        public async Task<IEnumerable<ProjectionCommit>> LoadAsync(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
         {
             string columnFamily = naming.GetColumnFamily(version);
-            return await LoadAsync(version.ProjectionName, projcetionId, snapshotMarker, columnFamily);
+            return await LoadAsync(projectionId, snapshotMarker, columnFamily);
         }
 
         public IEnumerable<ProjectionCommit> Load(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
         {
             string columnFamily = naming.GetColumnFamily(version);
-            return Load(version.ProjectionName, projectionId, snapshotMarker, columnFamily);
+            return Load(projectionId, snapshotMarker, columnFamily);
         }
 
-        IEnumerable<ProjectionCommit> Load(string contractId, IBlobId projectionId, int snapshotMarker, string columnFamily)
+        IEnumerable<ProjectionCommit> Load(IBlobId projectionId, int snapshotMarker, string columnFamily)
         {
             string projId = Convert.ToBase64String(projectionId.RawId);
 
@@ -73,13 +74,13 @@ namespace Elders.Cronus.Projections.Cassandra
             }
         }
 
-        async Task<IEnumerable<ProjectionCommit>> LoadAsync(string contractId, IBlobId projectionId, int snapshotMarker, string columnFamily)
+        async Task<IEnumerable<ProjectionCommit>> LoadAsync(IBlobId projectionId, int snapshotMarker, string columnFamily)
         {
             string projId = Convert.ToBase64String(projectionId.RawId);
 
             PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily).ConfigureAwait(false);
             BoundStatement bs = preparedStatement.Bind(projId, snapshotMarker);
-            var asd = bs.ToString();
+
             var result = await session.ExecuteAsync(bs).ConfigureAwait(false);
             IEnumerable<Row> rows = result.GetRows();
 

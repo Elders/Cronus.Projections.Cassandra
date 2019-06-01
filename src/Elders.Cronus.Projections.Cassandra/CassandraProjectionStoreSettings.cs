@@ -1,4 +1,6 @@
-﻿namespace Elders.Cronus.Projections.Cassandra
+﻿using Elders.Cronus.Projections.Cassandra.Infrastructure;
+
+namespace Elders.Cronus.Projections.Cassandra
 {
     public class CassandraProjectionStoreSettings : ICassandraProjectionStoreSettings
     {

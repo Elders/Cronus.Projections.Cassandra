@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Elders.Cronus.Projections.Cassandra
+namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 {
     public class CassandraProviderOptions : IEquatable<CassandraProviderOptions>
     {

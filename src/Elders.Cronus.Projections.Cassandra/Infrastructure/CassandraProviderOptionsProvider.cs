@@ -1,7 +1,7 @@
 ﻿using Elders.Cronus.Hosting;
 using Microsoft.Extensions.Configuration;
 
-namespace Elders.Cronus.Projections.Cassandra
+namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 {
     public class CassandraProviderOptionsProvider : CronusOptionsProviderBase<CassandraProviderOptions>
     {
