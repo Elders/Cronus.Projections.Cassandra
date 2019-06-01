@@ -1,3 +1,7 @@
+#### 6.0.0-beta0001 - 01.06.2019
+* Changes the target framework to netcoreapp3.0
+* Allows consumers to configure the cassandra session
+
 #### 5.3.1 - 02.05.2019
 * Fixes a memory leak due to TCP Socket management
 
