@@ -1,3 +1,6 @@
+#### 6.0.0-beta0002 - 25.10.2019
+* Updates packages
+
 #### 6.0.0-beta0001 - 01.06.2019
 * Changes the target framework to netcoreapp3.0
 * Allows consumers to configure the cassandra session
