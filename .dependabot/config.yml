@@ -23,6 +23,7 @@ update_configs:
       # - "production"
       # - "all"
       update_type: "all"
+      dependency_name: "Cronus"
       # Supported updates to automerge:
       # - "security:patch"
       #   SemVer patch update that fixes a known security vulnerability
