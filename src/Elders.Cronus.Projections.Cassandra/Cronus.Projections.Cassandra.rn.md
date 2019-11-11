@@ -1,3 +1,7 @@
+#### 6.0.0-beta0002 - 11.11.2019
+* Updates packages
+* Reworks slightly the CassandraProvider
+
 #### 6.0.0-beta0002 - 25.10.2019
 * Updates packages
 
