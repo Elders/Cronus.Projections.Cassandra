@@ -58,8 +58,6 @@ namespace Elders.Cronus.Projections.Cassandra
             // cassandra
             yield return new DiscoveredModel(typeof(CassandraProvider), typeof(CassandraProvider), ServiceLifetime.Transient);
             yield return new DiscoveredModel(typeof(ICassandraProvider), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProvider>>().Get(), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(CassandraConnectionStringInitializerProvider), typeof(CassandraConnectionStringInitializerProvider), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(ICassandraInitializerProvider), provider => provider.GetRequiredService<SingletonPerTenant<CassandraConnectionStringInitializerProvider>>().Get(), ServiceLifetime.Transient);
 
             // naming
             yield return new DiscoveredModel(typeof(IKeyspaceNamingStrategy), typeof(KeyspacePerTenantKeyspace), ServiceLifetime.Transient);
