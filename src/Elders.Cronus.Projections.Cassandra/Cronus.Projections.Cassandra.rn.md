@@ -1,3 +1,6 @@
+#### 6.0.0-beta0004 - 11.12.2019
+* Updates packages
+
 #### 6.0.0-beta0003 - 11.11.2019
 * Updates packages
 
@@ -57,7 +60,7 @@
 * TimeOffsetSnapshotStrategy is the default strategy for projection reads
 * EventsCountSnapshotStrategy is the default strategy for projection writes
 * Enabled SourceLink
-* Removed UseSnapshot because it caused problems to snapshots if used. By default snapshots used 
+* Removed UseSnapshot because it caused problems to snapshots if used. By default snapshots used
 
 #### 3.0.3 - 28.02.2018
 * Updates Cronus to 4.0.10
