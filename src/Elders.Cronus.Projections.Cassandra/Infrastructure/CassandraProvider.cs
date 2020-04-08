@@ -7,8 +7,6 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 {
     public class CassandraProvider : ICassandraProvider
     {
-        public const string ConnectionStringSettingKey = "cronus_projections_cassandra_connectionstring";
-
         private bool optionsHasChanged = true;
         protected CassandraProviderOptions options;
 
@@ -72,11 +70,6 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
             optionsHasChanged = false;
 
             return cluster;
-        }
-
-        protected virtual string GetConnectionStringSettingKey()
-        {
-            return ConnectionStringSettingKey;
         }
 
         protected virtual string GetKeyspace()

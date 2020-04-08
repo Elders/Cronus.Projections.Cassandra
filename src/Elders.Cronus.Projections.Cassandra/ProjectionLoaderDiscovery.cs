@@ -5,7 +5,6 @@ using Elders.Cronus.Discoveries;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Elders.Cronus.Projections.Snapshotting;
 using Elders.Cronus.Projections.Versioning;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -15,19 +14,13 @@ namespace Elders.Cronus.Projections.Cassandra
     {
         protected override DiscoveryResult<IProjectionReader> DiscoverFromAssemblies(DiscoveryContext context)
         {
-            return new DiscoveryResult<IProjectionReader>(GetModels(context));
+            return new DiscoveryResult<IProjectionReader>(GetModels(context), services => services.AddOptions<CassandraProviderOptions, CassandraProviderOptionsProvider>());
         }
 
         IEnumerable<DiscoveredModel> GetModels(DiscoveryContext context)
         {
-            // options
-            yield return new DiscoveredModel(typeof(IConfigureOptions<CassandraProviderOptions>), typeof(CassandraProviderOptionsProvider), ServiceLifetime.Singleton);
-            yield return new DiscoveredModel(typeof(IOptionsChangeTokenSource<CassandraProviderOptions>), typeof(CassandraProviderOptionsProvider), ServiceLifetime.Singleton);
-            yield return new DiscoveredModel(typeof(IOptionsFactory<CassandraProviderOptions>), typeof(CassandraProviderOptionsProvider), ServiceLifetime.Singleton);
-
             // settings
-            var cassandraSettings = context.Assemblies.SelectMany(asm => asm.GetLoadableTypes())
-                .Where(type => type.IsAbstract == false && type.IsInterface == false && typeof(ICassandraProjectionStoreSettings).IsAssignableFrom(type));
+            var cassandraSettings = context.FindService<ICassandraProjectionStoreSettings>();
             foreach (var setting in cassandraSettings)
             {
                 yield return new DiscoveredModel(setting, setting, ServiceLifetime.Transient);
@@ -64,11 +57,12 @@ namespace Elders.Cronus.Projections.Cassandra
             yield return new DiscoveredModel(typeof(NoKeyspaceNamingStrategy), typeof(NoKeyspaceNamingStrategy), ServiceLifetime.Transient);
             yield return new DiscoveredModel(typeof(KeyspacePerTenantKeyspace), typeof(KeyspacePerTenantKeyspace), ServiceLifetime.Transient);
 
-            var projectionTypes = context.Assemblies.SelectMany(ass => ass.GetLoadableTypes().Where(x => typeof(IProjectionDefinition).IsAssignableFrom(x))).ToList();
+            var projectionTypes = context.FindService<IProjectionDefinition>().ToList();
             yield return new DiscoveredModel(typeof(ProjectionsProvider), provider => new ProjectionsProvider(projectionTypes), ServiceLifetime.Singleton);
             yield return new DiscoveredModel(typeof(CassandraSnapshotStoreSchema), typeof(CassandraSnapshotStoreSchema), ServiceLifetime.Transient);
 
-            yield return new DiscoveredModel(typeof(ICassandraReplicationStrategy), provider => GetReplicationStrategy(context.Configuration), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(CassandraReplicationStrategyFactory), typeof(CassandraReplicationStrategyFactory), ServiceLifetime.Singleton);
+            yield return new DiscoveredModel(typeof(ICassandraReplicationStrategy), provider => provider.GetRequiredService<CassandraReplicationStrategyFactory>().GetReplicationStrategy(), ServiceLifetime.Transient);
 
             yield return new DiscoveredModel(typeof(IProjectionsNamingStrategy), typeof(VersionedProjectionsNaming), ServiceLifetime.Transient);
             yield return new DiscoveredModel(typeof(VersionedProjectionsNaming), typeof(VersionedProjectionsNaming), ServiceLifetime.Transient);
@@ -77,36 +71,30 @@ namespace Elders.Cronus.Projections.Cassandra
 
             yield return new DiscoveredModel(typeof(InMemoryProjectionVersionStore), typeof(InMemoryProjectionVersionStore), ServiceLifetime.Singleton);
         }
+    }
 
+    class CassandraReplicationStrategyFactory
+    {
+        private readonly CassandraProviderOptions options;
 
-        int GetReplicationFactor(IConfiguration configuration)
+        public CassandraReplicationStrategyFactory(IOptionsMonitor<CassandraProviderOptions> optionsMonitor)
         {
-            var replFactorCfg = configuration["cronus_projections_cassandra_replication_factor"];
-            return string.IsNullOrEmpty(replFactorCfg) ? 1 : int.Parse(replFactorCfg);
+            this.options = optionsMonitor.CurrentValue;
         }
 
-        ICassandraReplicationStrategy GetReplicationStrategy(IConfiguration configuration)
+        internal ICassandraReplicationStrategy GetReplicationStrategy()
         {
-            var replStratefyCfg = configuration["cronus_projections_cassandra_replication_strategy"];
-            var replFactorCfg = configuration["cronus_projections_cassandra_replication_factor"];
-
             ICassandraReplicationStrategy replicationStrategy = null;
-            if (string.IsNullOrEmpty(replStratefyCfg))
+            if (options.ReplicationStrategy.Equals("simple", StringComparison.OrdinalIgnoreCase))
             {
-                replicationStrategy = new SimpleReplicationStrategy(1);
+                replicationStrategy = new SimpleReplicationStrategy(options.ReplicationFactor);
             }
-            else if (replStratefyCfg.Equals("simple", StringComparison.OrdinalIgnoreCase))
+            else if (options.ReplicationStrategy.Equals("network_topology", StringComparison.OrdinalIgnoreCase))
             {
-                replicationStrategy = new SimpleReplicationStrategy(GetReplicationFactor(configuration));
-            }
-            else if (replStratefyCfg.Equals("network_topology", StringComparison.OrdinalIgnoreCase))
-            {
-                int replicationFactor = GetReplicationFactor(configuration);
                 var settings = new List<NetworkTopologyReplicationStrategy.DataCenterSettings>();
-                string[] datacenters = configuration["cronus_projections_cassandra__datacenters"].Split(',');
-                foreach (var datacenter in datacenters)
+                foreach (var datacenter in options.Datacenters)
                 {
-                    var setting = new NetworkTopologyReplicationStrategy.DataCenterSettings(datacenter, replicationFactor);
+                    var setting = new NetworkTopologyReplicationStrategy.DataCenterSettings(datacenter, options.ReplicationFactor);
                     settings.Add(setting);
                 }
                 replicationStrategy = new NetworkTopologyReplicationStrategy(settings);
