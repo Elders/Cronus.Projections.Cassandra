@@ -7,6 +7,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Elders.Cronus.Projections.C
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Elders.Cronus.Projections.Cassandra.Tests", "Elders.Cronus.Projections.Cassandra.Tests\Elders.Cronus.Projections.Cassandra.Tests.csproj", "{1ED67B67-253A-4C38-8A8B-BBDF6329FF5F}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{1A91CF2F-10CF-46AB-A13F-A53C16C5BAB2}"
+	ProjectSection(SolutionItems) = preProject
+		..\docs\Configuration.md = ..\docs\Configuration.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
