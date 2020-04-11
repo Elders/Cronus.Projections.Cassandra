@@ -25,7 +25,7 @@ Valid values:
 
 ---
 
-## `Cronus:Projections:Cassandra:TableRetention:DeleteOldProjectionTables` >> *boolean | Required: No | Default: false*
+## `Cronus:Projections:Cassandra:TableRetention:DeleteOldProjectionTables` >> *boolean | Required: No | Default: true*
 
 ---
 
