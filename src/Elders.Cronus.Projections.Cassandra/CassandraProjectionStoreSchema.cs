@@ -35,6 +35,8 @@ namespace Elders.Cronus.Projections.Cassandra
             if (lockTtl == TimeSpan.Zero) throw new ArgumentException("Lock ttl must be more than 0", nameof(lockTtl));
         }
 
+        public string Keyspace => sessionForSchemaChanges.Keyspace;
+
         public void DropTable(string location)
         {
             if (@lock.Lock(location, lockTtl))

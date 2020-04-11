@@ -1,11 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27004.2006
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29926.136
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Elders.Cronus.Projections.Cassandra", "Elders.Cronus.Projections.Cassandra\Elders.Cronus.Projections.Cassandra.csproj", "{EE46D4DA-D6F4-4AED-840E-9E4C0FE3A467}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Elders.Cronus.Projections.Cassandra.Tests", "Elders.Cronus.Projections.Cassandra.Tests\Elders.Cronus.Projections.Cassandra.Tests.csproj", "{1ED67B67-253A-4C38-8A8B-BBDF6329FF5F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Elders.Cronus.Projections.Cassandra.Tests", "Elders.Cronus.Projections.Cassandra.Tests\Elders.Cronus.Projections.Cassandra.Tests.csproj", "{1ED67B67-253A-4C38-8A8B-BBDF6329FF5F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -14,7 +14,8 @@ namespace Elders.Cronus.Projections.Cassandra
     {
         protected override DiscoveryResult<IProjectionReader> DiscoverFromAssemblies(DiscoveryContext context)
         {
-            return new DiscoveryResult<IProjectionReader>(GetModels(context), services => services.AddOptions<CassandraProviderOptions, CassandraProviderOptionsProvider>());
+            return new DiscoveryResult<IProjectionReader>(GetModels(context), services => services.AddOptions<CassandraProviderOptions, CassandraProviderOptionsProvider>()
+                                                                                                  .AddOptions<TableRetentionOptions, TableRetentionOptionsProvider>());
         }
 
         IEnumerable<DiscoveredModel> GetModels(DiscoveryContext context)
