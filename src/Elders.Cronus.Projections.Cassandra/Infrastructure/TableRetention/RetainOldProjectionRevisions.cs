@@ -5,7 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 {
-    public class RetainOnlyNewestProjectionRevisions : IProjectionTableRetentionStrategy
+    public class RetainOldProjectionRevisions : IProjectionTableRetentionStrategy
     {
         private readonly ICluster cluster;
         private readonly IProjectionsNamingStrategy projectionsNaming;
@@ -13,7 +13,7 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
         private readonly CassandraSnapshotStoreSchema snapshotsSchema;
         private TableRetentionOptions options;
 
-        public RetainOnlyNewestProjectionRevisions(ICluster cluster, IProjectionsNamingStrategy projectionsNaming, CassandraProjectionStoreSchema projectionsSchema, CassandraSnapshotStoreSchema snapshotsSchema, IOptionsMonitor<TableRetentionOptions> optionsMonitor)
+        public RetainOldProjectionRevisions(ICluster cluster, IProjectionsNamingStrategy projectionsNaming, CassandraProjectionStoreSchema projectionsSchema, CassandraSnapshotStoreSchema snapshotsSchema, IOptionsMonitor<TableRetentionOptions> optionsMonitor)
         {
             this.cluster = cluster;
             this.projectionsNaming = projectionsNaming;
