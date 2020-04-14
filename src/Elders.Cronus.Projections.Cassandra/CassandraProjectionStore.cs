@@ -4,7 +4,6 @@ using Cassandra;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
-using Elders.Cronus.Projections.Cassandra.Logging;
 using System.Threading.Tasks;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
 
@@ -17,8 +16,6 @@ namespace Elders.Cronus.Projections.Cassandra
 
     public class CassandraProjectionStore : IProjectionStore
     {
-        static ILog log = LogProvider.GetLogger(typeof(CassandraProjectionStore));
-
         const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id, sm, evarid, evarrev, evarpos, evarts, data) VALUES (?,?,?,?,?,?,?);";
         const string GetQueryTemplate = @"SELECT data FROM ""{0}"" WHERE id=? AND sm=?;";
 

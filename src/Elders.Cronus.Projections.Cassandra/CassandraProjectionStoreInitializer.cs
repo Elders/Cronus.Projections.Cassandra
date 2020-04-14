@@ -1,11 +1,11 @@
 ﻿using System;
-using Elders.Cronus.Projections.Cassandra.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
     public class CassandraProjectionStoreInitializer : IInitializableProjectionStore
     {
-        private static readonly ILog log = LogProvider.GetLogger(typeof(CassandraProjectionStoreInitializer));
+        static readonly ILogger logger = CronusLogger.CreateLogger(typeof(CassandraProjectionStoreInitializer));
 
         private readonly IProjectionStoreStorageManager projectionsSchema;
         private readonly CassandraSnapshotStoreSchema snapshotsSchema;
@@ -24,14 +24,14 @@ namespace Elders.Cronus.Projections.Cassandra
         public void Initialize(ProjectionVersion version)
         {
             string projectionColumnFamily = naming.GetColumnFamily(version);
-            log.Debug(() => $"[Projection Store] Initializing projection store with column family `{projectionColumnFamily}`...");
+            logger.Debug(() => $"[Projection Store] Initializing projection store with column family `{projectionColumnFamily}`...");
             projectionsSchema.CreateProjectionsStorage(projectionColumnFamily);
-            log.Debug(() => $"[Projection Store] Initialized projection store with column family `{projectionColumnFamily}`");
+            logger.Debug(() => $"[Projection Store] Initialized projection store with column family `{projectionColumnFamily}`");
 
             string snapshotColumnFamily = naming.GetSnapshotColumnFamily(version);
-            log.Debug(() => $"[Snapshot Store] Initializing snapshot store with column family `{snapshotColumnFamily}`....");
+            logger.Debug(() => $"[Snapshot Store] Initializing snapshot store with column family `{snapshotColumnFamily}`....");
             snapshotsSchema.CreateTable(snapshotColumnFamily);
-            log.Debug(() => $"[Snapshot Store] Initialized snapshot store with column family `{snapshotColumnFamily}`");
+            logger.Debug(() => $"[Snapshot Store] Initialized snapshot store with column family `{snapshotColumnFamily}`");
         }
     }
 }

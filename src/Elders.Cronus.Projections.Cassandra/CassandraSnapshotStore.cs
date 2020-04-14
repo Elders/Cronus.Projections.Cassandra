@@ -6,7 +6,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Cassandra;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
-using Elders.Cronus.Projections.Cassandra.Logging;
 using Elders.Cronus.Projections.Snapshotting;
 
 namespace Elders.Cronus.Projections.Cassandra
@@ -18,8 +17,6 @@ namespace Elders.Cronus.Projections.Cassandra
 
     public class CassandraSnapshotStore : ISnapshotStore
     {
-        static ILog log = LogProvider.GetLogger(typeof(CassandraSnapshotStore));
-
         const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id, rev, data) VALUES (?,?,?);";
         const string GetQueryTemplate = @"SELECT data, rev FROM ""{0}"" WHERE id=? LIMIT 1;";
         const string GetSnapshotMetaQueryTemplate = @"SELECT rev FROM ""{0}"" WHERE id=? LIMIT 1;";

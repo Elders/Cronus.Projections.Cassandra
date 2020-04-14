@@ -3,13 +3,13 @@ using System.Linq;
 using Cassandra;
 using Elders.Cronus.AtomicAction;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
-using Elders.Cronus.Projections.Cassandra.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
     public sealed class CassandraSnapshotStoreSchema
     {
-        static ILog log = LogProvider.GetLogger(typeof(CassandraSnapshotStoreSchema));
+        static ILogger logger = CronusLogger.CreateLogger(typeof(CassandraSnapshotStoreSchema));
 
         static readonly object createMutex = new object();
         static readonly object dropMutex = new object();
@@ -55,7 +55,7 @@ namespace Elders.Cronus.Projections.Cassandra
             }
             else
             {
-                log.Warn($"[Projections] Could not acquire lock for `{location}` to drop snapshots table");
+                logger.Warn($"[Projections] Could not acquire lock for `{location}` to drop snapshots table");
             }
         }
 
@@ -69,10 +69,10 @@ namespace Elders.Cronus.Projections.Cassandra
             {
                 try
                 {
-                    log.Debug(() => $"[Projections] Creating snapshot table `{location}` with `{sessionForSchemaChanges.Cluster.AllHosts().First().Address}`...");
+                    logger.Debug(() => $"[Projections] Creating snapshot table `{location}` with `{sessionForSchemaChanges.Cluster.AllHosts().First().Address}`...");
                     var query = string.Format(CreateSnapshopEventsTableTemplate, location);
                     sessionForSchemaChanges.Execute(query, ConsistencyLevel.All);
-                    log.Debug(() => $"[Projections] Created snapshot table `{location}`... Maybe?!");
+                    logger.Debug(() => $"[Projections] Created snapshot table `{location}`... Maybe?!");
                 }
                 finally
                 {
@@ -81,7 +81,7 @@ namespace Elders.Cronus.Projections.Cassandra
             }
             else
             {
-                log.Warn($"[Projections] Could not acquire lock for `{location}` to create snapshots table");
+                logger.Warn($"[Projections] Could not acquire lock for `{location}` to create snapshots table");
             }
         }
     }
