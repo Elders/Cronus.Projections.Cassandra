@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Elders.Cronus.Projections.Cassandra.ReplicationStrategies
+namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 {
     public class SimpleReplicationStrategy : ICassandraReplicationStrategy
     {

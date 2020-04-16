@@ -1,3 +1,9 @@
+#### 6.0.0 - 16.04.2020
+* Rework the CassandraProvideroptions to use options pattern
+* Reworks slightly the CassandraProvider
+* Changes the target framework to netcoreapp3.1
+* Allows consumers to configure the cassandra session
+
 #### 5.3.1 - 02.05.2019
 * Fixes a memory leak due to TCP Socket management
 
@@ -43,7 +49,7 @@
 * TimeOffsetSnapshotStrategy is the default strategy for projection reads
 * EventsCountSnapshotStrategy is the default strategy for projection writes
 * Enabled SourceLink
-* Removed UseSnapshot because it caused problems to snapshots if used. By default snapshots used 
+* Removed UseSnapshot because it caused problems to snapshots if used. By default snapshots used
 
 #### 3.0.3 - 28.02.2018
 * Updates Cronus to 4.0.10

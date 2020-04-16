@@ -1,15 +1,15 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Linq;
 using Cassandra;
 using Elders.Cronus.AtomicAction;
-using Elders.Cronus.Projections.Cassandra.Logging;
+using Elders.Cronus.Projections.Cassandra.Infrastructure;
+using Microsoft.Extensions.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
     public class CassandraProjectionStoreSchema : IProjectionStoreStorageManager
     {
-        static ILog log = LogProvider.GetLogger(typeof(CassandraProjectionStoreSchema));
+        static ILogger logger = CronusLogger.CreateLogger(typeof(CassandraProjectionStoreSchema));
 
         const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, sm int, evarid text, evarrev int, evarts bigint, evarpos int, data blob, PRIMARY KEY ((id, sm), evarid, evarrev, evarpos, evarts)) WITH CLUSTERING ORDER BY (evarid ASC);";
         const string DropQueryTemplate = @"DROP TABLE IF EXISTS ""{0}"";";
@@ -35,6 +35,8 @@ namespace Elders.Cronus.Projections.Cassandra
             if (lockTtl == TimeSpan.Zero) throw new ArgumentException("Lock ttl must be more than 0", nameof(lockTtl));
         }
 
+        public string Keyspace => sessionForSchemaChanges.Keyspace;
+
         public void DropTable(string location)
         {
             if (@lock.Lock(location, lockTtl))
@@ -51,7 +53,7 @@ namespace Elders.Cronus.Projections.Cassandra
             }
             else
             {
-                log.Debug($"[Projections] Could not acquire lock for `{location}` to drop projections table");
+                logger.Debug($"[Projections] Could not acquire lock for `{location}` to drop projections table");
             }
         }
 
@@ -61,10 +63,10 @@ namespace Elders.Cronus.Projections.Cassandra
             {
                 try
                 {
-                    log.Debug(() => $"[Projections] Creating table `{location}` with `{sessionForSchemaChanges.Cluster.AllHosts().First().Address}`...");
+                    logger.Debug(() => $"[Projections] Creating table `{location}` with `{sessionForSchemaChanges.Cluster.AllHosts().First().Address}`...");
                     var query = string.Format(CreateProjectionEventsTableTemplate, location);
                     var result = sessionForSchemaChanges.Execute(query, ConsistencyLevel.All);
-                    log.Debug(() => $"[Projections] Created table `{location}`... Maybe?!");
+                    logger.Debug(() => $"[Projections] Created table `{location}`... Maybe?!");
                 }
                 finally
                 {
@@ -73,7 +75,7 @@ namespace Elders.Cronus.Projections.Cassandra
             }
             else
             {
-                log.Warn($"[Projections] Could not acquire lock for `{location}` to create projections table");
+                logger.Warn($"[Projections] Could not acquire lock for `{location}` to create projections table");
             }
         }
 

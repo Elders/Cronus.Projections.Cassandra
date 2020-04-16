@@ -1,10 +1,10 @@
 ﻿using Cassandra;
 
-namespace Elders.Cronus.Projections.Cassandra
+namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 {
     public interface ICassandraProvider
     {
-        Cluster GetCluster();
+        ICluster GetCluster();
         ISession GetSession();
     }
 }
