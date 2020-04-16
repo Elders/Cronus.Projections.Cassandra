@@ -1,30 +1,7 @@
-#### 6.0.0-beta0008 - 15.04.2020
-* Update packages
-
-#### 6.0.0-beta0007 - 15.04.2020
-* Update packages
-
-#### 6.0.0-beta0006 - 08.04.2020
+#### 6.0.0 - 16.04.2020
 * Rework the CassandraProvideroptions to use options pattern
-
-#### 6.0.0-beta0005 - 26.03.2020
-* Updates packages
-
-#### 6.0.0-beta0004 - 11.12.2019
-* Updates packages
-
-#### 6.0.0-beta0003 - 11.11.2019
-* Updates packages
-
-#### 6.0.0-beta0002 - 11.11.2019
-* Updates packages
 * Reworks slightly the CassandraProvider
-
-#### 6.0.0-beta0002 - 25.10.2019
-* Updates packages
-
-#### 6.0.0-beta0001 - 01.06.2019
-* Changes the target framework to netcoreapp3.0
+* Changes the target framework to netcoreapp3.1
 * Allows consumers to configure the cassandra session
 
 #### 5.3.1 - 02.05.2019
