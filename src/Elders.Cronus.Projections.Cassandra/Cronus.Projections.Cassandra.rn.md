@@ -1,3 +1,6 @@
+#### 6.1.0 - 24.08.2020
+* Updates packages
+
 #### 6.0.0 - 16.04.2020
 * Rework the CassandraProvideroptions to use options pattern
 * Reworks slightly the CassandraProvider
