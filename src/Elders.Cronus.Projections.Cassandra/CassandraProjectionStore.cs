@@ -23,9 +23,11 @@ namespace Elders.Cronus.Projections.Cassandra
         private readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
         private readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
 
+        private readonly ICassandraProvider cassandraProvider;
         private readonly ISerializer serializer;
         private readonly IProjectionsNamingStrategy naming;
-        private readonly ISession session;
+
+        private ISession GetSession() => cassandraProvider.GetSession(); // In order to keep only 1 session alive (https://docs.datastax.com/en/developer/csharp-driver/3.16/faq/)
 
         public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, IProjectionsNamingStrategy naming)
         {
@@ -33,7 +35,7 @@ namespace Elders.Cronus.Projections.Cassandra
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));
             if (naming is null) throw new ArgumentNullException(nameof(naming));
 
-            this.session = cassandraProvider.GetSession();
+            this.cassandraProvider = cassandraProvider;
             this.serializer = serializer;
             this.naming = naming;
 
@@ -58,7 +60,7 @@ namespace Elders.Cronus.Projections.Cassandra
             string projId = Convert.ToBase64String(projectionId.RawId);
 
             BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(projId, snapshotMarker);
-            var result = session.Execute(bs);
+            var result = GetSession().Execute(bs);
             IEnumerable<Row> rows = result.GetRows();
 
             foreach (var row in rows)
@@ -78,7 +80,7 @@ namespace Elders.Cronus.Projections.Cassandra
             PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily).ConfigureAwait(false);
             BoundStatement bs = preparedStatement.Bind(projId, snapshotMarker);
 
-            var result = await session.ExecuteAsync(bs).ConfigureAwait(false);
+            var result = await GetSession().ExecuteAsync(bs).ConfigureAwait(false);
             IEnumerable<Row> rows = result.GetRows();
 
             var projectionCommits = new List<ProjectionCommit>();
@@ -121,7 +123,7 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             var data = serializer.SerializeToBytes(commit);
             var statement = SavePreparedStatements.GetOrAdd(columnFamily, x => BuildInsertPreparedStatemnt(x));
-            var result = session.Execute(statement
+            var result = GetSession().Execute(statement
                 .Bind(
                     ConvertIdToString(commit.ProjectionId),
                     commit.SnapshotMarker,
@@ -135,14 +137,14 @@ namespace Elders.Cronus.Projections.Cassandra
 
         PreparedStatement BuildInsertPreparedStatemnt(string columnFamily)
         {
-            return session.Prepare(string.Format(InsertQueryTemplate, columnFamily));
+            return GetSession().Prepare(string.Format(InsertQueryTemplate, columnFamily));
         }
 
         PreparedStatement GetPreparedStatementToGetProjection(string columnFamily)
         {
             if (!GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement loadAggregatePreparedStatement))
             {
-                loadAggregatePreparedStatement = session.Prepare(string.Format(GetQueryTemplate, columnFamily));
+                loadAggregatePreparedStatement = GetSession().Prepare(string.Format(GetQueryTemplate, columnFamily));
                 GetPreparedStatements.TryAdd(columnFamily, loadAggregatePreparedStatement);
             }
             return loadAggregatePreparedStatement;
@@ -152,7 +154,7 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             if (!GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement loadAggregatePreparedStatement))
             {
-                loadAggregatePreparedStatement = await session.PrepareAsync(string.Format(GetQueryTemplate, columnFamily)).ConfigureAwait(false);
+                loadAggregatePreparedStatement = await GetSession().PrepareAsync(string.Format(GetQueryTemplate, columnFamily)).ConfigureAwait(false);
                 GetPreparedStatements.TryAdd(columnFamily, loadAggregatePreparedStatement);
             }
             return loadAggregatePreparedStatement;
