@@ -1,3 +1,6 @@
+#### 6.2.0 - 01.10.2020
+* Reworks projection naming
+
 #### 6.1.0 - 24.08.2020
 * Updates packages
 
