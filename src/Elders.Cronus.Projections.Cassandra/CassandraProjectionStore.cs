@@ -25,11 +25,11 @@ namespace Elders.Cronus.Projections.Cassandra
 
         private readonly ICassandraProvider cassandraProvider;
         private readonly ISerializer serializer;
-        private readonly IProjectionsNamingStrategy naming;
+        private readonly VersionedProjectionsNaming naming;
 
         private ISession GetSession() => cassandraProvider.GetSession(); // In order to keep only 1 session alive (https://docs.datastax.com/en/developer/csharp-driver/3.16/faq/)
 
-        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, IProjectionsNamingStrategy naming)
+        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, VersionedProjectionsNaming naming)
         {
             if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));

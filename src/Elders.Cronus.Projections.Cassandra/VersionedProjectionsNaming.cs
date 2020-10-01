@@ -1,9 +1,8 @@
 ﻿using System;
-using Elders.Cronus.Projections.Versioning;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
-    public class VersionedProjectionsNaming : IProjectionsNamingStrategy
+    public class VersionedProjectionsNaming
     {
         public string GetColumnFamily(ProjectionVersion version)
         {
@@ -27,17 +26,13 @@ namespace Elders.Cronus.Projections.Cassandra
             return new ProjectionVersion(parts[0], ProjectionStatus.Create("unknown"), revision, parts[2]);
         }
 
-        string NormalizeProjectionName(string projectionName)
+        internal string NormalizeProjectionName(string projectionName)
         {
             return projectionName.Replace("-", "").ToLower();
         }
 
         string VersionPart(ProjectionVersion version)
         {
-            string thisProjectionShouldNotHaveRevision = typeof(ProjectionVersionsHandler).GetContractId();
-            if (version.ProjectionName.Equals(thisProjectionShouldNotHaveRevision, StringComparison.OrdinalIgnoreCase))
-                return $"{NormalizeProjectionName(version.ProjectionName)}_{version.Hash}";
-
             return $"{NormalizeProjectionName(version.ProjectionName)}_{version.Revision}_{version.Hash}";
         }
     }

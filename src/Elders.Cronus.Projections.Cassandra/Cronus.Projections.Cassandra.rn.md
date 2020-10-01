@@ -1,3 +1,6 @@
+#### 6.2.0 - 01.10.2020
+* Reworks projection naming
+
 #### 6.1.1 - 24.09.2020
 * Starts using GetSession from CassandraProvider instead of local copies for connections
 * Updates Cronus packaget to 6.1.1
