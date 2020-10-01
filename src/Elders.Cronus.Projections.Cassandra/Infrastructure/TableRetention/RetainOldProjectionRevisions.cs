@@ -8,14 +8,14 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
     public class RetainOldProjectionRevisions : IProjectionTableRetentionStrategy
     {
         private readonly ICluster cluster;
-        private readonly IProjectionsNamingStrategy projectionsNaming;
+        private readonly VersionedProjectionsNaming projectionsNaming;
         private readonly CassandraProjectionStoreSchema projectionsSchema;
         private readonly CassandraSnapshotStoreSchema snapshotsSchema;
         private TableRetentionOptions options;
 
-        public RetainOldProjectionRevisions(ICluster cluster, IProjectionsNamingStrategy projectionsNaming, CassandraProjectionStoreSchema projectionsSchema, CassandraSnapshotStoreSchema snapshotsSchema, IOptionsMonitor<TableRetentionOptions> optionsMonitor)
+        public RetainOldProjectionRevisions(ICassandraProvider cassandraProvider, VersionedProjectionsNaming projectionsNaming, CassandraProjectionStoreSchema projectionsSchema, CassandraSnapshotStoreSchema snapshotsSchema, IOptionsMonitor<TableRetentionOptions> optionsMonitor)
         {
-            this.cluster = cluster;
+            this.cluster = cassandraProvider.GetCluster();
             this.projectionsNaming = projectionsNaming;
             this.projectionsSchema = projectionsSchema;
             this.snapshotsSchema = snapshotsSchema;
@@ -32,28 +32,35 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
             if (latestRevisionToRetain <= 0)
                 return;
 
-            var projectionsVersionsToDelete = GetProjectionVersions(projectionsSchema.Keyspace);
-            foreach (var version in projectionsVersionsToDelete)
+            var tables = GetProjectionVersions(projectionsSchema.Keyspace);
+            foreach (var table in tables)
             {
-                var projectionTableName = projectionsNaming.GetColumnFamily(version);
-                projectionsSchema.DropTable(projectionTableName);
+                projectionsSchema.DropTable(table);
             }
 
-            var projectionsVersionsSnapshotsToDelete = GetProjectionVersions(snapshotsSchema.Keyspace);
-            foreach (var version in projectionsVersionsSnapshotsToDelete)
+            IEnumerable<string> GetProjectionVersions(string keyspace)
             {
-                var snapshotTableName = projectionsNaming.GetSnapshotColumnFamily(version);
-                snapshotsSchema.DropTable(snapshotTableName);
+                ICollection<string> projectionsTables = cluster.Metadata.GetTables(keyspace);
+                var projectionTablesWithoutHash = GetPossibleTableNamesWihtoutHash();
+
+                foreach (var table in projectionsTables)
+                {
+                    if (projectionTablesWithoutHash.Any(x => table.StartsWith(x, System.StringComparison.OrdinalIgnoreCase)))
+                        yield return table;
+                }
             }
 
-            IEnumerable<ProjectionVersion> GetProjectionVersions(string keyspace)
+            List<string> GetPossibleTableNamesWihtoutHash()
             {
-                var projectionsTables = cluster.Metadata.GetTables(keyspace);
-                var projectionsVersionsToDelete = projectionsTables
-                    .Select(x => projectionsNaming.Parse(x))
-                    .Where(x => x.ProjectionName == currentProjectionVersion.ProjectionName && x.Revision < latestRevisionToRetain); // handles cases when the hash might change
+                List<string> result = new List<string>();
 
-                return projectionsVersionsToDelete;
+                for (long i = latestRevisionToRetain - 1; i > 0; i--)
+                {
+                    string projectionTableWithoutHash = $"{projectionsNaming.NormalizeProjectionName(currentProjectionVersion.ProjectionName)}_{i}_";
+                    result.Add(projectionTableWithoutHash);
+                }
+
+                return result;
             }
         }
     }

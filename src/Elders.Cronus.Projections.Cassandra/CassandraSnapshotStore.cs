@@ -26,13 +26,13 @@ namespace Elders.Cronus.Projections.Cassandra
         readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
         readonly ConcurrentDictionary<string, PreparedStatement> GetSnapshotMetaPreparedStatements;
         readonly ISerializer serializer;
-        private readonly IProjectionsNamingStrategy naming;
+        private readonly VersionedProjectionsNaming naming;
 
         private ISession GetSession() => cassandraProvider.GetSession();
 
         private readonly ICassandraProvider cassandraProvider;
 
-        public CassandraSnapshotStore(ICassandraProvider cassandraProvider, ISerializer serializer, IProjectionsNamingStrategy naming, ProjectionsProvider projectionsProvider)
+        public CassandraSnapshotStore(ICassandraProvider cassandraProvider, ISerializer serializer, VersionedProjectionsNaming naming, ProjectionsProvider projectionsProvider)
         {
             if (projectionsProvider is null) throw new ArgumentNullException(nameof(projectionsProvider));
 

@@ -24,10 +24,10 @@ namespace Elders.Cronus.Projections.Cassandra
         private readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
 
         private readonly ISerializer serializer;
-        private readonly IProjectionsNamingStrategy naming;
+        private readonly VersionedProjectionsNaming naming;
         private readonly ISession session;
 
-        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, IProjectionsNamingStrategy naming)
+        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, VersionedProjectionsNaming naming)
         {
             if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));

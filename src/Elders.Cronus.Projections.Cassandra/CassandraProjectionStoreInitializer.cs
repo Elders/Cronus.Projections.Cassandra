@@ -9,9 +9,9 @@ namespace Elders.Cronus.Projections.Cassandra
 
         private readonly IProjectionStoreStorageManager projectionsSchema;
         private readonly CassandraSnapshotStoreSchema snapshotsSchema;
-        private readonly IProjectionsNamingStrategy naming;
+        private readonly VersionedProjectionsNaming naming;
 
-        public CassandraProjectionStoreInitializer(IProjectionStoreStorageManager projectionsSchema, CassandraSnapshotStoreSchema snapshotsSchema, IProjectionsNamingStrategy naming)
+        public CassandraProjectionStoreInitializer(IProjectionStoreStorageManager projectionsSchema, CassandraSnapshotStoreSchema snapshotsSchema, VersionedProjectionsNaming naming)
         {
             if (projectionsSchema is null) throw new ArgumentNullException(nameof(projectionsSchema));
             if (snapshotsSchema is null) throw new ArgumentNullException(nameof(snapshotsSchema));
