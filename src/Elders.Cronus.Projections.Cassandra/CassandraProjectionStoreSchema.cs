@@ -11,7 +11,7 @@ namespace Elders.Cronus.Projections.Cassandra
     {
         static ILogger logger = CronusLogger.CreateLogger(typeof(CassandraProjectionStoreSchema));
 
-        const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, sm int, evarid text, evarrev int, evarts bigint, evarpos int, data blob, PRIMARY KEY ((id, sm), evarid, evarrev, evarpos, evarts)) WITH CLUSTERING ORDER BY (evarid ASC);";
+        const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, sm int, evarid text, evarrev int, evarts bigint, evarpos int, data blob, PRIMARY KEY ((id, sm), evarid, evarrev, evarpos, evarts)) WITH CLUSTERING ORDER BY (evarts ASC);";
         const string DropQueryTemplate = @"DROP TABLE IF EXISTS ""{0}"";";
 
         readonly ISession sessionForSchemaChanges;
