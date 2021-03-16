@@ -1,3 +1,10 @@
+# [6.3.0-next.1](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.2.1-next.2...v6.3.0-next.1) (2021-03-16)
+
+
+### Features
+
+* Updates Cronus ([5df5423](https://github.com/Elders/Cronus.Projections.Cassandra/commit/5df5423c6225ce6aaf3f1e0073f64101fb75c9c3))
+
 ## [6.2.1-next.2](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.2.1-next.1...v6.2.1-next.2) (2021-01-29)
 
 
