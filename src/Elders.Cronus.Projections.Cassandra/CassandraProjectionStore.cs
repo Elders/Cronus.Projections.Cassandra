@@ -18,6 +18,7 @@ namespace Elders.Cronus.Projections.Cassandra
     {
         const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id, sm, evarid, evarrev, evarpos, evarts, data) VALUES (?,?,?,?,?,?,?);";
         const string GetQueryTemplate = @"SELECT data FROM ""{0}"" WHERE id=? AND sm=?;";
+        const string HasSnapshotMarkerTemplate = @"SELECT sm FROM ""{0}"" WHERE id=? AND sm=? LIMIT 1;";
 
 
         private readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
@@ -55,6 +56,12 @@ namespace Elders.Cronus.Projections.Cassandra
             return Load(projectionId, snapshotMarker, columnFamily);
         }
 
+        public bool HasSnapshotMarker(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
+        {
+            string columnFamily = naming.GetColumnFamily(version);
+            return HasSnapshotMarker(projectionId, snapshotMarker, columnFamily);
+        }
+
         IEnumerable<ProjectionCommit> Load(IBlobId projectionId, int snapshotMarker, string columnFamily)
         {
             string projId = Convert.ToBase64String(projectionId.RawId);
@@ -71,6 +78,17 @@ namespace Elders.Cronus.Projections.Cassandra
                     yield return (ProjectionCommit)serializer.Deserialize(stream);
                 }
             }
+        }
+
+        bool HasSnapshotMarker(IBlobId projectionId, int snapshotMarker, string columnFamily)
+        {
+            string projId = Convert.ToBase64String(projectionId.RawId);
+
+            BoundStatement bs = GetPreparedStatementToCheckProjectionSnapshotMarker(columnFamily).Bind(projId, snapshotMarker);
+            var result = GetSession().Execute(bs);
+            IEnumerable<Row> rows = result.GetRows();
+
+            return rows.Any();
         }
 
         async Task<IEnumerable<ProjectionCommit>> LoadAsync(IBlobId projectionId, int snapshotMarker, string columnFamily)
@@ -142,12 +160,22 @@ namespace Elders.Cronus.Projections.Cassandra
 
         PreparedStatement GetPreparedStatementToGetProjection(string columnFamily)
         {
-            if (!GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement loadAggregatePreparedStatement))
+            if (!GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement loadPreparedStatement))
             {
-                loadAggregatePreparedStatement = GetSession().Prepare(string.Format(GetQueryTemplate, columnFamily));
-                GetPreparedStatements.TryAdd(columnFamily, loadAggregatePreparedStatement);
+                loadPreparedStatement = GetSession().Prepare(string.Format(GetQueryTemplate, columnFamily));
+                GetPreparedStatements.TryAdd(columnFamily, loadPreparedStatement);
             }
-            return loadAggregatePreparedStatement;
+            return loadPreparedStatement;
+        }
+
+        PreparedStatement GetPreparedStatementToCheckProjectionSnapshotMarker(string columnFamily)
+        {
+            if (!GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement checkSnapshotMarkerPreparedStatement))
+            {
+                checkSnapshotMarkerPreparedStatement = GetSession().Prepare(string.Format(HasSnapshotMarkerTemplate, columnFamily));
+                GetPreparedStatements.TryAdd(columnFamily, checkSnapshotMarkerPreparedStatement);
+            }
+            return checkSnapshotMarkerPreparedStatement;
         }
 
         async Task<PreparedStatement> GetPreparedStatementToGetProjectionAsync(string columnFamily)
