@@ -62,6 +62,12 @@ namespace Elders.Cronus.Projections.Cassandra
             return HasSnapshotMarker(projectionId, snapshotMarker, columnFamily);
         }
 
+        public Task<bool> HasSnapshotMarkerAsync(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
+        {
+            string columnFamily = naming.GetColumnFamily(version);
+            return HasSnapshotMarkerAsync(projectionId, snapshotMarker, columnFamily);
+        }
+
         IEnumerable<ProjectionCommit> Load(IBlobId projectionId, int snapshotMarker, string columnFamily)
         {
             string projId = Convert.ToBase64String(projectionId.RawId);
@@ -86,6 +92,18 @@ namespace Elders.Cronus.Projections.Cassandra
 
             BoundStatement bs = GetPreparedStatementToCheckProjectionSnapshotMarker(columnFamily).Bind(projId, snapshotMarker);
             var result = GetSession().Execute(bs);
+            IEnumerable<Row> rows = result.GetRows();
+
+            return rows.Any();
+        }
+
+        async Task<bool> HasSnapshotMarkerAsync(IBlobId projectionId, int snapshotMarker, string columnFamily)
+        {
+            string projId = Convert.ToBase64String(projectionId.RawId);
+
+            PreparedStatement preparedStatement = await GetPreparedStatementToCheckProjectionSnapshotMarkerAsync(columnFamily);
+            BoundStatement bs = preparedStatement.Bind(projId, snapshotMarker);
+            var result = await GetSession().ExecuteAsync(bs).ConfigureAwait(false);
             IEnumerable<Row> rows = result.GetRows();
 
             return rows.Any();
@@ -173,6 +191,16 @@ namespace Elders.Cronus.Projections.Cassandra
             if (!GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement checkSnapshotMarkerPreparedStatement))
             {
                 checkSnapshotMarkerPreparedStatement = GetSession().Prepare(string.Format(HasSnapshotMarkerTemplate, columnFamily));
+                GetPreparedStatements.TryAdd(columnFamily, checkSnapshotMarkerPreparedStatement);
+            }
+            return checkSnapshotMarkerPreparedStatement;
+        }
+
+        async Task<PreparedStatement> GetPreparedStatementToCheckProjectionSnapshotMarkerAsync(string columnFamily)
+        {
+            if (!GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement checkSnapshotMarkerPreparedStatement))
+            {
+                checkSnapshotMarkerPreparedStatement = await GetSession().PrepareAsync(string.Format(HasSnapshotMarkerTemplate, columnFamily)).ConfigureAwait(false);
                 GetPreparedStatements.TryAdd(columnFamily, checkSnapshotMarkerPreparedStatement);
             }
             return checkSnapshotMarkerPreparedStatement;
