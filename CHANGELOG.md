@@ -1,3 +1,10 @@
+# [6.3.0-next.2](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-next.1...v6.3.0-next.2) (2021-03-17)
+
+
+### Features
+
+* Implement HasSnapshotMarkerAsync ([bbca182](https://github.com/Elders/Cronus.Projections.Cassandra/commit/bbca18295b5e95a23ee417d3547d595e3a9f147a))
+
 # [6.3.0-next.1](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.2.1-next.2...v6.3.0-next.1) (2021-03-16)
 
 
