@@ -1,3 +1,10 @@
+# [6.3.0-next.3](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-next.2...v6.3.0-next.3) (2021-03-18)
+
+
+### Bug Fixes
+
+* Sets consistency level to all queries to be local quorum ([8921b20](https://github.com/Elders/Cronus.Projections.Cassandra/commit/8921b200c2cbd082a0e829eea559eb8956e8c9bf))
+
 # [6.3.0-next.2](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-next.1...v6.3.0-next.2) (2021-03-17)
 
 
