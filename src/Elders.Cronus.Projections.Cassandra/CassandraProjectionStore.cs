@@ -173,14 +173,19 @@ namespace Elders.Cronus.Projections.Cassandra
 
         PreparedStatement BuildInsertPreparedStatemnt(string columnFamily)
         {
-            return GetSession().Prepare(string.Format(InsertQueryTemplate, columnFamily));
+            return GetSession()
+                .Prepare(string.Format(InsertQueryTemplate, columnFamily))
+                .SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
         }
 
         PreparedStatement GetPreparedStatementToGetProjection(string columnFamily)
         {
             if (!GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement loadPreparedStatement))
             {
-                loadPreparedStatement = GetSession().Prepare(string.Format(GetQueryTemplate, columnFamily));
+                loadPreparedStatement = GetSession()
+                    .Prepare(string.Format(GetQueryTemplate, columnFamily))
+                    .SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+
                 GetPreparedStatements.TryAdd(columnFamily, loadPreparedStatement);
             }
             return loadPreparedStatement;
@@ -190,7 +195,10 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             if (!GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement checkSnapshotMarkerPreparedStatement))
             {
-                checkSnapshotMarkerPreparedStatement = GetSession().Prepare(string.Format(HasSnapshotMarkerTemplate, columnFamily));
+                checkSnapshotMarkerPreparedStatement = GetSession()
+                    .Prepare(string.Format(HasSnapshotMarkerTemplate, columnFamily))
+                    .SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+
                 GetPreparedStatements.TryAdd(columnFamily, checkSnapshotMarkerPreparedStatement);
             }
             return checkSnapshotMarkerPreparedStatement;
@@ -211,6 +219,8 @@ namespace Elders.Cronus.Projections.Cassandra
             if (!GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement loadAggregatePreparedStatement))
             {
                 loadAggregatePreparedStatement = await GetSession().PrepareAsync(string.Format(GetQueryTemplate, columnFamily)).ConfigureAwait(false);
+                loadAggregatePreparedStatement = loadAggregatePreparedStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+
                 GetPreparedStatements.TryAdd(columnFamily, loadAggregatePreparedStatement);
             }
             return loadAggregatePreparedStatement;

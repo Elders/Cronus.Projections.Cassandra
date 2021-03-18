@@ -118,22 +118,35 @@ namespace Elders.Cronus.Projections.Cassandra
 
         PreparedStatement GetPreparedStatementToGetProjection(string columnFamily)
         {
-            return GetPreparedStatements.GetOrAdd(columnFamily, GetSession().Prepare(string.Format(GetQueryTemplate, columnFamily)));
+            PreparedStatement statement = GetSession()
+                .Prepare(string.Format(GetQueryTemplate, columnFamily))
+                .SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+
+            return GetPreparedStatements.GetOrAdd(columnFamily, statement);
         }
 
         async Task<PreparedStatement> GetPreparedStatementToGetProjectionAsync(string columnFamily)
         {
-            return GetPreparedStatements.GetOrAdd(columnFamily, await GetSession().PrepareAsync(string.Format(GetQueryTemplate, columnFamily)).ConfigureAwait(false));
+            PreparedStatement statement = await GetSession().PrepareAsync(string.Format(GetQueryTemplate, columnFamily)).ConfigureAwait(false);
+            statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+
+            return GetPreparedStatements.GetOrAdd(columnFamily, statement);
         }
 
         PreparedStatement GetPreparedStatementToGetSnapshotMeta(string columnFamily)
         {
-            return GetSnapshotMetaPreparedStatements.GetOrAdd(columnFamily, GetSession().Prepare(string.Format(GetSnapshotMetaQueryTemplate, columnFamily)));
+            PreparedStatement statement = GetSession()
+                .Prepare(string.Format(GetSnapshotMetaQueryTemplate, columnFamily))
+                .SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+            return GetSnapshotMetaPreparedStatements.GetOrAdd(columnFamily, statement);
         }
 
         async Task<PreparedStatement> GetPreparedStatementToGetSnapshotMetaAsync(string columnFamily)
         {
-            return GetSnapshotMetaPreparedStatements.GetOrAdd(columnFamily, await GetSession().PrepareAsync(string.Format(GetSnapshotMetaQueryTemplate, columnFamily)).ConfigureAwait(false));
+            var statement = await GetSession().PrepareAsync(string.Format(GetSnapshotMetaQueryTemplate, columnFamily)).ConfigureAwait(false);
+            statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+
+            return GetSnapshotMetaPreparedStatements.GetOrAdd(columnFamily, statement);
         }
 
         public async Task<ISnapshot> LoadAsync(string projectionName, IBlobId id, ProjectionVersion version)
@@ -143,7 +156,8 @@ namespace Elders.Cronus.Projections.Cassandra
 
             string columnFamily = naming.GetSnapshotColumnFamily(version);
 
-            var preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily).ConfigureAwait(false);
+            PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily).ConfigureAwait(false);
+
             var bs = preparedStatement.Bind(Convert.ToBase64String(id.RawId));
             var result = await GetSession().ExecuteAsync(bs).ConfigureAwait(false);
             Row row = result.GetRows().FirstOrDefault();
@@ -167,7 +181,8 @@ namespace Elders.Cronus.Projections.Cassandra
 
             string columnFamily = naming.GetSnapshotColumnFamily(version);
 
-            var preparedStatement = await GetPreparedStatementToGetSnapshotMetaAsync(columnFamily).ConfigureAwait(false);
+            PreparedStatement preparedStatement = await GetPreparedStatementToGetSnapshotMetaAsync(columnFamily).ConfigureAwait(false);
+
             var bs = preparedStatement.Bind(Convert.ToBase64String(id.RawId));
             var result = await GetSession().ExecuteAsync(bs);
             Row row = result.GetRows().FirstOrDefault();
