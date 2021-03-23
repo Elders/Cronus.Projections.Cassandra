@@ -23,6 +23,7 @@ namespace Elders.Cronus.Projections.Cassandra
 
         private readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
         private readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
+        private readonly ConcurrentDictionary<string, PreparedStatement> HasSnapshotMarkerPreparedStatements;
 
         private readonly ICassandraProvider cassandraProvider;
         private readonly ISerializer serializer;
@@ -42,6 +43,7 @@ namespace Elders.Cronus.Projections.Cassandra
 
             SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+            HasSnapshotMarkerPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }
 
         public async Task<IEnumerable<ProjectionCommit>> LoadAsync(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
@@ -193,23 +195,24 @@ namespace Elders.Cronus.Projections.Cassandra
 
         PreparedStatement GetPreparedStatementToCheckProjectionSnapshotMarker(string columnFamily)
         {
-            if (!GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement checkSnapshotMarkerPreparedStatement))
+            if (!HasSnapshotMarkerPreparedStatements.TryGetValue(columnFamily, out PreparedStatement checkSnapshotMarkerPreparedStatement))
             {
                 checkSnapshotMarkerPreparedStatement = GetSession()
                     .Prepare(string.Format(HasSnapshotMarkerTemplate, columnFamily))
                     .SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
 
-                GetPreparedStatements.TryAdd(columnFamily, checkSnapshotMarkerPreparedStatement);
+                HasSnapshotMarkerPreparedStatements.TryAdd(columnFamily, checkSnapshotMarkerPreparedStatement);
             }
             return checkSnapshotMarkerPreparedStatement;
         }
 
         async Task<PreparedStatement> GetPreparedStatementToCheckProjectionSnapshotMarkerAsync(string columnFamily)
         {
-            if (!GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement checkSnapshotMarkerPreparedStatement))
+            if (!HasSnapshotMarkerPreparedStatements.TryGetValue(columnFamily, out PreparedStatement checkSnapshotMarkerPreparedStatement))
             {
                 checkSnapshotMarkerPreparedStatement = await GetSession().PrepareAsync(string.Format(HasSnapshotMarkerTemplate, columnFamily)).ConfigureAwait(false);
-                GetPreparedStatements.TryAdd(columnFamily, checkSnapshotMarkerPreparedStatement);
+                checkSnapshotMarkerPreparedStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+                HasSnapshotMarkerPreparedStatements.TryAdd(columnFamily, checkSnapshotMarkerPreparedStatement);
             }
             return checkSnapshotMarkerPreparedStatement;
         }
@@ -219,7 +222,7 @@ namespace Elders.Cronus.Projections.Cassandra
             if (!GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement loadAggregatePreparedStatement))
             {
                 loadAggregatePreparedStatement = await GetSession().PrepareAsync(string.Format(GetQueryTemplate, columnFamily)).ConfigureAwait(false);
-                loadAggregatePreparedStatement = loadAggregatePreparedStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+                loadAggregatePreparedStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
 
                 GetPreparedStatements.TryAdd(columnFamily, loadAggregatePreparedStatement);
             }
