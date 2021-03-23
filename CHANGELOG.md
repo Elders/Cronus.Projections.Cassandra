@@ -1,3 +1,10 @@
+# [6.3.0-next.4](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-next.3...v6.3.0-next.4) (2021-03-23)
+
+
+### Bug Fixes
+
+* Fix creation and usage of prepare statements when reading from projections ([29faf7e](https://github.com/Elders/Cronus.Projections.Cassandra/commit/29faf7e3b5ad6788a554b7de0b999946eaad4097))
+
 # [6.3.0-next.3](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-next.2...v6.3.0-next.3) (2021-03-18)
 
 
