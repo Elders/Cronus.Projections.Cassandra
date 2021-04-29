@@ -1,0 +1,25 @@
+version: 2
+updates:
+- package-ecosystem: nuget
+  directory: "/"
+  schedule:
+    interval: daily
+  pull-request-branch-name:
+    separator: "-"
+  open-pull-requests-limit: 10
+  target-branch: next
+  reviewers:
+  - Elders/cronus-team
+  assignees:
+  - mynkow
+  labels:
+  - dependencies
+  allow:
+  - dependency-type: direct
+  ignore:
+  - dependency-name: Cronus
+    versions:
+    - 6.2.9
+  - dependency-name: Microsoft.NET.Test.Sdk
+    versions:
+    - 16.8.3
