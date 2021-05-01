@@ -1,18 +1,24 @@
-version: 2
-updates:
-- package-ecosystem: nuget
-  directory: "/"
-  schedule:
-    interval: daily
-  pull-request-branch-name:
-    separator: "-"
-  open-pull-requests-limit: 10
-  target-branch: next
-  reviewers:
+version: 1
+update_configs:
+- package_manager: dotnet:nuget
+  directory: /
+  update_schedule: live
+  default_reviewers:
   - Elders/cronus-team
-  assignees:
+  default_assignees:
   - mynkow
-  labels:
+  target_branch: next
+  default_labels:
   - dependencies
-  allow:
-  - dependency-type: direct
+  allowed_updates:
+  - match:
+      update_type: all
+      dependency_type: direct
+  automerged_updates:
+  - match:
+      dependency_name: Cronus*
+      dependency_type: all
+      update_type: all
+  - match:
+      dependency_type: production
+      update_type: all
