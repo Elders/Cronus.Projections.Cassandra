@@ -1,3 +1,12 @@
+# [6.3.0-preview.1](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-next.4...v6.3.0-preview.1) (2021-05-05)
+
+
+### Bug Fixes
+
+* Consolidates release notes ([c33dbb9](https://github.com/Elders/Cronus.Projections.Cassandra/commit/c33dbb95542636951d331966b8303e7b3356afe3))
+* Switches to beta/preview branches ([024274f](https://github.com/Elders/Cronus.Projections.Cassandra/commit/024274fb339daa113a558390ef9772e93fb685cc))
+* Updates packages ([90fbb41](https://github.com/Elders/Cronus.Projections.Cassandra/commit/90fbb41a767abd9691bb74a985f5ba3ae6935a41))
+
 # [6.3.0-next.4](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-next.3...v6.3.0-next.4) (2021-03-23)
 
 
