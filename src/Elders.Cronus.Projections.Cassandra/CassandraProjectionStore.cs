@@ -11,7 +11,7 @@ namespace Elders.Cronus.Projections.Cassandra
 {
     public class CassandraProjectionStore<TSettings> : CassandraProjectionStore where TSettings : ICassandraProjectionStoreSettings
     {
-        public CassandraProjectionStore(TSettings settings) : base(settings.CassandraProvider, settings.Serializer, settings.ProjectionsNamingStrategy) { }
+        public CassandraProjectionStore(TSettings settings, IInitializableProjectionStore initializableProjectionStore) : base(settings.CassandraProvider, settings.Serializer, settings.ProjectionsNamingStrategy, initializableProjectionStore) { }
     }
 
     public class CassandraProjectionStore : IProjectionStore
@@ -28,10 +28,11 @@ namespace Elders.Cronus.Projections.Cassandra
         private readonly ICassandraProvider cassandraProvider;
         private readonly ISerializer serializer;
         private readonly VersionedProjectionsNaming naming;
+        private readonly IInitializableProjectionStore initializableProjectionStore;
 
         private ISession GetSession() => cassandraProvider.GetSession(); // In order to keep only 1 session alive (https://docs.datastax.com/en/developer/csharp-driver/3.16/faq/)
 
-        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, VersionedProjectionsNaming naming)
+        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, VersionedProjectionsNaming naming, IInitializableProjectionStore initializableProjectionStore)
         {
             if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));
@@ -40,7 +41,7 @@ namespace Elders.Cronus.Projections.Cassandra
             this.cassandraProvider = cassandraProvider;
             this.serializer = serializer;
             this.naming = naming;
-
+            this.initializableProjectionStore = initializableProjectionStore;
             SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             HasSnapshotMarkerPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
@@ -48,14 +49,66 @@ namespace Elders.Cronus.Projections.Cassandra
 
         public async Task<IEnumerable<ProjectionCommit>> LoadAsync(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
         {
-            string columnFamily = naming.GetColumnFamily(version);
-            return await LoadAsync(projectionId, snapshotMarker, columnFamily);
+            IEnumerable<Row> rows = Enumerable.Empty<Row>();
+            try
+            {
+                string columnFamily = naming.GetColumnFamily(version);
+
+                string projId = Convert.ToBase64String(projectionId.RawId);
+
+                PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily).ConfigureAwait(false);
+                BoundStatement bs = preparedStatement.Bind(projId, snapshotMarker);
+
+                var result = await GetSession().ExecuteAsync(bs).ConfigureAwait(false);
+                rows = result.GetRows();
+            }
+            catch (InvalidQueryException)
+            {
+                initializableProjectionStore.Initialize(version);
+
+                return Enumerable.Empty<ProjectionCommit>();
+            }
+
+            var projectionCommits = new List<ProjectionCommit>();
+            foreach (var row in rows)
+            {
+                var data = row.GetValue<byte[]>("data");
+                using (var stream = new MemoryStream(data))
+                {
+                    projectionCommits.Add((ProjectionCommit)serializer.Deserialize(stream));
+                }
+            }
+
+            return projectionCommits;
         }
 
         public IEnumerable<ProjectionCommit> Load(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
         {
-            string columnFamily = naming.GetColumnFamily(version);
-            return Load(projectionId, snapshotMarker, columnFamily);
+            IEnumerable<Row> rows = Enumerable.Empty<Row>();
+            try
+            {
+                string columnFamily = naming.GetColumnFamily(version);
+                string projId = Convert.ToBase64String(projectionId.RawId);
+
+                BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(projId, snapshotMarker);
+                var result = GetSession().Execute(bs);
+                rows = result.GetRows();
+            }
+            catch (InvalidQueryException)
+            {
+                initializableProjectionStore.Initialize(version);
+
+                yield break;
+            }
+
+            foreach (var row in rows)
+            {
+                var data = row.GetValue<byte[]>("data");
+                using (var stream = new MemoryStream(data))
+                {
+                    yield return (ProjectionCommit)serializer.Deserialize(stream);
+                }
+            }
         }
 
         public bool HasSnapshotMarker(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
@@ -68,24 +121,6 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             string columnFamily = naming.GetColumnFamily(version);
             return HasSnapshotMarkerAsync(projectionId, snapshotMarker, columnFamily);
-        }
-
-        IEnumerable<ProjectionCommit> Load(IBlobId projectionId, int snapshotMarker, string columnFamily)
-        {
-            string projId = Convert.ToBase64String(projectionId.RawId);
-
-            BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(projId, snapshotMarker);
-            var result = GetSession().Execute(bs);
-            IEnumerable<Row> rows = result.GetRows();
-
-            foreach (var row in rows)
-            {
-                var data = row.GetValue<byte[]>("data");
-                using (var stream = new MemoryStream(data))
-                {
-                    yield return (ProjectionCommit)serializer.Deserialize(stream);
-                }
-            }
         }
 
         bool HasSnapshotMarker(IBlobId projectionId, int snapshotMarker, string columnFamily)
@@ -109,29 +144,6 @@ namespace Elders.Cronus.Projections.Cassandra
             IEnumerable<Row> rows = result.GetRows();
 
             return rows.Any();
-        }
-
-        async Task<IEnumerable<ProjectionCommit>> LoadAsync(IBlobId projectionId, int snapshotMarker, string columnFamily)
-        {
-            string projId = Convert.ToBase64String(projectionId.RawId);
-
-            PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily).ConfigureAwait(false);
-            BoundStatement bs = preparedStatement.Bind(projId, snapshotMarker);
-
-            var result = await GetSession().ExecuteAsync(bs).ConfigureAwait(false);
-            IEnumerable<Row> rows = result.GetRows();
-
-            var projectionCommits = new List<ProjectionCommit>();
-            foreach (var row in rows)
-            {
-                var data = row.GetValue<byte[]>("data");
-                using (var stream = new MemoryStream(data))
-                {
-                    projectionCommits.Add((ProjectionCommit)serializer.Deserialize(stream));
-                }
-            }
-
-            return projectionCommits;
         }
 
         public IEnumerable<ProjectionCommit> EnumerateProjection(ProjectionVersion version, IBlobId projectionId)

@@ -12,7 +12,7 @@ namespace Elders.Cronus.Projections.Cassandra
 {
     public class CassandraSnapshotStore<TSettings> : CassandraSnapshotStore where TSettings : ICassandraProjectionStoreSettings
     {
-        public CassandraSnapshotStore(TSettings settings) : base(settings.CassandraProvider, settings.Serializer, settings.ProjectionsNamingStrategy, settings.ProjectionsProvider) { }
+        public CassandraSnapshotStore(TSettings settings, IInitializableProjectionStore initializableProjectionStore) : base(settings.CassandraProvider, settings.Serializer, settings.ProjectionsNamingStrategy, settings.ProjectionsProvider, initializableProjectionStore) { }
     }
 
     public class CassandraSnapshotStore : ISnapshotStore
@@ -27,12 +27,13 @@ namespace Elders.Cronus.Projections.Cassandra
         readonly ConcurrentDictionary<string, PreparedStatement> GetSnapshotMetaPreparedStatements;
         readonly ISerializer serializer;
         private readonly VersionedProjectionsNaming naming;
+        private readonly IInitializableProjectionStore initializableProjectionStore;
 
         private ISession GetSession() => cassandraProvider.GetSession();
 
         private readonly ICassandraProvider cassandraProvider;
 
-        public CassandraSnapshotStore(ICassandraProvider cassandraProvider, ISerializer serializer, VersionedProjectionsNaming naming, ProjectionsProvider projectionsProvider)
+        public CassandraSnapshotStore(ICassandraProvider cassandraProvider, ISerializer serializer, VersionedProjectionsNaming naming, ProjectionsProvider projectionsProvider, IInitializableProjectionStore initializableProjectionStore)
         {
             if (projectionsProvider is null) throw new ArgumentNullException(nameof(projectionsProvider));
 
@@ -45,7 +46,7 @@ namespace Elders.Cronus.Projections.Cassandra
             this.cassandraProvider = cassandraProvider ?? throw new ArgumentNullException(nameof(cassandraProvider));
             this.serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
             this.naming = naming ?? throw new ArgumentNullException(nameof(naming));
-
+            this.initializableProjectionStore = initializableProjectionStore;
             SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetSnapshotMetaPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
@@ -53,45 +54,63 @@ namespace Elders.Cronus.Projections.Cassandra
 
         public ISnapshot Load(string projectionName, IBlobId id, ProjectionVersion version)
         {
-            if (projectionContracts.Contains(projectionName) == false)
-                return new NoSnapshot(id, projectionName);
-
-            string columnFamily = naming.GetSnapshotColumnFamily(version);
-
-            Row row = null;
-            var bs = GetPreparedStatementToGetProjection(columnFamily).Bind(Convert.ToBase64String(id.RawId));
-            var result = GetSession().Execute(bs);
-            row = result.GetRows().FirstOrDefault();
-
-            if (row == null)
-                return new NoSnapshot(id, projectionName);
-
-            var data = row.GetValue<byte[]>("data");
-            var rev = row.GetValue<int>("rev");
-
-            using (var stream = new MemoryStream(data))
+            try
             {
-                return new Snapshot(id, projectionName, serializer.Deserialize(stream), rev);
+                if (projectionContracts.Contains(projectionName) == false)
+                    return new NoSnapshot(id, projectionName);
+
+                string columnFamily = naming.GetSnapshotColumnFamily(version);
+
+                Row row = null;
+                var bs = GetPreparedStatementToGetProjection(columnFamily).Bind(Convert.ToBase64String(id.RawId));
+                var result = GetSession().Execute(bs);
+                row = result.GetRows().FirstOrDefault();
+
+                if (row == null)
+                    return new NoSnapshot(id, projectionName);
+
+                var data = row.GetValue<byte[]>("data");
+                var rev = row.GetValue<int>("rev");
+
+                using (var stream = new MemoryStream(data))
+                {
+                    return new Snapshot(id, projectionName, serializer.Deserialize(stream), rev);
+                }
+            }
+            catch (InvalidQueryException)
+            {
+                initializableProjectionStore.Initialize(version);
+
+                return new NoSnapshot(id, projectionName);
             }
         }
 
         public SnapshotMeta LoadMeta(string projectionName, IBlobId id, ProjectionVersion version)
         {
-            if (projectionContracts.Contains(projectionName) == false)
+            try
+            {
+                if (projectionContracts.Contains(projectionName) == false)
+                    return new NoSnapshot(id, projectionName).GetMeta();
+
+                string columnFamily = naming.GetSnapshotColumnFamily(version);
+
+                var bs = GetPreparedStatementToGetSnapshotMeta(columnFamily).Bind(Convert.ToBase64String(id.RawId));
+                var result = GetSession().Execute(bs);
+                Row row = result.GetRows().FirstOrDefault();
+
+                if (row == null)
+                    return new NoSnapshot(id, projectionName).GetMeta();
+
+                var rev = row.GetValue<int>("rev");
+
+                return new SnapshotMeta(rev, projectionName);
+            }
+            catch (InvalidQueryException)
+            {
+                initializableProjectionStore.Initialize(version);
+
                 return new NoSnapshot(id, projectionName).GetMeta();
-
-            string columnFamily = naming.GetSnapshotColumnFamily(version);
-
-            var bs = GetPreparedStatementToGetSnapshotMeta(columnFamily).Bind(Convert.ToBase64String(id.RawId));
-            var result = GetSession().Execute(bs);
-            Row row = result.GetRows().FirstOrDefault();
-
-            if (row == null)
-                return new NoSnapshot(id, projectionName).GetMeta();
-
-            var rev = row.GetValue<int>("rev");
-
-            return new SnapshotMeta(rev, projectionName);
+            }
         }
 
         public void Save(ISnapshot snapshot, ProjectionVersion version)
