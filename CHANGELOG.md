@@ -1,3 +1,10 @@
+# [6.3.0-preview.3](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-preview.2...v6.3.0-preview.3) (2021-06-23)
+
+
+### Bug Fixes
+
+* Fixing preview brach name in CI ([5408867](https://github.com/Elders/Cronus.Projections.Cassandra/commit/54088678b1c08be7917b87b16af737b31db327d0))
+
 # [6.3.0-preview.2](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-preview.1...v6.3.0-preview.2) (2021-06-23)
 
 
