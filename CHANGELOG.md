@@ -1,3 +1,14 @@
+# [6.3.0-preview.2](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-preview.1...v6.3.0-preview.2) (2021-06-23)
+
+
+### Bug Fixes
+
+* Added preview branch in CI pipeline ([a3031b0](https://github.com/Elders/Cronus.Projections.Cassandra/commit/a3031b04ebf747d4ffd55cd6107eb1f6454eb584))
+* Changed default value of DeleteOldProjectionTables ([6dcb0a5](https://github.com/Elders/Cronus.Projections.Cassandra/commit/6dcb0a59c0fc3fb9ec44a0ac8806f1accf57deac))
+* Correctly creation of cassandra tables when the table is missing. ([49441b4](https://github.com/Elders/Cronus.Projections.Cassandra/commit/49441b4b714993e1e3d0045b9bd6ef16cade79ac))
+* Removes gitversion ([05c960f](https://github.com/Elders/Cronus.Projections.Cassandra/commit/05c960f1d9d677deb554976c7c412e8cd4c9efa1))
+* Updates Cronus ([0a78701](https://github.com/Elders/Cronus.Projections.Cassandra/commit/0a7870131aa708346ed184c88d7280758f9a485b))
+
 # [6.3.0-preview.1](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-next.4...v6.3.0-preview.1) (2021-05-05)
 
 
