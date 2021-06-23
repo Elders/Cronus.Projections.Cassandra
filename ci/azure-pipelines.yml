@@ -8,6 +8,7 @@ trigger:
       - master
       - next
       - next-major
+      - previews
     paths:
       exclude:
       - docs/CHANGELOG.md
