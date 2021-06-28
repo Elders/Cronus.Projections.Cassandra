@@ -64,7 +64,7 @@ namespace Elders.Cronus.Projections.Cassandra
             }
             catch (InvalidQueryException)
             {
-                initializableProjectionStore.Initialize(version);
+                //initializableProjectionStore.Initialize(version);
 
                 return Enumerable.Empty<ProjectionCommit>();
             }
@@ -96,7 +96,7 @@ namespace Elders.Cronus.Projections.Cassandra
             }
             catch (InvalidQueryException)
             {
-                initializableProjectionStore.Initialize(version);
+                //initializableProjectionStore.Initialize(version);
 
                 yield break;
             }
