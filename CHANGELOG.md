@@ -1,3 +1,12 @@
+# [6.3.0-preview.4](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-preview.3...v6.3.0-preview.4) (2021-06-28)
+
+
+### Bug Fixes
+
+* Removes locks ([52c33c2](https://github.com/Elders/Cronus.Projections.Cassandra/commit/52c33c2769beccd20118c4669ca9f96ff387831c))
+* Trying without initializing the version storage when there is an exception ([c17d718](https://github.com/Elders/Cronus.Projections.Cassandra/commit/c17d7186e52d945299f1e4f27fd4aa929cc1adc7))
+* Updates Cronus ([6c80d7d](https://github.com/Elders/Cronus.Projections.Cassandra/commit/6c80d7dc48449e1ee23b0439540ae0faf179f13b))
+
 # [6.3.0-preview.3](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-preview.2...v6.3.0-preview.3) (2021-06-23)
 
 
