@@ -1,3 +1,10 @@
+# [6.3.0-preview.5](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-preview.4...v6.3.0-preview.5) (2021-10-18)
+
+
+### Bug Fixes
+
+* Changes default value of DeleteOldProjectionTables to false ([19bddea](https://github.com/Elders/Cronus.Projections.Cassandra/commit/19bddea95c801597a121f3797eb8328ac6ffe738))
+
 # [6.3.0-preview.4](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-preview.3...v6.3.0-preview.4) (2021-06-28)
 
 
