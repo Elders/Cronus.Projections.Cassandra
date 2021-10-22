@@ -1,3 +1,10 @@
+# [6.3.0-preview.6](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-preview.5...v6.3.0-preview.6) (2021-10-22)
+
+
+### Bug Fixes
+
+* Updates packages ([93cc8c8](https://github.com/Elders/Cronus.Projections.Cassandra/commit/93cc8c864998bea97316707548d84203bd2c8520))
+
 # [6.3.0-preview.5](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-preview.4...v6.3.0-preview.5) (2021-10-18)
 
 
