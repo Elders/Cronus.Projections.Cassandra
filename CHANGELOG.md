@@ -1,3 +1,34 @@
+# [6.3.0](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.2.0...v6.3.0) (2021-11-08)
+
+
+### Bug Fixes
+
+* Added preview branch in CI pipeline ([a3031b0](https://github.com/Elders/Cronus.Projections.Cassandra/commit/a3031b04ebf747d4ffd55cd6107eb1f6454eb584))
+* Changed default value of DeleteOldProjectionTables ([6dcb0a5](https://github.com/Elders/Cronus.Projections.Cassandra/commit/6dcb0a59c0fc3fb9ec44a0ac8806f1accf57deac))
+* Changes default value of DeleteOldProjectionTables to false ([19bddea](https://github.com/Elders/Cronus.Projections.Cassandra/commit/19bddea95c801597a121f3797eb8328ac6ffe738))
+* Changes the projections default sorting in the database from ARID to event timestamp ([a723989](https://github.com/Elders/Cronus.Projections.Cassandra/commit/a7239891d5d7ae4f54ebf92a3b7eb88664729995))
+* Consolidates release notes ([c33dbb9](https://github.com/Elders/Cronus.Projections.Cassandra/commit/c33dbb95542636951d331966b8303e7b3356afe3))
+* Correctly creation of cassandra tables when the table is missing. ([49441b4](https://github.com/Elders/Cronus.Projections.Cassandra/commit/49441b4b714993e1e3d0045b9bd6ef16cade79ac))
+* Fix creation and usage of prepare statements when reading from projections ([29faf7e](https://github.com/Elders/Cronus.Projections.Cassandra/commit/29faf7e3b5ad6788a554b7de0b999946eaad4097))
+* Fixing preview brach name in CI ([5408867](https://github.com/Elders/Cronus.Projections.Cassandra/commit/54088678b1c08be7917b87b16af737b31db327d0))
+* Removes gitversion ([05c960f](https://github.com/Elders/Cronus.Projections.Cassandra/commit/05c960f1d9d677deb554976c7c412e8cd4c9efa1))
+* Removes locks ([52c33c2](https://github.com/Elders/Cronus.Projections.Cassandra/commit/52c33c2769beccd20118c4669ca9f96ff387831c))
+* Sets consistency level to all queries to be local quorum ([8921b20](https://github.com/Elders/Cronus.Projections.Cassandra/commit/8921b200c2cbd082a0e829eea559eb8956e8c9bf))
+* Switches to azure pipelines and semantic release ([673576f](https://github.com/Elders/Cronus.Projections.Cassandra/commit/673576f705c4d01332edd2d72d26152e3fd44643))
+* Switches to beta/preview branches ([024274f](https://github.com/Elders/Cronus.Projections.Cassandra/commit/024274fb339daa113a558390ef9772e93fb685cc))
+* Trying without initializing the version storage when there is an exception ([c17d718](https://github.com/Elders/Cronus.Projections.Cassandra/commit/c17d7186e52d945299f1e4f27fd4aa929cc1adc7))
+* Updates Cronus ([6c80d7d](https://github.com/Elders/Cronus.Projections.Cassandra/commit/6c80d7dc48449e1ee23b0439540ae0faf179f13b))
+* Updates Cronus ([0a78701](https://github.com/Elders/Cronus.Projections.Cassandra/commit/0a7870131aa708346ed184c88d7280758f9a485b))
+* Updates packages ([93cc8c8](https://github.com/Elders/Cronus.Projections.Cassandra/commit/93cc8c864998bea97316707548d84203bd2c8520))
+* Updates packages ([90fbb41](https://github.com/Elders/Cronus.Projections.Cassandra/commit/90fbb41a767abd9691bb74a985f5ba3ae6935a41))
+
+
+### Features
+
+* Implement HasSnapshotMarkerAsync ([bbca182](https://github.com/Elders/Cronus.Projections.Cassandra/commit/bbca18295b5e95a23ee417d3547d595e3a9f147a))
+* Release ([21fab74](https://github.com/Elders/Cronus.Projections.Cassandra/commit/21fab74114556bf6d22658bda5d790ad09b6ba07))
+* Updates Cronus ([5df5423](https://github.com/Elders/Cronus.Projections.Cassandra/commit/5df5423c6225ce6aaf3f1e0073f64101fb75c9c3))
+
 # [6.3.0-preview.6](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0-preview.5...v6.3.0-preview.6) (2021-10-22)
 
 
