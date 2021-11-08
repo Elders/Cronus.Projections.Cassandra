@@ -12,11 +12,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{1A91CF2F-1
 		..\docs\Configuration.md = ..\docs\Configuration.md
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".build", ".build", "{E978F8AF-8E96-49DF-8C47-CC0C357C1B4F}"
-	ProjectSection(SolutionItems) = preProject
-		Elders.Cronus.Projections.Cassandra\Cronus.Projections.Cassandra.rn.md = Elders.Cronus.Projections.Cassandra\Cronus.Projections.Cassandra.rn.md
-	EndProjectSection
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
