@@ -113,14 +113,34 @@ namespace Elders.Cronus.Projections.Cassandra
 
         public bool HasSnapshotMarker(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
         {
-            string columnFamily = naming.GetColumnFamily(version);
-            return HasSnapshotMarker(projectionId, snapshotMarker, columnFamily);
+            try
+            {
+                string columnFamily = naming.GetColumnFamily(version);
+                return HasSnapshotMarker(projectionId, snapshotMarker, columnFamily);
+            }
+            catch (InvalidQueryException)
+            {
+                if (version.ProjectionName.GetTypeByContract().IsSnapshotable())
+                    throw;
+
+                return false;   // When the projection is not snapshotable there is a chance that the table does not exist. There is no native way to check if a table exists rather than throwing an InvalidQueryException from the driver.
+            }
         }
 
         public Task<bool> HasSnapshotMarkerAsync(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
         {
-            string columnFamily = naming.GetColumnFamily(version);
-            return HasSnapshotMarkerAsync(projectionId, snapshotMarker, columnFamily);
+            try
+            {
+                string columnFamily = naming.GetColumnFamily(version);
+                return HasSnapshotMarkerAsync(projectionId, snapshotMarker, columnFamily);
+            }
+            catch (InvalidQueryException)
+            {
+                if (version.ProjectionName.GetTypeByContract().IsSnapshotable())
+                    throw;
+
+                return Task.FromResult(false);   // When the projection is not snapshotable there is a chance that the table does not exist. There is no native way to check if a table exists rather than throwing an InvalidQueryException from the driver.
+            }
         }
 
         bool HasSnapshotMarker(IBlobId projectionId, int snapshotMarker, string columnFamily)
