@@ -6,12 +6,13 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
+using Microsoft.Extensions.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
     public class CassandraProjectionStore<TSettings> : CassandraProjectionStore where TSettings : ICassandraProjectionStoreSettings
     {
-        public CassandraProjectionStore(TSettings settings, IInitializableProjectionStore initializableProjectionStore) : base(settings.CassandraProvider, settings.Serializer, settings.ProjectionsNamingStrategy, initializableProjectionStore) { }
+        public CassandraProjectionStore(TSettings settings, IInitializableProjectionStore initializableProjectionStore, ILogger<CassandraProjectionStore> logger) : base(settings.CassandraProvider, settings.Serializer, settings.ProjectionsNamingStrategy, initializableProjectionStore, logger) { }
     }
 
     public class CassandraProjectionStore : IProjectionStore
@@ -29,10 +30,11 @@ namespace Elders.Cronus.Projections.Cassandra
         private readonly ISerializer serializer;
         private readonly VersionedProjectionsNaming naming;
         private readonly IInitializableProjectionStore initializableProjectionStore;
+        private readonly ILogger<CassandraProjectionStore> logger;
 
         private ISession GetSession() => cassandraProvider.GetSession(); // In order to keep only 1 session alive (https://docs.datastax.com/en/developer/csharp-driver/3.16/faq/)
 
-        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, VersionedProjectionsNaming naming, IInitializableProjectionStore initializableProjectionStore)
+        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, VersionedProjectionsNaming naming, IInitializableProjectionStore initializableProjectionStore, ILogger<CassandraProjectionStore> logger)
         {
             if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));
@@ -42,6 +44,7 @@ namespace Elders.Cronus.Projections.Cassandra
             this.serializer = serializer;
             this.naming = naming;
             this.initializableProjectionStore = initializableProjectionStore;
+            this.logger = logger;
             SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             HasSnapshotMarkerPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
@@ -62,7 +65,7 @@ namespace Elders.Cronus.Projections.Cassandra
                 var result = await GetSession().ExecuteAsync(bs).ConfigureAwait(false);
                 rows = result.GetRows();
             }
-            catch (InvalidQueryException)
+            catch (InvalidQueryException ex) when (logger.WarnException(ex, () => "Most probably the database column family is not created yet."))
             {
                 //initializableProjectionStore.Initialize(version);
 
@@ -94,7 +97,7 @@ namespace Elders.Cronus.Projections.Cassandra
                 var result = GetSession().Execute(bs);
                 rows = result.GetRows();
             }
-            catch (InvalidQueryException)
+            catch (InvalidQueryException ex) when (logger.WarnException(ex, () => "Most probably the database column family is not created yet."))
             {
                 //initializableProjectionStore.Initialize(version);
 
@@ -113,34 +116,14 @@ namespace Elders.Cronus.Projections.Cassandra
 
         public bool HasSnapshotMarker(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
         {
-            try
-            {
-                string columnFamily = naming.GetColumnFamily(version);
-                return HasSnapshotMarker(projectionId, snapshotMarker, columnFamily);
-            }
-            catch (InvalidQueryException)
-            {
-                if (version.ProjectionName.GetTypeByContract().IsSnapshotable())
-                    throw;
-
-                return false;   // When the projection is not snapshotable there is a chance that the table does not exist. There is no native way to check if a table exists rather than throwing an InvalidQueryException from the driver.
-            }
+            string columnFamily = naming.GetColumnFamily(version);
+            return HasSnapshotMarker(projectionId, snapshotMarker, columnFamily);
         }
 
         public Task<bool> HasSnapshotMarkerAsync(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
         {
-            try
-            {
-                string columnFamily = naming.GetColumnFamily(version);
-                return HasSnapshotMarkerAsync(projectionId, snapshotMarker, columnFamily);
-            }
-            catch (InvalidQueryException)
-            {
-                if (version.ProjectionName.GetTypeByContract().IsSnapshotable())
-                    throw;
-
-                return Task.FromResult(false);   // When the projection is not snapshotable there is a chance that the table does not exist. There is no native way to check if a table exists rather than throwing an InvalidQueryException from the driver.
-            }
+            string columnFamily = naming.GetColumnFamily(version);
+            return HasSnapshotMarkerAsync(projectionId, snapshotMarker, columnFamily);
         }
 
         bool HasSnapshotMarker(IBlobId projectionId, int snapshotMarker, string columnFamily)
