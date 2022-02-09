@@ -1,3 +1,10 @@
+# [7.0.0-preview.5](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.4...v7.0.0-preview.5) (2022-02-09)
+
+
+### Bug Fixes
+
+* We hope that we've fixed 'keyspace doesn't exist' in concurrent execution ([40fd908](https://github.com/Elders/Cronus.Projections.Cassandra/commit/40fd908f9334ba677f725470f01938d2d5f8cb11))
+
 # [7.0.0-preview.4](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.3...v7.0.0-preview.4) (2021-12-20)
 
 
