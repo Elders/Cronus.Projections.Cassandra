@@ -1,3 +1,10 @@
+# [7.0.0-preview.7](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.6...v7.0.0-preview.7) (2022-03-02)
+
+
+### Bug Fixes
+
+* Try some way to avoid cassandra crash ([4fc8136](https://github.com/Elders/Cronus.Projections.Cassandra/commit/4fc81368280e2542b4158d1ca3d1dc56f01f394c))
+
 # [7.0.0-preview.6](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.5...v7.0.0-preview.6) (2022-03-02)
 
 
