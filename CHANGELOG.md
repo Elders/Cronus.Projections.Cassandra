@@ -1,3 +1,11 @@
+# [7.0.0-preview.6](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.5...v7.0.0-preview.6) (2022-03-02)
+
+
+### Bug Fixes
+
+* Captures errors when enumerating a projection and logs the exact event which is problematic. The enumeration is not interrupted. ([af2e377](https://github.com/Elders/Cronus.Projections.Cassandra/commit/af2e3777c1f0ec769a1f9c78400a95f8081606be))
+* Updates packages ([1cf1877](https://github.com/Elders/Cronus.Projections.Cassandra/commit/1cf1877c9ef3a1a300f548b109958c92aef5392d))
+
 # [7.0.0-preview.5](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.4...v7.0.0-preview.5) (2022-02-09)
 
 
