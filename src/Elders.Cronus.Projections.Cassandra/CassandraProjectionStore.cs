@@ -84,24 +84,41 @@ namespace Elders.Cronus.Projections.Cassandra
             string projId = Convert.ToBase64String(projectionId.RawId);
 
             BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(projId, snapshotMarker);
-            IEnumerable<Row> rows = GetSession().Execute(bs);
 
-            foreach (var row in rows)
+
+            List<ProjectionCommit> cc = new List<ProjectionCommit>();
+            while (true)
             {
-                byte[] data = row.GetValue<byte[]>(ProjectionColumn.EventData);
+                try
+                {
+                    IEnumerable<Row> rows = GetSession().Execute(bs);
 
-                if (data is not null)
-                {
-                    yield return (ProjectionCommit)serializer.DeserializeFromBytes(data);
+                    foreach (var row in rows)
+                    {
+                        byte[] data = row.GetValue<byte[]>(ProjectionColumn.EventData);
+
+                        if (data is not null)
+                        {
+                            cc.Add((ProjectionCommit)serializer.DeserializeFromBytes(data));
+                        }
+                        else
+                        {
+                            string arid = row.GetValue<string>(ProjectionColumn.EventAggregateId);
+                            int revision = row.GetValue<int>(ProjectionColumn.EventAggregateRevision);
+                            int position = row.GetValue<int>(ProjectionColumn.EventAggregateRevision);
+                            logger.Error(() => $"Failed to load event `data` published by:{Environment.NewLine}aggregateId={arid}{Environment.NewLine}aggregateRevision={revision}{Environment.NewLine}position={position}{Environment.NewLine}projectionId={projId}");
+                        }
+                    }
+
+                    break;
                 }
-                else
+                catch (Exception ex)
                 {
-                    string arid = row.GetValue<string>(ProjectionColumn.EventAggregateId);
-                    int revision = row.GetValue<int>(ProjectionColumn.EventAggregateRevision);
-                    int position = row.GetValue<int>(ProjectionColumn.EventAggregateRevision);
-                    logger.Error(() => $"Failed to load event `data` published by:{Environment.NewLine}aggregateId={arid}{Environment.NewLine}aggregateRevision={revision}{Environment.NewLine}position={position}{Environment.NewLine}projectionId={projId}");
+                    logger.ErrorException(ex, () => "Retrying to load cassandra page...");
                 }
             }
+
+            return cc;
         }
 
         public bool HasSnapshotMarker(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
