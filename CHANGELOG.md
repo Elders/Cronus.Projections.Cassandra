@@ -1,3 +1,10 @@
+# [7.0.0-preview.8](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.7...v7.0.0-preview.8) (2022-03-03)
+
+
+### Bug Fixes
+
+* Removes the while loop ([2f78f63](https://github.com/Elders/Cronus.Projections.Cassandra/commit/2f78f631f415a7d355311a636a836b6ab9a58e2e))
+
 # [7.0.0-preview.7](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.6...v7.0.0-preview.7) (2022-03-02)
 
 
