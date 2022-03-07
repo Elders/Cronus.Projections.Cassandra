@@ -1,3 +1,10 @@
+# [7.0.0-preview.9](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.8...v7.0.0-preview.9) (2022-03-07)
+
+
+### Bug Fixes
+
+* Add async version for Save ([2129864](https://github.com/Elders/Cronus.Projections.Cassandra/commit/21298645dba131d4871c4832d4db1adbf39fc56d))
+
 # [7.0.0-preview.8](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.7...v7.0.0-preview.8) (2022-03-03)
 
 
