@@ -166,6 +166,28 @@ namespace Elders.Cronus.Projections.Cassandra
             Save(commit, projectionCommitLocationBasedOnVersion);
         }
 
+        public async Task SaveAsync(ProjectionCommit commit)
+        {
+            string projectionCommitLocationBasedOnVersion = naming.GetColumnFamily(commit.Version);
+            await SaveAsync(commit, projectionCommitLocationBasedOnVersion).ConfigureAwait(false);
+        }
+
+        async Task SaveAsync(ProjectionCommit commit, string columnFamily)
+        {
+            var data = serializer.SerializeToBytes(commit);
+            var statement = SavePreparedStatements.GetOrAdd(columnFamily, x => BuildInsertPreparedStatemnt(x));
+            var result = await GetSession().ExecuteAsync(statement
+                .Bind(
+                    ConvertIdToString(commit.ProjectionId),
+                    commit.SnapshotMarker,
+                    commit.EventOrigin.AggregateRootId,
+                    commit.EventOrigin.AggregateRevision,
+                    commit.EventOrigin.AggregateEventPosition,
+                    commit.EventOrigin.Timestamp,
+                    data
+                )).ConfigureAwait(false);
+        }
+
         void Save(ProjectionCommit commit, string columnFamily)
         {
             var data = serializer.SerializeToBytes(commit);
