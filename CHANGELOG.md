@@ -1,3 +1,10 @@
+# [7.0.0-preview.10](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.9...v7.0.0-preview.10) (2022-03-11)
+
+
+### Bug Fixes
+
+* Rolls back the projections table schema ([836c40e](https://github.com/Elders/Cronus.Projections.Cassandra/commit/836c40ec96237091c57ddb5217a31a13bdf27ab5))
+
 # [7.0.0-preview.9](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.8...v7.0.0-preview.9) (2022-03-07)
 
 
