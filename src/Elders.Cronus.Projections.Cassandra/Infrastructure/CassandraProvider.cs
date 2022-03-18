@@ -62,8 +62,6 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
                     .WithReconnectionPolicy(new ExponentialReconnectionPolicy(100, 100000))
                     .WithRetryPolicy(new NoHintedHandOffRetryPolicy())
                     .Build();
-
-                cluster.RefreshSchema();
             }
 
             else
