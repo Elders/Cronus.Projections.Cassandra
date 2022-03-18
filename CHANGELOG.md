@@ -1,3 +1,10 @@
+# [7.0.0-preview.11](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.10...v7.0.0-preview.11) (2022-03-18)
+
+
+### Bug Fixes
+
+* Removes schema refresh ([5705373](https://github.com/Elders/Cronus.Projections.Cassandra/commit/570537385050723ac492c9d7b474f2f4a0c088a1))
+
 # [7.0.0-preview.10](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.9...v7.0.0-preview.10) (2022-03-11)
 
 
