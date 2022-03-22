@@ -1,3 +1,10 @@
+# [7.0.0-preview.12](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.11...v7.0.0-preview.12) (2022-03-22)
+
+
+### Bug Fixes
+
+* Adds logs to trace session creation ([41d7cfe](https://github.com/Elders/Cronus.Projections.Cassandra/commit/41d7cfe8334f488ecc6635ff8e8aae705eb8921b))
+
 # [7.0.0-preview.11](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.10...v7.0.0-preview.11) (2022-03-18)
 
 
