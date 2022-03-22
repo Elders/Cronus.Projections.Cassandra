@@ -1,3 +1,11 @@
+# [7.0.0-preview.13](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.12...v7.0.0-preview.13) (2022-03-22)
+
+
+### Bug Fixes
+
+* Removes the session re;pad ([0957679](https://github.com/Elders/Cronus.Projections.Cassandra/commit/0957679563ef75b8550d0ba5d55a92da0e3aaa9d))
+* Updates packages ([20e0672](https://github.com/Elders/Cronus.Projections.Cassandra/commit/20e0672d9fa1c7831f6510ee61213278cdfe6fd1))
+
 # [7.0.0-preview.12](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.11...v7.0.0-preview.12) (2022-03-22)
 
 
