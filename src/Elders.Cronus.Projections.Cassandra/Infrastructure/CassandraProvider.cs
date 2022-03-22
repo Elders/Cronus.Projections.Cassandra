@@ -1,5 +1,6 @@
 ﻿using System;
 using Cassandra;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using DataStax = Cassandra;
 
@@ -13,6 +14,7 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 
         protected readonly IKeyspaceNamingStrategy keyspaceNamingStrategy;
         protected readonly ICassandraReplicationStrategy replicationStrategy;
+        private readonly ILogger<CassandraProvider> logger;
         protected readonly IInitializer initializer;
 
         protected ICluster cluster;
@@ -22,7 +24,7 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 
         private string baseConfigurationKeyspace;
 
-        public CassandraProvider(IOptionsMonitor<CassandraProviderOptions> optionsMonitor, IKeyspaceNamingStrategy keyspaceNamingStrategy, ICassandraReplicationStrategy replicationStrategy, IInitializer initializer = null)
+        public CassandraProvider(IOptionsMonitor<CassandraProviderOptions> optionsMonitor, IKeyspaceNamingStrategy keyspaceNamingStrategy, ICassandraReplicationStrategy replicationStrategy, ILogger<CassandraProvider> logger, IInitializer initializer = null)
         {
             if (optionsMonitor is null) throw new ArgumentNullException(nameof(optionsMonitor));
             if (keyspaceNamingStrategy is null) throw new ArgumentNullException(nameof(keyspaceNamingStrategy));
@@ -33,6 +35,7 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 
             this.keyspaceNamingStrategy = keyspaceNamingStrategy;
             this.replicationStrategy = replicationStrategy;
+            this.logger = logger;
             this.initializer = initializer;
         }
 
@@ -40,6 +43,8 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
         {
             if (cluster is null == false && optionsHasChanged == false)
                 return cluster;
+
+            logger.Info(() => "Cassandra options has changed. Refreshing cluster...");
 
             Builder builder = initializer as Builder;
             if (builder is null)
@@ -87,8 +92,13 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
                 {
                     if (session is null || session.IsDisposed || optionsHasChanged)
                     {
+                        logger.Info(() => "Refreshing session...");
+
                         if (optionsHasChanged)
+                        {
+                            logger.Info(() => "Cassandra options has changed. Refreshing session...");
                             session?.Dispose();
+                        }
 
                         try
                         {
