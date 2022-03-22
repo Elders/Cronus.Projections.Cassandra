@@ -2,14 +2,13 @@
 using Cassandra;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using DataStax = Cassandra;
 
 namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 {
     public class CassandraProvider : ICassandraProvider
     {
-        private bool optionsHasChanged = true;
-
         protected CassandraProviderOptions options;
 
         protected readonly IKeyspaceNamingStrategy keyspaceNamingStrategy;
@@ -31,7 +30,6 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
             if (replicationStrategy is null) throw new ArgumentNullException(nameof(replicationStrategy));
 
             options = optionsMonitor.CurrentValue;
-            optionsMonitor.OnChange(Changed);
 
             this.keyspaceNamingStrategy = keyspaceNamingStrategy;
             this.replicationStrategy = replicationStrategy;
@@ -41,7 +39,7 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 
         public ICluster GetCluster()
         {
-            if (cluster is null == false && optionsHasChanged == false)
+            if (cluster is null == false)
                 return cluster;
 
             logger.Info(() => "Cassandra options has changed. Refreshing cluster...");
@@ -67,14 +65,14 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
                     .WithReconnectionPolicy(new ExponentialReconnectionPolicy(100, 100000))
                     .WithRetryPolicy(new NoHintedHandOffRetryPolicy())
                     .Build();
+
+                cluster.RefreshSchema();
             }
 
             else
             {
                 cluster = DataStax.Cluster.BuildFrom(initializer);
             }
-
-            optionsHasChanged = false;
 
             return cluster;
         }
@@ -86,19 +84,13 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 
         public ISession GetSession()
         {
-            if (session is null || session.IsDisposed || optionsHasChanged)
+            if (session is null || session.IsDisposed)
             {
                 lock (establishNewConnection)
                 {
-                    if (session is null || session.IsDisposed || optionsHasChanged)
+                    if (session is null || session.IsDisposed)
                     {
-                        logger.Info(() => "Refreshing session...");
-
-                        if (optionsHasChanged)
-                        {
-                            logger.Info(() => "Cassandra options has changed. Refreshing session...");
-                            session?.Dispose();
-                        }
+                        logger.Info(() => "Refreshing cassandra session...");
 
                         try
                         {
@@ -119,15 +111,6 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
             }
 
             return session;
-        }
-
-        private void Changed(CassandraProviderOptions newOptions)
-        {
-            if (options != newOptions)
-            {
-                options = newOptions;
-                optionsHasChanged = true;
-            }
         }
     }
 }
