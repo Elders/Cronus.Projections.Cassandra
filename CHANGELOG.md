@@ -1,3 +1,10 @@
+# [7.0.0-preview.14](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.13...v7.0.0-preview.14) (2022-03-31)
+
+
+### Bug Fixes
+
+* Update Cronus package ([847feff](https://github.com/Elders/Cronus.Projections.Cassandra/commit/847feffeae627a7a6994b1e49de94f51cd5fadac))
+
 # [7.0.0-preview.13](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.12...v7.0.0-preview.13) (2022-03-22)
 
 
