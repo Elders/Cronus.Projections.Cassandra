@@ -1,43 +1,48 @@
-﻿using Cassandra;
+﻿using System;
+using Cassandra;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System;
+using Microsoft.Extensions.Primitives;
 using DataStax = Cassandra;
 
 namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 {
     public class CassandraProvider : ICassandraProvider
     {
-        private bool optionsHasChanged = true;
         protected CassandraProviderOptions options;
 
         protected readonly IKeyspaceNamingStrategy keyspaceNamingStrategy;
         protected readonly ICassandraReplicationStrategy replicationStrategy;
-        protected readonly IOptionsMonitor<CassandraProviderOptions> optionsMonitor;
+        private readonly ILogger<CassandraProvider> logger;
+        protected readonly IInitializer initializer;
 
         protected ICluster cluster;
         protected ISession session;
-        protected readonly IInitializer initializer;
+
+        private static object establishNewConnection = new object();
 
         private string baseConfigurationKeyspace;
 
-        public CassandraProvider(IOptionsMonitor<CassandraProviderOptions> optionsMonitor, IKeyspaceNamingStrategy keyspaceNamingStrategy, ICassandraReplicationStrategy replicationStrategy, IInitializer initializer = null)
+        public CassandraProvider(IOptionsMonitor<CassandraProviderOptions> optionsMonitor, IKeyspaceNamingStrategy keyspaceNamingStrategy, ICassandraReplicationStrategy replicationStrategy, ILogger<CassandraProvider> logger, IInitializer initializer = null)
         {
             if (optionsMonitor is null) throw new ArgumentNullException(nameof(optionsMonitor));
             if (keyspaceNamingStrategy is null) throw new ArgumentNullException(nameof(keyspaceNamingStrategy));
             if (replicationStrategy is null) throw new ArgumentNullException(nameof(replicationStrategy));
 
-            this.options = optionsMonitor.CurrentValue;
-            optionsMonitor.OnChange(Changed);
+            options = optionsMonitor.CurrentValue;
 
             this.keyspaceNamingStrategy = keyspaceNamingStrategy;
             this.replicationStrategy = replicationStrategy;
+            this.logger = logger;
             this.initializer = initializer;
         }
 
         public ICluster GetCluster()
         {
-            if (cluster is null == false && optionsHasChanged == false)
+            if (cluster is null == false)
                 return cluster;
+
+            logger.Info(() => "Cassandra options has changed. Refreshing cluster...");
 
             Builder builder = initializer as Builder;
             if (builder is null)
@@ -60,14 +65,14 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
                     .WithReconnectionPolicy(new ExponentialReconnectionPolicy(100, 100000))
                     .WithRetryPolicy(new NoHintedHandOffRetryPolicy())
                     .Build();
+
+                cluster.RefreshSchema();
             }
 
             else
             {
                 cluster = DataStax.Cluster.BuildFrom(initializer);
             }
-
-            optionsHasChanged = false;
 
             return cluster;
         }
@@ -79,30 +84,33 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 
         public ISession GetSession()
         {
-            if (session is null || session.IsDisposed || optionsHasChanged)
+            if (session is null || session.IsDisposed)
             {
-                session?.Dispose();
-                session = GetCluster().Connect();
-                CreateKeyspace(GetKeyspace(), replicationStrategy);
+                lock (establishNewConnection)
+                {
+                    if (session is null || session.IsDisposed)
+                    {
+                        logger.Info(() => "Refreshing cassandra session...");
+
+                        try
+                        {
+                            session = GetCluster().Connect(GetKeyspace());
+                        }
+                        catch (InvalidQueryException)
+                        {
+                            using (ISession schemaSession = GetCluster().Connect())
+                            {
+                                var createKeySpaceQuery = replicationStrategy.CreateKeySpaceTemplate(GetKeyspace());
+                                schemaSession.Execute(createKeySpaceQuery);
+                            }
+
+                            session = GetCluster().Connect(GetKeyspace());
+                        }
+                    }
+                }
             }
 
             return session;
-        }
-
-        private void CreateKeyspace(string keyspace, ICassandraReplicationStrategy replicationStrategy)
-        {
-            var createKeySpaceQuery = replicationStrategy.CreateKeySpaceTemplate(keyspace);
-            session.Execute(createKeySpaceQuery);
-            session.ChangeKeyspace(keyspace);
-        }
-
-        private void Changed(CassandraProviderOptions newOptions)
-        {
-            if (options != newOptions)
-            {
-                options = newOptions;
-                optionsHasChanged = true;
-            }
         }
     }
 }

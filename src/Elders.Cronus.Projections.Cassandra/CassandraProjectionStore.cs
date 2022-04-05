@@ -2,24 +2,23 @@
 using System;
 using Cassandra;
 using System.Collections.Concurrent;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
+using Microsoft.Extensions.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
     public class CassandraProjectionStore<TSettings> : CassandraProjectionStore where TSettings : ICassandraProjectionStoreSettings
     {
-        public CassandraProjectionStore(TSettings settings, IInitializableProjectionStore initializableProjectionStore) : base(settings.CassandraProvider, settings.Serializer, settings.ProjectionsNamingStrategy, initializableProjectionStore) { }
+        public CassandraProjectionStore(TSettings settings, ILogger<CassandraProjectionStore> logger) : base(settings.CassandraProvider, settings.Serializer, settings.ProjectionsNamingStrategy, logger) { }
     }
 
     public class CassandraProjectionStore : IProjectionStore
     {
         const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id, sm, evarid, evarrev, evarpos, evarts, data) VALUES (?,?,?,?,?,?,?);";
-        const string GetQueryTemplate = @"SELECT data FROM ""{0}"" WHERE id=? AND sm=?;";
+        const string GetQueryTemplate = @"SELECT data, evarid, evarrev, evarpos FROM ""{0}"" WHERE id=? AND sm=?;";
         const string HasSnapshotMarkerTemplate = @"SELECT sm FROM ""{0}"" WHERE id=? AND sm=? LIMIT 1;";
-
 
         private readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
         private readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
@@ -28,11 +27,11 @@ namespace Elders.Cronus.Projections.Cassandra
         private readonly ICassandraProvider cassandraProvider;
         private readonly ISerializer serializer;
         private readonly VersionedProjectionsNaming naming;
-        private readonly IInitializableProjectionStore initializableProjectionStore;
+        private readonly ILogger<CassandraProjectionStore> logger;
 
         private ISession GetSession() => cassandraProvider.GetSession(); // In order to keep only 1 session alive (https://docs.datastax.com/en/developer/csharp-driver/3.16/faq/)
 
-        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, VersionedProjectionsNaming naming, IInitializableProjectionStore initializableProjectionStore)
+        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, VersionedProjectionsNaming naming, ILogger<CassandraProjectionStore> logger)
         {
             if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));
@@ -41,7 +40,8 @@ namespace Elders.Cronus.Projections.Cassandra
             this.cassandraProvider = cassandraProvider;
             this.serializer = serializer;
             this.naming = naming;
-            this.initializableProjectionStore = initializableProjectionStore;
+            this.logger = logger;
+
             SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             HasSnapshotMarkerPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
@@ -49,33 +49,29 @@ namespace Elders.Cronus.Projections.Cassandra
 
         public async Task<IEnumerable<ProjectionCommit>> LoadAsync(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
         {
-            IEnumerable<Row> rows = Enumerable.Empty<Row>();
-            try
-            {
-                string columnFamily = naming.GetColumnFamily(version);
+            string columnFamily = naming.GetColumnFamily(version);
+            string projId = Convert.ToBase64String(projectionId.RawId);
 
-                string projId = Convert.ToBase64String(projectionId.RawId);
+            PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily).ConfigureAwait(false);
+            BoundStatement bs = preparedStatement.Bind(projId, snapshotMarker);
 
-                PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily).ConfigureAwait(false);
-                BoundStatement bs = preparedStatement.Bind(projId, snapshotMarker);
-
-                var result = await GetSession().ExecuteAsync(bs).ConfigureAwait(false);
-                rows = result.GetRows();
-            }
-            catch (InvalidQueryException)
-            {
-                //initializableProjectionStore.Initialize(version);
-
-                return Enumerable.Empty<ProjectionCommit>();
-            }
+            var rows = await GetSession().ExecuteAsync(bs).ConfigureAwait(false);
 
             var projectionCommits = new List<ProjectionCommit>();
             foreach (var row in rows)
             {
-                var data = row.GetValue<byte[]>("data");
-                using (var stream = new MemoryStream(data))
+                byte[] data = row.GetValue<byte[]>(ProjectionColumn.EventData);
+
+                if (data is not null)
                 {
-                    projectionCommits.Add((ProjectionCommit)serializer.Deserialize(stream));
+                    projectionCommits.Add((ProjectionCommit)serializer.DeserializeFromBytes(data));
+                }
+                else
+                {
+                    string arid = row.GetValue<string>(ProjectionColumn.EventAggregateId);
+                    int revision = row.GetValue<int>(ProjectionColumn.EventAggregateRevision);
+                    int position = row.GetValue<int>(ProjectionColumn.EventAggregateRevision);
+                    logger.Error(() => $"Failed to load event `data` published by:{Environment.NewLine}aggregateId={arid}{Environment.NewLine}aggregateRevision={revision}{Environment.NewLine}position={position}{Environment.NewLine}projectionId={projId}");
                 }
             }
 
@@ -84,29 +80,30 @@ namespace Elders.Cronus.Projections.Cassandra
 
         public IEnumerable<ProjectionCommit> Load(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
         {
-            IEnumerable<Row> rows = Enumerable.Empty<Row>();
-            try
-            {
-                string columnFamily = naming.GetColumnFamily(version);
-                string projId = Convert.ToBase64String(projectionId.RawId);
+            string columnFamily = naming.GetColumnFamily(version);
+            string projId = Convert.ToBase64String(projectionId.RawId);
 
-                BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(projId, snapshotMarker);
-                var result = GetSession().Execute(bs);
-                rows = result.GetRows();
-            }
-            catch (InvalidQueryException)
-            {
-                //initializableProjectionStore.Initialize(version);
+            BoundStatement bs = GetPreparedStatementToGetProjection(columnFamily).Bind(projId, snapshotMarker);
 
-                yield break;
-            }
+            List<ProjectionCommit> cc = new List<ProjectionCommit>();
+
+            IEnumerable<Row> rows = GetSession().Execute(bs);
 
             foreach (var row in rows)
             {
-                var data = row.GetValue<byte[]>("data");
-                using (var stream = new MemoryStream(data))
+                byte[] data = row.GetValue<byte[]>(ProjectionColumn.EventData);
+
+                if (data is not null)
                 {
-                    yield return (ProjectionCommit)serializer.Deserialize(stream);
+                    ProjectionCommit commit = ((ProjectionCommit)serializer.DeserializeFromBytes(data));
+                    yield return commit;
+                }
+                else
+                {
+                    string arid = row.GetValue<string>(ProjectionColumn.EventAggregateId);
+                    int revision = row.GetValue<int>(ProjectionColumn.EventAggregateRevision);
+                    int position = row.GetValue<int>(ProjectionColumn.EventAggregateRevision);
+                    logger.Error(() => $"Failed to load event `data` published by:{Environment.NewLine}aggregateId={arid}{Environment.NewLine}aggregateRevision={revision}{Environment.NewLine}position={position}{Environment.NewLine}projectionId={projId}");
                 }
             }
         }
@@ -152,13 +149,13 @@ namespace Elders.Cronus.Projections.Cassandra
             while (true)
             {
                 snapshotMarker++;
-                var loadedCommits = Load(version, projectionId, snapshotMarker);
+                IEnumerable<ProjectionCommit> loadedCommits = Load(version, projectionId, snapshotMarker);
                 foreach (var loadedCommit in loadedCommits)
                 {
                     yield return loadedCommit;
                 }
 
-                if (loadedCommits.Count() == 0)
+                if (loadedCommits.Any() == false)
                     break;
             }
         }
@@ -167,6 +164,28 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             string projectionCommitLocationBasedOnVersion = naming.GetColumnFamily(commit.Version);
             Save(commit, projectionCommitLocationBasedOnVersion);
+        }
+
+        public async Task SaveAsync(ProjectionCommit commit)
+        {
+            string projectionCommitLocationBasedOnVersion = naming.GetColumnFamily(commit.Version);
+            await SaveAsync(commit, projectionCommitLocationBasedOnVersion).ConfigureAwait(false);
+        }
+
+        async Task SaveAsync(ProjectionCommit commit, string columnFamily)
+        {
+            var data = serializer.SerializeToBytes(commit);
+            var statement = SavePreparedStatements.GetOrAdd(columnFamily, x => BuildInsertPreparedStatemnt(x));
+            var result = await GetSession().ExecuteAsync(statement
+                .Bind(
+                    ConvertIdToString(commit.ProjectionId),
+                    commit.SnapshotMarker,
+                    commit.EventOrigin.AggregateRootId,
+                    commit.EventOrigin.AggregateRevision,
+                    commit.EventOrigin.AggregateEventPosition,
+                    commit.EventOrigin.Timestamp,
+                    data
+                )).ConfigureAwait(false);
         }
 
         void Save(ProjectionCommit commit, string columnFamily)

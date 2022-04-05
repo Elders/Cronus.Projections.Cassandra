@@ -1,3 +1,98 @@
+# [7.0.0-preview.14](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.13...v7.0.0-preview.14) (2022-03-31)
+
+
+### Bug Fixes
+
+* Update Cronus package ([847feff](https://github.com/Elders/Cronus.Projections.Cassandra/commit/847feffeae627a7a6994b1e49de94f51cd5fadac))
+
+# [7.0.0-preview.13](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.12...v7.0.0-preview.13) (2022-03-22)
+
+
+### Bug Fixes
+
+* Removes the session re;pad ([0957679](https://github.com/Elders/Cronus.Projections.Cassandra/commit/0957679563ef75b8550d0ba5d55a92da0e3aaa9d))
+* Updates packages ([20e0672](https://github.com/Elders/Cronus.Projections.Cassandra/commit/20e0672d9fa1c7831f6510ee61213278cdfe6fd1))
+
+# [7.0.0-preview.12](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.11...v7.0.0-preview.12) (2022-03-22)
+
+
+### Bug Fixes
+
+* Adds logs to trace session creation ([41d7cfe](https://github.com/Elders/Cronus.Projections.Cassandra/commit/41d7cfe8334f488ecc6635ff8e8aae705eb8921b))
+
+# [7.0.0-preview.11](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.10...v7.0.0-preview.11) (2022-03-18)
+
+
+### Bug Fixes
+
+* Removes schema refresh ([5705373](https://github.com/Elders/Cronus.Projections.Cassandra/commit/570537385050723ac492c9d7b474f2f4a0c088a1))
+
+# [7.0.0-preview.10](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.9...v7.0.0-preview.10) (2022-03-11)
+
+
+### Bug Fixes
+
+* Rolls back the projections table schema ([836c40e](https://github.com/Elders/Cronus.Projections.Cassandra/commit/836c40ec96237091c57ddb5217a31a13bdf27ab5))
+
+# [7.0.0-preview.9](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.8...v7.0.0-preview.9) (2022-03-07)
+
+
+### Bug Fixes
+
+* Add async version for Save ([2129864](https://github.com/Elders/Cronus.Projections.Cassandra/commit/21298645dba131d4871c4832d4db1adbf39fc56d))
+
+# [7.0.0-preview.8](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.7...v7.0.0-preview.8) (2022-03-03)
+
+
+### Bug Fixes
+
+* Removes the while loop ([2f78f63](https://github.com/Elders/Cronus.Projections.Cassandra/commit/2f78f631f415a7d355311a636a836b6ab9a58e2e))
+
+# [7.0.0-preview.7](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.6...v7.0.0-preview.7) (2022-03-02)
+
+
+### Bug Fixes
+
+* Try some way to avoid cassandra crash ([4fc8136](https://github.com/Elders/Cronus.Projections.Cassandra/commit/4fc81368280e2542b4158d1ca3d1dc56f01f394c))
+
+# [7.0.0-preview.6](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.5...v7.0.0-preview.6) (2022-03-02)
+
+
+### Bug Fixes
+
+* Captures errors when enumerating a projection and logs the exact event which is problematic. The enumeration is not interrupted. ([af2e377](https://github.com/Elders/Cronus.Projections.Cassandra/commit/af2e3777c1f0ec769a1f9c78400a95f8081606be))
+* Updates packages ([1cf1877](https://github.com/Elders/Cronus.Projections.Cassandra/commit/1cf1877c9ef3a1a300f548b109958c92aef5392d))
+
+# [7.0.0-preview.5](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.4...v7.0.0-preview.5) (2022-02-09)
+
+
+### Bug Fixes
+
+* We hope that we've fixed 'keyspace doesn't exist' in concurrent execution ([40fd908](https://github.com/Elders/Cronus.Projections.Cassandra/commit/40fd908f9334ba677f725470f01938d2d5f8cb11))
+
+# [7.0.0-preview.4](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.3...v7.0.0-preview.4) (2021-12-20)
+
+
+### Bug Fixes
+
+* Updates Cronus ([a22d4d5](https://github.com/Elders/Cronus.Projections.Cassandra/commit/a22d4d517368670bff45aa5f97d136c81c0ffab2))
+
+# [7.0.0-preview.3](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.2...v7.0.0-preview.3) (2021-12-14)
+
+
+### Bug Fixes
+
+* When the projection is not snapshotable do not throw 'table does not exist'. ([a1aea23](https://github.com/Elders/Cronus.Projections.Cassandra/commit/a1aea2389235a1853da57fe18c34b4aa51e4af25))
+
+# [7.0.0-preview.2](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.1...v7.0.0-preview.2) (2021-11-30)
+
+
+### Bug Fixes
+
+* Update Cronus ([c2542c0](https://github.com/Elders/Cronus.Projections.Cassandra/commit/c2542c07af53ff0d7719f113a0015253187ad744))
+
+# [7.0.0-preview.1](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0...v7.0.0-preview.1) (2021-11-11)
+
 # [6.3.0](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.2.0...v6.3.0) (2021-11-08)
 
 
