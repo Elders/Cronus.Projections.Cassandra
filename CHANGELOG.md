@@ -1,4 +1,4 @@
-# [7.0.0-preview.14](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.13...v7.0.0-preview.14) (2022-03-31)
+# [7.0.0-preview.14](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.13...v7.0.0-preview.14) (2022-04-11)
 
 
 ### Bug Fixes
