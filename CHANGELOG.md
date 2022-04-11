@@ -1,25 +1,4 @@
-# [7.0.0](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v6.3.0...v7.0.0) (2022-04-06)
-
-
-### Bug Fixes
-
-* Add async version for Save ([2129864](https://github.com/Elders/Cronus.Projections.Cassandra/commit/21298645dba131d4871c4832d4db1adbf39fc56d))
-* Adds logs to trace session creation ([41d7cfe](https://github.com/Elders/Cronus.Projections.Cassandra/commit/41d7cfe8334f488ecc6635ff8e8aae705eb8921b))
-* Captures errors when enumerating a projection and logs the exact event which is problematic. The enumeration is not interrupted. ([af2e377](https://github.com/Elders/Cronus.Projections.Cassandra/commit/af2e3777c1f0ec769a1f9c78400a95f8081606be))
-* Removes schema refresh ([5705373](https://github.com/Elders/Cronus.Projections.Cassandra/commit/570537385050723ac492c9d7b474f2f4a0c088a1))
-* Removes the session re;pad ([0957679](https://github.com/Elders/Cronus.Projections.Cassandra/commit/0957679563ef75b8550d0ba5d55a92da0e3aaa9d))
-* Removes the while loop ([2f78f63](https://github.com/Elders/Cronus.Projections.Cassandra/commit/2f78f631f415a7d355311a636a836b6ab9a58e2e))
-* Rolls back the projections table schema ([836c40e](https://github.com/Elders/Cronus.Projections.Cassandra/commit/836c40ec96237091c57ddb5217a31a13bdf27ab5))
-* Try some way to avoid cassandra crash ([4fc8136](https://github.com/Elders/Cronus.Projections.Cassandra/commit/4fc81368280e2542b4158d1ca3d1dc56f01f394c))
-* Update Cronus ([c2542c0](https://github.com/Elders/Cronus.Projections.Cassandra/commit/c2542c07af53ff0d7719f113a0015253187ad744))
-* Update Cronus package ([847feff](https://github.com/Elders/Cronus.Projections.Cassandra/commit/847feffeae627a7a6994b1e49de94f51cd5fadac))
-* Updates Cronus ([a22d4d5](https://github.com/Elders/Cronus.Projections.Cassandra/commit/a22d4d517368670bff45aa5f97d136c81c0ffab2))
-* Updates packages ([20e0672](https://github.com/Elders/Cronus.Projections.Cassandra/commit/20e0672d9fa1c7831f6510ee61213278cdfe6fd1))
-* Updates packages ([1cf1877](https://github.com/Elders/Cronus.Projections.Cassandra/commit/1cf1877c9ef3a1a300f548b109958c92aef5392d))
-* We hope that we've fixed 'keyspace doesn't exist' in concurrent execution ([40fd908](https://github.com/Elders/Cronus.Projections.Cassandra/commit/40fd908f9334ba677f725470f01938d2d5f8cb11))
-* When the projection is not snapshotable do not throw 'table does not exist'. ([a1aea23](https://github.com/Elders/Cronus.Projections.Cassandra/commit/a1aea2389235a1853da57fe18c34b4aa51e4af25))
-
-# [7.0.0-preview.14](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.13...v7.0.0-preview.14) (2022-03-31)
+# [7.0.0-preview.14](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.13...v7.0.0-preview.14) (2022-04-11)
 
 
 ### Bug Fixes
