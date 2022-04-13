@@ -1,10 +1,11 @@
 ﻿using Cassandra;
+using System.Threading.Tasks;
 
 namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 {
     public interface ICassandraProvider
     {
-        ICluster GetCluster();
-        ISession GetSession();
+        Task<ICluster> GetClusterAsync();
+        Task<ISession> GetSessionAsync();
     }
 }

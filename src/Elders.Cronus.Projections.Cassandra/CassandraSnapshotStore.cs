@@ -21,15 +21,15 @@ namespace Elders.Cronus.Projections.Cassandra
         const string GetQueryTemplate = @"SELECT data, rev FROM ""{0}"" WHERE id=? LIMIT 1;";
         const string GetSnapshotMetaQueryTemplate = @"SELECT rev FROM ""{0}"" WHERE id=? LIMIT 1;";
 
-        readonly HashSet<string> projectionContracts;
-        readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
-        readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
-        readonly ConcurrentDictionary<string, PreparedStatement> GetSnapshotMetaPreparedStatements;
-        readonly ISerializer serializer;
+        private readonly HashSet<string> projectionContracts;
+        private readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
+        private readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
+        private readonly ConcurrentDictionary<string, PreparedStatement> GetSnapshotMetaPreparedStatements;
+        private readonly ISerializer serializer;
         private readonly VersionedProjectionsNaming naming;
         private readonly IInitializableProjectionStore initializableProjectionStore;
 
-        private ISession GetSession() => cassandraProvider.GetSession();
+        private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync();
 
         private readonly ICassandraProvider cassandraProvider;
 
@@ -52,7 +52,7 @@ namespace Elders.Cronus.Projections.Cassandra
             GetSnapshotMetaPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }
 
-        public ISnapshot Load(string projectionName, IBlobId id, ProjectionVersion version)
+        public async Task<ISnapshot> LoadAsync(string projectionName, IBlobId id, ProjectionVersion version)
         {
             try
             {
@@ -62,8 +62,9 @@ namespace Elders.Cronus.Projections.Cassandra
                 string columnFamily = naming.GetSnapshotColumnFamily(version);
 
                 Row row = null;
-                var bs = GetPreparedStatementToGetProjection(columnFamily).Bind(Convert.ToBase64String(id.RawId));
-                var result = GetSession().Execute(bs);
+                var bs = await GetPreparedStatementToGetProjectionAsync(columnFamily).ConfigureAwait(false);
+                ISession session = await GetSessionAsync().ConfigureAwait(false);
+                var result = await session.ExecuteAsync(bs.Bind(Convert.ToBase64String(id.RawId))).ConfigureAwait(false);
                 row = result.GetRows().FirstOrDefault();
 
                 if (row == null)
@@ -79,13 +80,13 @@ namespace Elders.Cronus.Projections.Cassandra
             }
             catch (InvalidQueryException)
             {
-                initializableProjectionStore.Initialize(version);
+                await initializableProjectionStore.InitializeAsync(version).ConfigureAwait(false);
 
                 return new NoSnapshot(id, projectionName);
             }
         }
 
-        public SnapshotMeta LoadMeta(string projectionName, IBlobId id, ProjectionVersion version)
+        public async Task<SnapshotMeta> LoadMetaAsync(string projectionName, IBlobId id, ProjectionVersion version)
         {
             try
             {
@@ -94,8 +95,10 @@ namespace Elders.Cronus.Projections.Cassandra
 
                 string columnFamily = naming.GetSnapshotColumnFamily(version);
 
-                var bs = GetPreparedStatementToGetSnapshotMeta(columnFamily).Bind(Convert.ToBase64String(id.RawId));
-                var result = GetSession().Execute(bs);
+                ISession session = await GetSessionAsync().ConfigureAwait(false);
+                PreparedStatement statement = await GetPreparedStatementToGetSnapshotMetaAsync(columnFamily).ConfigureAwait(false);
+                BoundStatement bs = statement.Bind(Convert.ToBase64String(id.RawId));
+                var result = await session.ExecuteAsync(bs).ConfigureAwait(false);
                 Row row = result.GetRows().FirstOrDefault();
 
                 if (row == null)
@@ -107,111 +110,49 @@ namespace Elders.Cronus.Projections.Cassandra
             }
             catch (InvalidQueryException)
             {
-                initializableProjectionStore.Initialize(version);
+                await initializableProjectionStore.InitializeAsync(version).ConfigureAwait(false);
 
                 return new NoSnapshot(id, projectionName).GetMeta();
             }
         }
 
-        public void Save(ISnapshot snapshot, ProjectionVersion version)
+        public async Task SaveAsync(ISnapshot snapshot, ProjectionVersion version)
         {
             if (projectionContracts.Contains(snapshot.ProjectionName) == false)
                 return;
 
             string columnFamily = naming.GetSnapshotColumnFamily(version);
-
             var data = serializer.SerializeToBytes(snapshot.State);
-            var statement = SavePreparedStatements.GetOrAdd(columnFamily, x => BuildeInsertPreparedStatemnt(x));
-            var result = GetSession().Execute(statement
-                .Bind(
-                    Convert.ToBase64String(snapshot.Id.RawId),
-                    snapshot.Revision,
-                    data
-                ));
+
+            PreparedStatement statement = SavePreparedStatements.GetOrAdd(columnFamily, x => BuildeInsertPreparedStatemntAsync(x).GetAwaiter().GetResult());
+
+            ISession session = await GetSessionAsync().ConfigureAwait(false);
+            BoundStatement boundedStatement = statement.Bind(Convert.ToBase64String(snapshot.Id.RawId), snapshot.Revision, data);
+
+            RowSet result = await session.ExecuteAsync(boundedStatement).ConfigureAwait(false);
         }
 
-        PreparedStatement BuildeInsertPreparedStatemnt(string columnFamily)
+        async Task<PreparedStatement> BuildeInsertPreparedStatemntAsync(string columnFamily)
         {
-            return GetSession().Prepare(string.Format(InsertQueryTemplate, columnFamily));
-        }
-
-        PreparedStatement GetPreparedStatementToGetProjection(string columnFamily)
-        {
-            PreparedStatement statement = GetSession()
-                .Prepare(string.Format(GetQueryTemplate, columnFamily))
-                .SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-
-            return GetPreparedStatements.GetOrAdd(columnFamily, statement);
+            ISession session = await GetSessionAsync().ConfigureAwait(false);
+            return await session.PrepareAsync(string.Format(InsertQueryTemplate, columnFamily)).ConfigureAwait(false);
         }
 
         async Task<PreparedStatement> GetPreparedStatementToGetProjectionAsync(string columnFamily)
         {
-            PreparedStatement statement = await GetSession().PrepareAsync(string.Format(GetQueryTemplate, columnFamily)).ConfigureAwait(false);
-            statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+            ISession session = await GetSessionAsync().ConfigureAwait(false);
+            PreparedStatement statement = await session.PrepareAsync(string.Format(GetQueryTemplate, columnFamily)).ConfigureAwait(false);
+            statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
 
             return GetPreparedStatements.GetOrAdd(columnFamily, statement);
         }
 
-        PreparedStatement GetPreparedStatementToGetSnapshotMeta(string columnFamily)
-        {
-            PreparedStatement statement = GetSession()
-                .Prepare(string.Format(GetSnapshotMetaQueryTemplate, columnFamily))
-                .SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-            return GetSnapshotMetaPreparedStatements.GetOrAdd(columnFamily, statement);
-        }
-
         async Task<PreparedStatement> GetPreparedStatementToGetSnapshotMetaAsync(string columnFamily)
         {
-            var statement = await GetSession().PrepareAsync(string.Format(GetSnapshotMetaQueryTemplate, columnFamily)).ConfigureAwait(false);
-            statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-
+            ISession session = await GetSessionAsync().ConfigureAwait(false);
+            PreparedStatement statement = await session.PrepareAsync(string.Format(GetSnapshotMetaQueryTemplate, columnFamily)).ConfigureAwait(false);
+            statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
             return GetSnapshotMetaPreparedStatements.GetOrAdd(columnFamily, statement);
-        }
-
-        public async Task<ISnapshot> LoadAsync(string projectionName, IBlobId id, ProjectionVersion version)
-        {
-            if (projectionContracts.Contains(projectionName) == false)
-                return new NoSnapshot(id, projectionName);
-
-            string columnFamily = naming.GetSnapshotColumnFamily(version);
-
-            PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily).ConfigureAwait(false);
-
-            var bs = preparedStatement.Bind(Convert.ToBase64String(id.RawId));
-            var result = await GetSession().ExecuteAsync(bs).ConfigureAwait(false);
-            Row row = result.GetRows().FirstOrDefault();
-
-            if (row == null)
-                return new NoSnapshot(id, projectionName);
-
-            var data = row.GetValue<byte[]>("data");
-            var rev = row.GetValue<int>("rev");
-
-            using (var stream = new MemoryStream(data))
-            {
-                return new Snapshot(id, projectionName, serializer.Deserialize(stream), rev);
-            }
-        }
-
-        public async Task<SnapshotMeta> LoadMetaAsync(string projectionName, IBlobId id, ProjectionVersion version)
-        {
-            if (projectionContracts.Contains(projectionName) == false)
-                return new NoSnapshot(id, projectionName).GetMeta();
-
-            string columnFamily = naming.GetSnapshotColumnFamily(version);
-
-            PreparedStatement preparedStatement = await GetPreparedStatementToGetSnapshotMetaAsync(columnFamily).ConfigureAwait(false);
-
-            var bs = preparedStatement.Bind(Convert.ToBase64String(id.RawId));
-            var result = await GetSession().ExecuteAsync(bs);
-            Row row = result.GetRows().FirstOrDefault();
-
-            if (row == null)
-                return new NoSnapshot(id, projectionName).GetMeta();
-
-            var rev = row.GetValue<int>("rev");
-
-            return new SnapshotMeta(rev, projectionName);
         }
     }
 }

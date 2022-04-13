@@ -17,7 +17,7 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 
         public Task HandleAsync(NewProjectionVersionIsNowLive @event)
         {
-            strategy.Apply(@event.ProjectionVersion);
+            strategy.ApplyAsync(@event.ProjectionVersion);
             return Task.CompletedTask;
         }
     }

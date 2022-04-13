@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra
@@ -21,16 +22,16 @@ namespace Elders.Cronus.Projections.Cassandra
             this.snapshotsSchema = snapshotsSchema;
         }
 
-        public void Initialize(ProjectionVersion version)
+        public async Task InitializeAsync(ProjectionVersion version)
         {
             string projectionColumnFamily = naming.GetColumnFamily(version);
             logger.Debug(() => $"[Projection Store] Initializing projection store with column family `{projectionColumnFamily}`...");
-            projectionsSchema.CreateProjectionsStorage(projectionColumnFamily);
+            await projectionsSchema.CreateProjectionsStorageAsync(projectionColumnFamily).ConfigureAwait(false);
             logger.Debug(() => $"[Projection Store] Initialized projection store with column family `{projectionColumnFamily}`");
 
             string snapshotColumnFamily = naming.GetSnapshotColumnFamily(version);
             logger.Debug(() => $"[Snapshot Store] Initializing snapshot store with column family `{snapshotColumnFamily}`....");
-            snapshotsSchema.CreateTable(snapshotColumnFamily);
+            await snapshotsSchema.CreateTableAsync(snapshotColumnFamily).ConfigureAwait(false);
             logger.Debug(() => $"[Snapshot Store] Initialized snapshot store with column family `{snapshotColumnFamily}`");
         }
     }

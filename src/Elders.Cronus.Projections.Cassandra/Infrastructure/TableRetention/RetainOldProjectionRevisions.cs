@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Cassandra;
 using Microsoft.Extensions.Options;
 
@@ -7,7 +8,7 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 {
     public class RetainOldProjectionRevisions : IProjectionTableRetentionStrategy
     {
-        private readonly ICluster cluster;
+        private readonly ICassandraProvider cassandraProvider;
         private readonly VersionedProjectionsNaming projectionsNaming;
         private readonly CassandraProjectionStoreSchema projectionsSchema;
         private readonly CassandraSnapshotStoreSchema snapshotsSchema;
@@ -15,7 +16,7 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
 
         public RetainOldProjectionRevisions(ICassandraProvider cassandraProvider, VersionedProjectionsNaming projectionsNaming, CassandraProjectionStoreSchema projectionsSchema, CassandraSnapshotStoreSchema snapshotsSchema, IOptionsMonitor<TableRetentionOptions> optionsMonitor)
         {
-            this.cluster = cassandraProvider.GetCluster();
+            this.cassandraProvider = cassandraProvider;
             this.projectionsNaming = projectionsNaming;
             this.projectionsSchema = projectionsSchema;
             this.snapshotsSchema = snapshotsSchema;
@@ -23,7 +24,7 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
             optionsMonitor.OnChange(newOptions => options = newOptions);
         }
 
-        public void Apply(ProjectionVersion currentProjectionVersion)
+        public async Task ApplyAsync(ProjectionVersion currentProjectionVersion)
         {
             if (options.DeleteOldProjectionTables == false)
                 return;
@@ -32,14 +33,16 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
             if (latestRevisionToRetain <= 0)
                 return;
 
-            var tables = GetProjectionVersions(projectionsSchema.Keyspace);
-            foreach (var table in tables)
+            string keyspace = await projectionsSchema.GetKeypaceAsync().ConfigureAwait(false);
+            IAsyncEnumerable<string> tables = GetProjectionVersionsAsync(keyspace);
+            await foreach (var table in tables)
             {
-                projectionsSchema.DropTable(table);
+                await projectionsSchema.DropTableAsync(table).ConfigureAwait(false);
             }
 
-            IEnumerable<string> GetProjectionVersions(string keyspace)
+            async IAsyncEnumerable<string> GetProjectionVersionsAsync(string keyspace)
             {
+                ICluster cluster = await cassandraProvider.GetClusterAsync().ConfigureAwait(false);
                 ICollection<string> projectionsTables = cluster.Metadata.GetTables(keyspace);
                 var projectionTablesWithoutHash = GetPossibleTableNamesWihtoutHash();
 
