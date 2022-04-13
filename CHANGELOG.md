@@ -1,3 +1,10 @@
+# [8.0.0-preview.2](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v8.0.0-preview.1...v8.0.0-preview.2) (2022-04-13)
+
+
+### Bug Fixes
+
+* Provide async queries to Cassandra ([dbd13a4](https://github.com/Elders/Cronus.Projections.Cassandra/commit/dbd13a4120d530cbad59a957c6212748953b156b))
+
 # [8.0.0-preview.1](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0...v8.0.0-preview.1) (2022-04-11)
 
 # [7.0.0-preview.14](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0-preview.13...v7.0.0-preview.14) (2022-04-11)
