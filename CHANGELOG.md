@@ -1,3 +1,10 @@
+# [8.0.0-preview.3](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v8.0.0-preview.2...v8.0.0-preview.3) (2022-04-18)
+
+
+### Bug Fixes
+
+* Add SemaphoreSlim lock when creating cassandra tables ([48ac9c9](https://github.com/Elders/Cronus.Projections.Cassandra/commit/48ac9c92e2d019cefcf127bb50a3c04571ac189f))
+
 # [8.0.0-preview.2](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v8.0.0-preview.1...v8.0.0-preview.2) (2022-04-13)
 
 
