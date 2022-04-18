@@ -7,12 +7,13 @@ using System.Threading.Tasks;
 using Cassandra;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Elders.Cronus.Projections.Snapshotting;
+using Microsoft.Extensions.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
     public class CassandraSnapshotStore<TSettings> : CassandraSnapshotStore where TSettings : ICassandraProjectionStoreSettings
     {
-        public CassandraSnapshotStore(TSettings settings, IInitializableProjectionStore initializableProjectionStore) : base(settings.CassandraProvider, settings.Serializer, settings.ProjectionsNamingStrategy, settings.ProjectionsProvider, initializableProjectionStore) { }
+        public CassandraSnapshotStore(TSettings settings, IInitializableProjectionStore initializableProjectionStore, ILogger<CassandraSnapshotStore> logger) : base(settings.CassandraProvider, settings.Serializer, settings.ProjectionsNamingStrategy, settings.ProjectionsProvider, initializableProjectionStore, logger) { }
     }
 
     public class CassandraSnapshotStore : ISnapshotStore
@@ -21,6 +22,7 @@ namespace Elders.Cronus.Projections.Cassandra
         const string GetQueryTemplate = @"SELECT data, rev FROM ""{0}"" WHERE id=? LIMIT 1;";
         const string GetSnapshotMetaQueryTemplate = @"SELECT rev FROM ""{0}"" WHERE id=? LIMIT 1;";
 
+        private readonly ILogger<CassandraSnapshotStore> logger;
         private readonly HashSet<string> projectionContracts;
         private readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
         private readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
@@ -33,7 +35,7 @@ namespace Elders.Cronus.Projections.Cassandra
 
         private readonly ICassandraProvider cassandraProvider;
 
-        public CassandraSnapshotStore(ICassandraProvider cassandraProvider, ISerializer serializer, VersionedProjectionsNaming naming, ProjectionsProvider projectionsProvider, IInitializableProjectionStore initializableProjectionStore)
+        public CassandraSnapshotStore(ICassandraProvider cassandraProvider, ISerializer serializer, VersionedProjectionsNaming naming, ProjectionsProvider projectionsProvider, IInitializableProjectionStore initializableProjectionStore, ILogger<CassandraSnapshotStore> logger)
         {
             if (projectionsProvider is null) throw new ArgumentNullException(nameof(projectionsProvider));
 
@@ -50,6 +52,7 @@ namespace Elders.Cronus.Projections.Cassandra
             SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetSnapshotMetaPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+            this.logger = logger;
         }
 
         public async Task<ISnapshot> LoadAsync(string projectionName, IBlobId id, ProjectionVersion version)
@@ -78,7 +81,7 @@ namespace Elders.Cronus.Projections.Cassandra
                     return new Snapshot(id, projectionName, serializer.Deserialize(stream), rev);
                 }
             }
-            catch (InvalidQueryException)
+            catch (Exception)
             {
                 await initializableProjectionStore.InitializeAsync(version).ConfigureAwait(false);
 
@@ -108,28 +111,35 @@ namespace Elders.Cronus.Projections.Cassandra
 
                 return new SnapshotMeta(rev, projectionName);
             }
-            catch (InvalidQueryException)
+            catch (Exception)
             {
                 await initializableProjectionStore.InitializeAsync(version).ConfigureAwait(false);
-
                 return new NoSnapshot(id, projectionName).GetMeta();
             }
         }
 
         public async Task SaveAsync(ISnapshot snapshot, ProjectionVersion version)
         {
-            if (projectionContracts.Contains(snapshot.ProjectionName) == false)
-                return;
-
             string columnFamily = naming.GetSnapshotColumnFamily(version);
-            var data = serializer.SerializeToBytes(snapshot.State);
 
-            PreparedStatement statement = SavePreparedStatements.GetOrAdd(columnFamily, x => BuildeInsertPreparedStatemntAsync(x).GetAwaiter().GetResult());
+            try
+            {
+                if (projectionContracts.Contains(snapshot.ProjectionName) == false)
+                    return;
 
-            ISession session = await GetSessionAsync().ConfigureAwait(false);
-            BoundStatement boundedStatement = statement.Bind(Convert.ToBase64String(snapshot.Id.RawId), snapshot.Revision, data);
+                var data = serializer.SerializeToBytes(snapshot.State);
 
-            RowSet result = await session.ExecuteAsync(boundedStatement).ConfigureAwait(false);
+                PreparedStatement statement = SavePreparedStatements.GetOrAdd(columnFamily, x => BuildeInsertPreparedStatemntAsync(x).GetAwaiter().GetResult());
+
+                ISession session = await GetSessionAsync().ConfigureAwait(false);
+                BoundStatement boundedStatement = statement.Bind(Convert.ToBase64String(snapshot.Id.RawId), snapshot.Revision, data);
+
+                RowSet result = await session.ExecuteAsync(boundedStatement).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                logger.ErrorException(ex, () => $"Failed to save snapshot to {columnFamily}.");
+            }
         }
 
         async Task<PreparedStatement> BuildeInsertPreparedStatemntAsync(string columnFamily)
@@ -142,7 +152,7 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             ISession session = await GetSessionAsync().ConfigureAwait(false);
             PreparedStatement statement = await session.PrepareAsync(string.Format(GetQueryTemplate, columnFamily)).ConfigureAwait(false);
-            statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+            statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
 
             return GetPreparedStatements.GetOrAdd(columnFamily, statement);
         }
@@ -151,7 +161,8 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             ISession session = await GetSessionAsync().ConfigureAwait(false);
             PreparedStatement statement = await session.PrepareAsync(string.Format(GetSnapshotMetaQueryTemplate, columnFamily)).ConfigureAwait(false);
-            statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+            statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+
             return GetSnapshotMetaPreparedStatements.GetOrAdd(columnFamily, statement);
         }
     }

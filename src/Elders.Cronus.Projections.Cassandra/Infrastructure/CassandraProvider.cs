@@ -128,7 +128,7 @@ namespace Elders.Cronus.Projections.Cassandra
         private async Task<IStatement> GetKreateKeySpaceQuery(ISession schemaSession)
         {
             PreparedStatement createEventsTableStatement = await schemaSession.PrepareAsync(replicationStrategy.CreateKeySpaceTemplate(GetKeyspace())).ConfigureAwait(false);
-            createEventsTableStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+            createEventsTableStatement = createEventsTableStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
 
             return createEventsTableStatement.Bind();
         }

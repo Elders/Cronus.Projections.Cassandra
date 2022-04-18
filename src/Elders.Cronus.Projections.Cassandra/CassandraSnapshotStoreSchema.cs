@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Cassandra;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
@@ -36,7 +38,7 @@ namespace Elders.Cronus.Projections.Cassandra
             ISession session = await GetSessionAsync().ConfigureAwait(false);
             string query = string.Format(DropQueryTemplate, location);
             PreparedStatement statement = await session.PrepareAsync(query).ConfigureAwait(false);
-            statement.SetConsistencyLevel(ConsistencyLevel.All);
+            statement = statement.SetConsistencyLevel(ConsistencyLevel.All);
             await session.ExecuteAsync(statement.Bind()).ConfigureAwait(false);
         }
 
@@ -47,9 +49,36 @@ namespace Elders.Cronus.Projections.Cassandra
             logger.Debug(() => $"[Projections] Creating snapshot table `{location}` with `{session.Cluster.AllHosts().First().Address}`...");
             string query = string.Format(CreateSnapshopEventsTableTemplate, location);
             PreparedStatement statement = await session.PrepareAsync(query).ConfigureAwait(false);
-            statement.SetConsistencyLevel(ConsistencyLevel.All);
+            statement = statement.SetConsistencyLevel(ConsistencyLevel.All);
             await session.ExecuteAsync(statement.Bind()).ConfigureAwait(false);
             logger.Debug(() => $"[Projections] Created snapshot table `{location}`... Maybe?!");
+        }
+
+        private static SemaphoreSlim threadGate = new SemaphoreSlim(1);
+        private static KeyValuePair<string, bool> initializedLocation = new KeyValuePair<string, bool>();
+        private static int held = 0;
+
+        public async Task CreateSnapshotStorageAsync(string location)
+        {
+            if (initializedLocation.Key is not null && initializedLocation.Key.Equals(location, StringComparison.OrdinalIgnoreCase) == false)
+                initializedLocation = new KeyValuePair<string, bool>(location, false);
+
+            held++;
+            await threadGate.WaitAsync().ConfigureAwait(false);
+            if (initializedLocation.Value == false)
+            {
+                try
+                {
+                    await CreateTableAsync(location).ConfigureAwait(false);
+                    initializedLocation = new KeyValuePair<string, bool>(location, true);
+                }
+                catch (Exception ex)
+                {
+                    logger.Debug(() => $"Failed to initialize table {location}. {ex}");
+                    initializedLocation = new KeyValuePair<string, bool>(location, false);
+                }
+            }
+            threadGate?.Release(held);
         }
     }
 }

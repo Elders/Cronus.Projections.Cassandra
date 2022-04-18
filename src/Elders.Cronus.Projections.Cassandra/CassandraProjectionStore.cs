@@ -133,7 +133,7 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             ISession session = await GetSessionAsync().ConfigureAwait(false);
             PreparedStatement statement = await session.PrepareAsync(string.Format(InsertQueryTemplate, columnFamily));
-            statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+            statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
             return statement;
         }
 
