@@ -1,3 +1,10 @@
+## [8.0.1](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v8.0.0...v8.0.1) (2022-05-25)
+
+
+### Bug Fixes
+
+* bump Microsoft.NET.Test.Sdk from 17.1.0 to 17.2.0 ([7957d91](https://github.com/Elders/Cronus.Projections.Cassandra/commit/7957d91093fb7475b5bba48a1a884440022a32a9))
+
 # [8.0.0](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v7.0.0...v8.0.0) (2022-05-25)
 
 
