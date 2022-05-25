@@ -1,4 +1,5 @@
 ﻿using System.Runtime.Serialization;
+using System.Threading.Tasks;
 using Elders.Cronus.Projections.Versioning;
 
 namespace Elders.Cronus.Projections.Cassandra.Infrastructure
@@ -14,9 +15,10 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
             this.strategy = strategy;
         }
 
-        public void Handle(NewProjectionVersionIsNowLive @event)
+        public Task HandleAsync(NewProjectionVersionIsNowLive @event)
         {
-            strategy.Apply(@event.ProjectionVersion);
+            strategy.ApplyAsync(@event.ProjectionVersion);
+            return Task.CompletedTask;
         }
     }
 }
