@@ -7,8 +7,6 @@ using DataStax = Cassandra;
 using Microsoft.Extensions.Logging;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Elders.Cronus.Projections.Cassandra;
-using System.Collections.ObjectModel;
-using System.Collections.Generic;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
@@ -86,26 +84,6 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             try
             {
-                if (session is not null && session.IsDisposed == false)
-                {
-                    ISessionState sessionState = session.GetState();
-                    IReadOnlyCollection<Host> hosts = sessionState.GetConnectedHosts();
-                    foreach (var host in hosts)
-                    {
-                        if (host.IsUp)
-                        {
-                            int openConnections = sessionState.GetOpenConnections(host);
-                            int gg = sessionState.GetInFlightQueries(host);
-
-                            logger.Info(() => $"Host {host.Address} is up with {openConnections} open connections and {gg} in flight queries");
-                        }
-                        else
-                        {
-                            logger.Error(() => $"Cassandra Host {host.Address} is down");
-                        }
-                    }
-                }
-
                 if (session is null || session.IsDisposed)
                 {
                     await threadGate.WaitAsync(30000).ConfigureAwait(false);
