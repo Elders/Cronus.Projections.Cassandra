@@ -1,3 +1,10 @@
+## [8.0.4](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v8.0.3...v8.0.4) (2022-06-22)
+
+
+### Bug Fixes
+
+* Revert "fix: Adds trace logs for cassandra connections" ([2318c2e](https://github.com/Elders/Cronus.Projections.Cassandra/commit/2318c2e5285bd91e2541fcf52bb21d59472774fd))
+
 ## [8.0.3](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v8.0.2...v8.0.3) (2022-06-16)
 
 
