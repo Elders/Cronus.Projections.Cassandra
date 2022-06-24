@@ -68,7 +68,7 @@ namespace Elders.Cronus.Projections.Cassandra
                 }
                 else
                 {
-                    string arid = row.GetValue<string>(ProjectionColumn.EventAggregateId);
+                    byte[] arid = row.GetValue<byte[]>(ProjectionColumn.EventAggregateId);
                     int revision = row.GetValue<int>(ProjectionColumn.EventAggregateRevision);
                     int position = row.GetValue<int>(ProjectionColumn.EventAggregateRevision);
                     logger.Error(() => $"Failed to load event `data` published by:{Environment.NewLine}aggregateId={arid}{Environment.NewLine}aggregateRevision={revision}{Environment.NewLine}position={position}{Environment.NewLine}projectionId={projId}");
