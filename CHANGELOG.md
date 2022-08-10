@@ -1,3 +1,10 @@
+## [8.0.5](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v8.0.4...v8.0.5) (2022-08-10)
+
+
+### Bug Fixes
+
+* Update Cronus ([c803f69](https://github.com/Elders/Cronus.Projections.Cassandra/commit/c803f691c9ff0415a82993bdb39b74d7e9e8f3a2))
+
 ## [8.0.4](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v8.0.3...v8.0.4) (2022-06-22)
 
 
