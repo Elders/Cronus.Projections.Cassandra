@@ -1,3 +1,10 @@
+## [8.0.6](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v8.0.5...v8.0.6) (2022-08-11)
+
+
+### Bug Fixes
+
+* revert failed build and try to deploy ([4f259c2](https://github.com/Elders/Cronus.Projections.Cassandra/commit/4f259c263262133e1e77e546490c9d9214c1b2f6))
+
 ## [8.0.5](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v8.0.4...v8.0.5) (2022-08-10)
 
 
