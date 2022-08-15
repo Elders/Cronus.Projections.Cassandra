@@ -1,3 +1,11 @@
+## [8.0.7](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v8.0.6...v8.0.7) (2022-08-15)
+
+
+### Bug Fixes
+
+* pipeline fix attempt 1 ([e8ded91](https://github.com/Elders/Cronus.Projections.Cassandra/commit/e8ded9185378393e231f7b892383f4796acd6061))
+* pipeline fix attempt 2 ([83e1c7d](https://github.com/Elders/Cronus.Projections.Cassandra/commit/83e1c7d9f9f80d1b5529fede181eb0bf583263cb))
+
 ## [8.0.6](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v8.0.5...v8.0.6) (2022-08-11)
 
 
