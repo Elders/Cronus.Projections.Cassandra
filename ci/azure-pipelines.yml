@@ -37,15 +37,9 @@ jobs:
       command: test
       projects: '**/*Tests.csproj'
 
-  - task: DotNetCoreCLI@2
-    name: build
-    inputs:
-      command: build
-      projects: '**/*.csproj;!**/*Tests.csproj'
-
   - task: Bash@3
     name: release
-    displayName: release+pack (SemRel)
+    displayName: semantic release + pack
     env:
       STAGING_PATH: $(Build.StagingDirectory)
       LOCAL_PATH: $(Build.Repository.LocalPath)
