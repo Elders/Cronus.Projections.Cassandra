@@ -113,10 +113,9 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             byte[] data = serializer.SerializeToBytes(commit);
 
-            PreparedStatement newPreparedStatement = await BuildInsertPreparedStatemntAsync(columnFamily).ConfigureAwait(false);
-            PreparedStatement statement = SavePreparedStatements.GetOrAdd(columnFamily, newPreparedStatement);
-
             ISession session = await GetSessionAsync().ConfigureAwait(false);
+            PreparedStatement statement = await BuildInsertPreparedStatemntAsync(columnFamily, session).ConfigureAwait(false);
+
             var result = await session.ExecuteAsync(statement
                 .Bind(
                     ConvertIdToString(commit.ProjectionId),
@@ -129,11 +128,15 @@ namespace Elders.Cronus.Projections.Cassandra
                 )).ConfigureAwait(false);
         }
 
-        async Task<PreparedStatement> BuildInsertPreparedStatemntAsync(string columnFamily)
+        async Task<PreparedStatement> BuildInsertPreparedStatemntAsync(string columnFamily, ISession session)
         {
-            ISession session = await GetSessionAsync().ConfigureAwait(false);
-            PreparedStatement statement = await session.PrepareAsync(string.Format(InsertQueryTemplate, columnFamily));
-            statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+            if (!SavePreparedStatements.TryGetValue(columnFamily, out PreparedStatement statement))
+            {
+                statement = await session.PrepareAsync(string.Format(InsertQueryTemplate, columnFamily));
+                statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+                SavePreparedStatements.TryAdd(columnFamily, statement);
+            }
+
             return statement;
         }
 
