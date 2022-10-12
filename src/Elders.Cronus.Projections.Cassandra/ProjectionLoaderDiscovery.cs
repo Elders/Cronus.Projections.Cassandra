@@ -82,7 +82,7 @@ namespace Elders.Cronus.Projections.Cassandra
                 CanOverrideDefaults = true
             };
 
-            yield return new DiscoveredModel(typeof(InMemoryProjectionVersionStore), typeof(InMemoryProjectionVersionStore), ServiceLifetime.Singleton);
+            //yield return new DiscoveredModel(typeof(InMemoryProjectionVersionStore), typeof(InMemoryProjectionVersionStore), ServiceLifetime.Singleton);
 
             yield return new DiscoveredModel(typeof(IProjectionTableRetentionStrategy), typeof(RetainOldProjectionRevisions), ServiceLifetime.Transient);
             yield return new DiscoveredModel(typeof(RetainOldProjectionRevisions), typeof(RetainOldProjectionRevisions), ServiceLifetime.Transient);
