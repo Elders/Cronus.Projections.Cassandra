@@ -29,18 +29,27 @@ namespace Elders.Cronus.Projections.Cassandra
             if (lockTtl == TimeSpan.Zero) throw new ArgumentException("Lock ttl must be more than 0", nameof(lockTtl));
         }
 
-        public async Task InitializeAsync(ProjectionVersion version)
+        public async Task<bool> InitializeAsync(ProjectionVersion version)
         {
-            string projectionColumnFamily = naming.GetColumnFamily(version);
-            string snapshotColumnFamily = naming.GetSnapshotColumnFamily(version);
+            try
+            {
+                string projectionColumnFamily = naming.GetColumnFamily(version);
+                string snapshotColumnFamily = naming.GetSnapshotColumnFamily(version);
 
-            logger.Debug(() => $"[Projection Store] Initializing projection store with column family `{projectionColumnFamily}`...");
-            await projectionsSchema.CreateProjectionsStorageAsync(projectionColumnFamily).ConfigureAwait(false);
-            logger.Debug(() => $"[Projection Store] Initialized projection store with column family `{projectionColumnFamily}`");
+                logger.Debug(() => $"[Projection Store] Initializing projection store with column family `{projectionColumnFamily}` and `{snapshotColumnFamily}`...");
+                Task createProjectionStorageTask = projectionsSchema.CreateProjectionsStorageAsync(projectionColumnFamily);
+                Task createProjectionSnapshotStorageTask = snapshotsSchema.CreateSnapshotStorageAsync(snapshotColumnFamily);
+                logger.Debug(() => $"[Projection Store] Initialized projection store with column family `{projectionColumnFamily}` and `{snapshotColumnFamily}`");
 
-            logger.Debug(() => $"[Snapshot Store] Initializing snapshot store with column family `{snapshotColumnFamily}`....");
-            await snapshotsSchema.CreateSnapshotStorageAsync(snapshotColumnFamily).ConfigureAwait(false);
-            logger.Debug(() => $"[Snapshot Store] Initialized snapshot store with column family `{snapshotColumnFamily}`");
+                await createProjectionStorageTask.ConfigureAwait(false);
+                await createProjectionSnapshotStorageTask.ConfigureAwait(false);
+
+                return createProjectionStorageTask.IsCompletedSuccessfully && createProjectionSnapshotStorageTask.IsCompletedSuccessfully;
+            }
+            catch (Exception ex) when (logger.ErrorException(ex, () => $"Failed to initialize projection version {version}"))
+            {
+                return false;
+            }
         }
     }
 }
