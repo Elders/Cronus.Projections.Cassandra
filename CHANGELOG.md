@@ -1,3 +1,10 @@
+# [9.0.0-preview.3](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v9.0.0-preview.2...v9.0.0-preview.3) (2023-02-03)
+
+
+### Bug Fixes
+
+* Fixes how the projection store is initialized ([bcce5b7](https://github.com/Elders/Cronus.Projections.Cassandra/commit/bcce5b7ece91ccb123cd6b3ca0f4a0f9cc223e59))
+
 # [9.0.0-preview.2](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v9.0.0-preview.1...v9.0.0-preview.2) (2023-01-19)
 
 
