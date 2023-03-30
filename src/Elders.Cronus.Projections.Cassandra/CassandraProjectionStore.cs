@@ -52,10 +52,10 @@ namespace Elders.Cronus.Projections.Cassandra
             string columnFamily = naming.GetColumnFamily(version);
             string projId = Convert.ToBase64String(projectionId.RawId);
 
-            PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily).ConfigureAwait(false);
+            ISession session = await GetSessionAsync().ConfigureAwait(false);
+            PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily, session).ConfigureAwait(false);
             BoundStatement bs = preparedStatement.Bind(projId, snapshotMarker);
 
-            ISession session = await GetSessionAsync().ConfigureAwait(false);
             var rows = await session.ExecuteAsync(bs).ConfigureAwait(false);
 
             foreach (var row in rows)
@@ -86,7 +86,7 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             string projId = Convert.ToBase64String(projectionId.RawId);
             ISession session = await GetSessionAsync().ConfigureAwait(false);
-            PreparedStatement preparedStatement = await GetPreparedStatementToCheckProjectionSnapshotMarkerAsync(columnFamily).ConfigureAwait(false);
+            PreparedStatement preparedStatement = await GetPreparedStatementToCheckProjectionSnapshotMarkerAsync(columnFamily, session).ConfigureAwait(false);
             BoundStatement bs = preparedStatement.Bind(projId, snapshotMarker);
             var result = await session.ExecuteAsync(bs).ConfigureAwait(false);
             IEnumerable<Row> rows = result.GetRows();
@@ -140,12 +140,10 @@ namespace Elders.Cronus.Projections.Cassandra
             return statement;
         }
 
-        async Task<PreparedStatement> GetPreparedStatementToGetProjectionAsync(string columnFamily)
+        async Task<PreparedStatement> GetPreparedStatementToGetProjectionAsync(string columnFamily, ISession session)
         {
             if (!GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement loadPreparedStatement))
             {
-                ISession session = await GetSessionAsync().ConfigureAwait(false);
-
                 loadPreparedStatement = await session.PrepareAsync(string.Format(GetQueryTemplate, columnFamily)).ConfigureAwait(false);
                 loadPreparedStatement = loadPreparedStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
                 GetPreparedStatements.TryAdd(columnFamily, loadPreparedStatement);
@@ -153,12 +151,10 @@ namespace Elders.Cronus.Projections.Cassandra
             return loadPreparedStatement;
         }
 
-        async Task<PreparedStatement> GetPreparedStatementToCheckProjectionSnapshotMarkerAsync(string columnFamily)
+        async Task<PreparedStatement> GetPreparedStatementToCheckProjectionSnapshotMarkerAsync(string columnFamily, ISession session)
         {
             if (!HasSnapshotMarkerPreparedStatements.TryGetValue(columnFamily, out PreparedStatement checkSnapshotMarkerPreparedStatement))
             {
-                ISession session = await GetSessionAsync().ConfigureAwait(false);
-
                 checkSnapshotMarkerPreparedStatement = await session.PrepareAsync(string.Format(HasSnapshotMarkerTemplate, columnFamily)).ConfigureAwait(false);
                 checkSnapshotMarkerPreparedStatement = checkSnapshotMarkerPreparedStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
                 HasSnapshotMarkerPreparedStatements.TryAdd(columnFamily, checkSnapshotMarkerPreparedStatement);
