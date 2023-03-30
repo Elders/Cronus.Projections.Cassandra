@@ -1,3 +1,10 @@
+# [9.0.0-preview.4](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v9.0.0-preview.3...v9.0.0-preview.4) (2023-03-30)
+
+
+### Bug Fixes
+
+* Reduce the session get calls when loading projections ([d9da2ec](https://github.com/Elders/Cronus.Projections.Cassandra/commit/d9da2ece9cfa9763fa23de1f6ef879d32bb65fd3))
+
 # [9.0.0-preview.3](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v9.0.0-preview.2...v9.0.0-preview.3) (2023-02-03)
 
 
