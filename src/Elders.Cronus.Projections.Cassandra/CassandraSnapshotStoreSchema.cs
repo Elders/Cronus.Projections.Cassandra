@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
-    public sealed class CassandraSnapshotStoreSchema
+    public sealed class CassandraSnapshotStoreSchema : ICassandraSnapshotStoreSchema
     {
         private readonly ILogger<CassandraSnapshotStoreSchema> logger;
         private readonly ICassandraProvider cassandraProvider;

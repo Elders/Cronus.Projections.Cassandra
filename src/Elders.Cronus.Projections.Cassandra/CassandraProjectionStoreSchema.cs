@@ -60,29 +60,19 @@ namespace Elders.Cronus.Projections.Cassandra
             logger.Debug(() => $"[Projections] Created table `{location}`... Maybe?!");
         }
 
-        private static SemaphoreSlim threadGate = new SemaphoreSlim(1);
+
         private static ConcurrentDictionary<string, bool> initializedLocations = new ConcurrentDictionary<string, bool>();
-        private static int held = 0;
 
         public async Task CreateProjectionsStorageAsync(string location)
         {
             bool isInitialized = initializedLocations.GetOrAdd(location, false);
             if (isInitialized == false)
             {
-                held++;
-                await threadGate.WaitAsync().ConfigureAwait(false);
-                try
+                bool isInitializedInner = initializedLocations.GetOrAdd(location, false);
+                if (isInitializedInner == false)
                 {
-                    bool isInitializedInner = initializedLocations.GetOrAdd(location, false);
-                    if (isInitializedInner == false)
-                    {
-                        await CreateTableAsync(location).ConfigureAwait(false);
-                        initializedLocations[location] = true;
-                    }
-                }
-                finally
-                {
-                    threadGate?.Release(held);
+                    await CreateTableAsync(location).ConfigureAwait(false);
+                    initializedLocations[location] = true;
                 }
             }
         }
