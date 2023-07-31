@@ -64,7 +64,7 @@ namespace Elders.Cronus.Projections.Cassandra
 
                 if (data is not null)
                 {
-                    yield return (ProjectionCommit)serializer.DeserializeFromBytes(data);
+                    yield return serializer.DeserializeFromBytes<ProjectionCommit>(data);
                 }
                 else
                 {

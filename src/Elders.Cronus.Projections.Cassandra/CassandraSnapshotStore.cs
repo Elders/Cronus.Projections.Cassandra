@@ -76,10 +76,7 @@ namespace Elders.Cronus.Projections.Cassandra
                 var data = row.GetValue<byte[]>("data");
                 var rev = row.GetValue<int>("rev");
 
-                using (var stream = new MemoryStream(data))
-                {
-                    return new Snapshot(id, projectionName, serializer.Deserialize(stream), rev);
-                }
+                return new Snapshot(id, projectionName, serializer.DeserializeFromBytes<object>(data), rev);
             }
             catch (Exception)
             {
