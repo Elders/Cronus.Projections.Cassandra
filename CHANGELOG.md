@@ -1,3 +1,5 @@
+# [9.0.0-preview.6](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v9.0.0-preview.5...v9.0.0-preview.6) (2023-07-31)
+
 # [9.0.0-preview.5](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v9.0.0-preview.4...v9.0.0-preview.5) (2023-07-20)
 
 # [9.0.0-preview.4](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v9.0.0-preview.3...v9.0.0-preview.4) (2023-03-30)
