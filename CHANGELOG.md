@@ -1,3 +1,10 @@
+# [9.0.0-preview.7](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v9.0.0-preview.6...v9.0.0-preview.7) (2023-08-07)
+
+
+### Bug Fixes
+
+* Updates packages ([338f5c0](https://github.com/Elders/Cronus.Projections.Cassandra/commit/338f5c0c4024f8b24cc6187d6aa1a3e5865d817a))
+
 # [9.0.0-preview.6](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v9.0.0-preview.5...v9.0.0-preview.6) (2023-07-31)
 
 # [9.0.0-preview.5](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v9.0.0-preview.4...v9.0.0-preview.5) (2023-07-20)
