@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -14,7 +15,7 @@ namespace Elders.Cronus.Projections.Cassandra
         private readonly ILogger<CassandraProjectionStoreSchema> logger;
         private readonly ICassandraProvider cassandraProvider;
 
-        const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, sm int, evarid text, evarrev int, evarts bigint, evarpos int, data blob, PRIMARY KEY ((id, sm), evarts, evarid, evarrev, evarpos)) WITH CLUSTERING ORDER BY (evarts ASC);";
+        const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, sm int, evarid blob, evarrev int, evarts bigint, evarpos int, data blob, PRIMARY KEY ((id, sm), evarts, evarid, evarrev, evarpos)) WITH CLUSTERING ORDER BY (evarts ASC);";
         const string DropQueryTemplate = @"DROP TABLE IF EXISTS ""{0}"";";
 
         private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync();
@@ -59,31 +60,21 @@ namespace Elders.Cronus.Projections.Cassandra
             logger.Debug(() => $"[Projections] Created table `{location}`... Maybe?!");
         }
 
-        private static SemaphoreSlim threadGate = new SemaphoreSlim(1);
-        private static KeyValuePair<string, bool> initializedLocation = new KeyValuePair<string, bool>();
-        private static int held = 0;
+
+        private static ConcurrentDictionary<string, bool> initializedLocations = new ConcurrentDictionary<string, bool>();
 
         public async Task CreateProjectionsStorageAsync(string location)
         {
-            if (initializedLocation.Key is not null && initializedLocation.Key.Equals(location, StringComparison.OrdinalIgnoreCase) == false)
-                initializedLocation = new KeyValuePair<string, bool>(location, false);
-
-            held++;
-            await threadGate.WaitAsync().ConfigureAwait(false);
-            if (initializedLocation.Value == false)
+            bool isInitialized = initializedLocations.GetOrAdd(location, false);
+            if (isInitialized == false)
             {
-                try
+                bool isInitializedInner = initializedLocations.GetOrAdd(location, false);
+                if (isInitializedInner == false)
                 {
                     await CreateTableAsync(location).ConfigureAwait(false);
-                    initializedLocation = new KeyValuePair<string, bool>(location, true);
-                }
-                catch (Exception ex)
-                {
-                    logger.Debug(() => $"Failed to initialize table {location}. {ex}");
-                    initializedLocation = new KeyValuePair<string, bool>(location, false);
+                    initializedLocations[location] = true;
                 }
             }
-            threadGate?.Release(held);
         }
     }
 }

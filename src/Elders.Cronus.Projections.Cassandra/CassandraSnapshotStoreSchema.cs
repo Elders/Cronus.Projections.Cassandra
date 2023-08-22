@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -9,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
-    public sealed class CassandraSnapshotStoreSchema
+    public sealed class CassandraSnapshotStoreSchema : ICassandraSnapshotStoreSchema
     {
         private readonly ILogger<CassandraSnapshotStoreSchema> logger;
         private readonly ICassandraProvider cassandraProvider;
@@ -55,30 +56,30 @@ namespace Elders.Cronus.Projections.Cassandra
         }
 
         private static SemaphoreSlim threadGate = new SemaphoreSlim(1);
-        private static KeyValuePair<string, bool> initializedLocation = new KeyValuePair<string, bool>();
+        private static ConcurrentDictionary<string, bool> initializedLocations = new ConcurrentDictionary<string, bool>();
         private static int held = 0;
 
         public async Task CreateSnapshotStorageAsync(string location)
         {
-            if (initializedLocation.Key is not null && initializedLocation.Key.Equals(location, StringComparison.OrdinalIgnoreCase) == false)
-                initializedLocation = new KeyValuePair<string, bool>(location, false);
-
-            held++;
-            await threadGate.WaitAsync().ConfigureAwait(false);
-            if (initializedLocation.Value == false)
+            bool isInitialized = initializedLocations.GetOrAdd(location, false);
+            if (isInitialized == false)
             {
+                held++;
+                await threadGate.WaitAsync().ConfigureAwait(false);
                 try
                 {
-                    await CreateTableAsync(location).ConfigureAwait(false);
-                    initializedLocation = new KeyValuePair<string, bool>(location, true);
+                    bool isInitializedInner = initializedLocations.GetOrAdd(location, false);
+                    if (isInitializedInner == false)
+                    {
+                        await CreateTableAsync(location).ConfigureAwait(false);
+                        initializedLocations[location] = true;
+                    }
                 }
-                catch (Exception ex)
+                finally
                 {
-                    logger.Debug(() => $"Failed to initialize table {location}. {ex}");
-                    initializedLocation = new KeyValuePair<string, bool>(location, false);
+                    threadGate?.Release(held);
                 }
             }
-            threadGate?.Release(held);
         }
     }
 }
