@@ -1,3 +1,15 @@
+# [9.0.0](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v8.0.8...v9.0.0) (2023-08-22)
+
+
+### Bug Fixes
+
+* Fixes how the projection store is initialized ([bcce5b7](https://github.com/Elders/Cronus.Projections.Cassandra/commit/bcce5b7ece91ccb123cd6b3ca0f4a0f9cc223e59))
+* Reduce the session get calls when loading projections ([d9da2ec](https://github.com/Elders/Cronus.Projections.Cassandra/commit/d9da2ece9cfa9763fa23de1f6ef879d32bb65fd3))
+* Update Cronus ([bb1408d](https://github.com/Elders/Cronus.Projections.Cassandra/commit/bb1408d75f2e15115d5433b65122090137e84a80))
+* Update Cronus Package ([9d279a5](https://github.com/Elders/Cronus.Projections.Cassandra/commit/9d279a5402560d4d757329df5f537705b7f4aeb4))
+* Updates packages ([338f5c0](https://github.com/Elders/Cronus.Projections.Cassandra/commit/338f5c0c4024f8b24cc6187d6aa1a3e5865d817a))
+* Updates packages ([13354ff](https://github.com/Elders/Cronus.Projections.Cassandra/commit/13354fffd07340ea0178e30daf5897a8fb4528be))
+
 ## [8.0.8](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v8.0.7...v8.0.8) (2022-10-12)
 
 
