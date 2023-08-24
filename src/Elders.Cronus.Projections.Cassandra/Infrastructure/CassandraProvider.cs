@@ -35,42 +35,53 @@ namespace Elders.Cronus.Projections.Cassandra
             this.logger = logger;
         }
 
+        private static SemaphoreSlim clusterThreadGate = new SemaphoreSlim(1); // Instantiate a Singleton of the Semaphore with a value of 1. This means that only 1 thread can be granted access at a time
+
         public async Task<ICluster> GetClusterAsync()
         {
             if (cluster is null == false)
                 return cluster;
 
-            Builder builder = initializer as Builder;
-            if (builder is null)
+            await clusterThreadGate.WaitAsync(30000).ConfigureAwait(false);
+
+            try
             {
-                builder = DataStax.Cluster.Builder();
-                //  TODO: check inside the `cfg` (var cfg = builder.GetConfiguration();) if we already have connectionString specified
+                if (cluster is null == false)
+                    return cluster;
 
-                string connectionString = options.ConnectionString;
+                Builder builder = initializer as Builder;
+                if (builder is null)
+                {
+                    builder = DataStax.Cluster.Builder();
+                    //  TODO: check inside the `cfg` (var cfg = builder.GetConfiguration();) if we already have connectionString specified
 
-                var hackyBuilder = new CassandraConnectionStringBuilder(connectionString);
-                if (string.IsNullOrEmpty(hackyBuilder.DefaultKeyspace) == false)
-                    connectionString = connectionString.Replace(hackyBuilder.DefaultKeyspace, string.Empty);
-                baseConfigurationKeyspace = hackyBuilder.DefaultKeyspace;
+                    string connectionString = options.ConnectionString;
 
-                var connStrBuilder = new CassandraConnectionStringBuilder(connectionString);
+                    var hackyBuilder = new CassandraConnectionStringBuilder(connectionString);
+                    if (string.IsNullOrEmpty(hackyBuilder.DefaultKeyspace) == false)
+                        connectionString = connectionString.Replace(hackyBuilder.DefaultKeyspace, string.Empty);
+                    baseConfigurationKeyspace = hackyBuilder.DefaultKeyspace;
 
-                cluster?.Shutdown(30000);
-                cluster = connStrBuilder
-                    .ApplyToBuilder(builder)
-                    .WithReconnectionPolicy(new ExponentialReconnectionPolicy(100, 100000))
-                    .WithRetryPolicy(new NoHintedHandOffRetryPolicy())
-                    .Build();
+                    var connStrBuilder = new CassandraConnectionStringBuilder(connectionString);
 
-                await cluster.RefreshSchemaAsync().ConfigureAwait(false);
+                    cluster = connStrBuilder
+                        .ApplyToBuilder(builder)
+                        .WithReconnectionPolicy(new ExponentialReconnectionPolicy(100, 100000))
+                        .Build();
+
+                    await cluster.RefreshSchemaAsync().ConfigureAwait(false);
+                }
+                else
+                {
+                    cluster = DataStax.Cluster.BuildFrom(initializer);
+                }
+
+                return cluster;
             }
-
-            else
+            finally
             {
-                cluster = DataStax.Cluster.BuildFrom(initializer);
+                clusterThreadGate?.Release();
             }
-
-            return cluster;
         }
 
         protected virtual string GetKeyspace()
@@ -82,45 +93,40 @@ namespace Elders.Cronus.Projections.Cassandra
 
         public async Task<ISession> GetSessionAsync()
         {
-            try
+            if (session is null || session.IsDisposed)
             {
-                if (session is null || session.IsDisposed)
+                await threadGate.WaitAsync(30000).ConfigureAwait(false);
+
+                try
                 {
-                    await threadGate.WaitAsync(30000).ConfigureAwait(false);
-
-                    try
+                    if (session is null || session.IsDisposed)
                     {
-                        if (session is null || session.IsDisposed)
+                        logger.Info(() => "Refreshing cassandra session...");
+                        try
                         {
-                            logger.Info(() => "Refreshing cassandra session...");
-                            try
+                            ICluster cluster = await GetClusterAsync().ConfigureAwait(false);
+                            session = await cluster.ConnectAsync(GetKeyspace()).ConfigureAwait(false);
+                        }
+                        catch (InvalidQueryException)
+                        {
+                            ICluster cluster = await GetClusterAsync().ConfigureAwait(false);
+                            using (ISession schemaSession = await cluster.ConnectAsync().ConfigureAwait(false))
                             {
-                                ICluster cluster = await GetClusterAsync().ConfigureAwait(false);
-                                session = await cluster.ConnectAsync(GetKeyspace()).ConfigureAwait(false);
+                                string createKeySpaceQuery = replicationStrategy.CreateKeySpaceTemplate(GetKeyspace());
+                                IStatement createTableStatement = await GetKreateKeySpaceQuery(schemaSession).ConfigureAwait(false);
+                                await schemaSession.ExecuteAsync(createTableStatement).ConfigureAwait(false);
                             }
-                            catch (InvalidQueryException)
-                            {
-                                ICluster cluster = await GetClusterAsync().ConfigureAwait(false);
-                                using (ISession schemaSession = await cluster.ConnectAsync().ConfigureAwait(false))
-                                {
-                                    string createKeySpaceQuery = replicationStrategy.CreateKeySpaceTemplate(GetKeyspace());
-                                    IStatement createTableStatement = await GetKreateKeySpaceQuery(schemaSession).ConfigureAwait(false);
-                                    await schemaSession.ExecuteAsync(createTableStatement).ConfigureAwait(false);
-                                }
 
-                                ICluster server = await GetClusterAsync().ConfigureAwait(false);
-                                session = await server.ConnectAsync(GetKeyspace()).ConfigureAwait(false);
-                            }
+                            ICluster server = await GetClusterAsync().ConfigureAwait(false);
+                            session = await server.ConnectAsync(GetKeyspace()).ConfigureAwait(false);
                         }
                     }
-                    finally
-                    {
-                        threadGate?.Release();
-                    }
+                }
+                finally
+                {
+                    threadGate?.Release();
                 }
             }
-            catch (ObjectDisposedException) { }
-
 
             return session;
         }
