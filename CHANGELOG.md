@@ -1,3 +1,10 @@
+## [9.0.1](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v9.0.0...v9.0.1) (2023-08-25)
+
+
+### Bug Fixes
+
+* Properly manages cluster instances for Cassandra ([a6fd405](https://github.com/Elders/Cronus.Projections.Cassandra/commit/a6fd405c27ab8dc34957d2b4a9dba8ebd01771f7))
+
 # [9.0.0](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v8.0.8...v9.0.0) (2023-08-22)
 
 
