@@ -1,3 +1,10 @@
+## [9.0.2](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v9.0.1...v9.0.2) (2023-08-25)
+
+
+### Bug Fixes
+
+* fix tables not being created on startup ([7908d2b](https://github.com/Elders/Cronus.Projections.Cassandra/commit/7908d2bfd0be04a38b04f58ed655227c07d501f2))
+
 ## [9.0.1](https://github.com/Elders/Cronus.Projections.Cassandra/compare/v9.0.0...v9.0.1) (2023-08-25)
 
 
