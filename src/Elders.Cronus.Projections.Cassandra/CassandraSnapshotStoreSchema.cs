@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Cassandra;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
@@ -12,6 +10,8 @@ namespace Elders.Cronus.Projections.Cassandra
 {
     public sealed class CassandraSnapshotStoreSchema : ICassandraSnapshotStoreSchema
     {
+        private readonly ConcurrentDictionary<string, bool> initializedLocations;
+
         private readonly ILogger<CassandraSnapshotStoreSchema> logger;
         private readonly ICassandraProvider cassandraProvider;
 
@@ -30,6 +30,8 @@ namespace Elders.Cronus.Projections.Cassandra
             if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
             this.cassandraProvider = cassandraProvider;
             this.logger = logger;
+
+            initializedLocations = new ConcurrentDictionary<string, bool>();
         }
 
         public async Task DropTableAsync(string location)
@@ -55,30 +57,20 @@ namespace Elders.Cronus.Projections.Cassandra
             logger.Debug(() => $"[Projections] Created snapshot table `{location}`... Maybe?!");
         }
 
-        private static SemaphoreSlim threadGate = new SemaphoreSlim(1);
-        private static ConcurrentDictionary<string, bool> initializedLocations = new ConcurrentDictionary<string, bool>();
-        private static int held = 0;
-
         public async Task CreateSnapshotStorageAsync(string location)
         {
-            bool isInitialized = initializedLocations.GetOrAdd(location, false);
-            if (isInitialized == false)
+            if (initializedLocations.TryGetValue(location, out bool isInitialized))
             {
-                held++;
-                await threadGate.WaitAsync().ConfigureAwait(false);
-                try
+                if (isInitialized == false)
                 {
-                    bool isInitializedInner = initializedLocations.GetOrAdd(location, false);
-                    if (isInitializedInner == false)
-                    {
-                        await CreateTableAsync(location).ConfigureAwait(false);
-                        initializedLocations[location] = true;
-                    }
+                    await CreateTableAsync(location).ConfigureAwait(false);
+                    initializedLocations.TryUpdate(location, true, false);
                 }
-                finally
-                {
-                    threadGate?.Release(held);
-                }
+            }
+            else
+            {
+                await CreateTableAsync(location).ConfigureAwait(false);
+                initializedLocations.TryAdd(location, true);
             }
         }
     }

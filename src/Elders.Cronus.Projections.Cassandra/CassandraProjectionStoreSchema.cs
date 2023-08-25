@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Cassandra;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
@@ -12,6 +10,8 @@ namespace Elders.Cronus.Projections.Cassandra
 {
     public class CassandraProjectionStoreSchema : IProjectionStoreStorageManager
     {
+        private readonly ConcurrentDictionary<string, bool> initializedLocations;
+
         private readonly ILogger<CassandraProjectionStoreSchema> logger;
         private readonly ICassandraProvider cassandraProvider;
 
@@ -36,6 +36,8 @@ namespace Elders.Cronus.Projections.Cassandra
             if (ReferenceEquals(null, cassandraProvider)) throw new ArgumentNullException(nameof(cassandraProvider));
             this.cassandraProvider = cassandraProvider;
             this.logger = logger;
+
+            initializedLocations = new ConcurrentDictionary<string, bool>();
         }
 
         public async Task DropTableAsync(string location)
@@ -60,20 +62,20 @@ namespace Elders.Cronus.Projections.Cassandra
             logger.Debug(() => $"[Projections] Created table `{location}`... Maybe?!");
         }
 
-
-        private static ConcurrentDictionary<string, bool> initializedLocations = new ConcurrentDictionary<string, bool>();
-
         public async Task CreateProjectionsStorageAsync(string location)
         {
-            bool isInitialized = initializedLocations.GetOrAdd(location, false);
-            if (isInitialized == false)
+            if (initializedLocations.TryGetValue(location, out bool isInitialized))
             {
-                bool isInitializedInner = initializedLocations.GetOrAdd(location, false);
-                if (isInitializedInner == false)
+                if (isInitialized == false)
                 {
                     await CreateTableAsync(location).ConfigureAwait(false);
-                    initializedLocations[location] = true;
+                    initializedLocations.TryUpdate(location, true, false);
                 }
+            }
+            else
+            {
+                await CreateTableAsync(location).ConfigureAwait(false);
+                initializedLocations.TryAdd(location, true);
             }
         }
     }
