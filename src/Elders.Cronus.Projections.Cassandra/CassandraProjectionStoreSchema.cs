@@ -15,7 +15,7 @@ namespace Elders.Cronus.Projections.Cassandra
         private readonly ILogger<CassandraProjectionStoreSchema> logger;
         private readonly ICassandraProvider cassandraProvider;
 
-        const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id text, sm int, evarid blob, evarrev int, evarts bigint, evarpos int, data blob, PRIMARY KEY ((id, sm), evarts, evarid, evarrev, evarpos)) WITH CLUSTERING ORDER BY (evarts ASC);";
+        const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id blob, data blob, ts bigint, PRIMARY KEY (id, ts)) WITH CLUSTERING ORDER BY (ts ASC);";
         const string DropQueryTemplate = @"DROP TABLE IF EXISTS ""{0}"";";
 
         private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync();

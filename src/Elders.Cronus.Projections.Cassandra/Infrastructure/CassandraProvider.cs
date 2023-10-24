@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using DataStax = Cassandra;
 using Microsoft.Extensions.Logging;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
-using Elders.Cronus.Projections.Cassandra;
 
 namespace Elders.Cronus.Projections.Cassandra
 {

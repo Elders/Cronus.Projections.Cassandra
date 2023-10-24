@@ -16,13 +16,11 @@ namespace Elders.Cronus.Projections.Cassandra
 
     public class CassandraProjectionStore : IProjectionStore
     {
-        const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id, sm, evarid, evarrev, evarpos, evarts, data) VALUES (?,?,?,?,?,?,?);";
-        const string GetQueryTemplate = @"SELECT data, evarid, evarrev, evarpos FROM ""{0}"" WHERE id=? AND sm=?;";
-        const string HasSnapshotMarkerTemplate = @"SELECT sm FROM ""{0}"" WHERE id=? AND sm=? LIMIT 1;";
+        const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id,data,ts) VALUES (?,?,?);";
+        const string GetQueryTemplate = @"SELECT data,ts FROM ""{0}"" WHERE id=?;";
 
         private readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
         private readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
-        private readonly ConcurrentDictionary<string, PreparedStatement> HasSnapshotMarkerPreparedStatements;
 
         private readonly ICassandraProvider cassandraProvider;
         private readonly ISerializer serializer;
@@ -44,17 +42,15 @@ namespace Elders.Cronus.Projections.Cassandra
 
             SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            HasSnapshotMarkerPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }
 
-        public async IAsyncEnumerable<ProjectionCommit> LoadAsync(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
+        public async IAsyncEnumerable<ProjectionCommitPreview> LoadAsync(ProjectionVersion version, IBlobId projectionId)
         {
             string columnFamily = naming.GetColumnFamily(version);
-            string projId = Convert.ToBase64String(projectionId.RawId);
 
             ISession session = await GetSessionAsync().ConfigureAwait(false);
             PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily, session).ConfigureAwait(false);
-            BoundStatement bs = preparedStatement.Bind(projId, snapshotMarker);
+            BoundStatement bs = preparedStatement.Bind(projectionId.RawId);
 
             var rows = await session.ExecuteAsync(bs).ConfigureAwait(false);
 
@@ -64,68 +60,42 @@ namespace Elders.Cronus.Projections.Cassandra
 
                 if (data is not null)
                 {
-                    yield return serializer.DeserializeFromBytes<ProjectionCommit>(data);
+                    yield return serializer.DeserializeFromBytes<ProjectionCommitPreview>(data);
                 }
                 else
                 {
-                    byte[] arid = row.GetValue<byte[]>(ProjectionColumn.EventAggregateId);
-                    int revision = row.GetValue<int>(ProjectionColumn.EventAggregateRevision);
-                    int position = row.GetValue<int>(ProjectionColumn.EventAggregateRevision);
-                    logger.Error(() => $"Failed to load event `data` published by:{Environment.NewLine}aggregateId={arid}{Environment.NewLine}aggregateRevision={revision}{Environment.NewLine}position={position}{Environment.NewLine}projectionId={projId}");
+                    logger.Error(() => $"Failed to load event `data`");
                 }
             }
         }
 
-        public Task<bool> HasSnapshotMarkerAsync(ProjectionVersion version, IBlobId projectionId, int snapshotMarker)
+        public async IAsyncEnumerable<ProjectionCommitPreview> EnumerateProjectionAsync(ProjectionVersion version, IBlobId projectionId)
         {
-            string columnFamily = naming.GetColumnFamily(version);
-            return HasSnapshotMarkerAsync(projectionId, snapshotMarker, columnFamily);
-        }
-
-        async Task<bool> HasSnapshotMarkerAsync(IBlobId projectionId, int snapshotMarker, string columnFamily)
-        {
-            string projId = Convert.ToBase64String(projectionId.RawId);
-            ISession session = await GetSessionAsync().ConfigureAwait(false);
-            PreparedStatement preparedStatement = await GetPreparedStatementToCheckProjectionSnapshotMarkerAsync(columnFamily, session).ConfigureAwait(false);
-            BoundStatement bs = preparedStatement.Bind(projId, snapshotMarker);
-            var result = await session.ExecuteAsync(bs).ConfigureAwait(false);
-            IEnumerable<Row> rows = result.GetRows();
-
-            return rows.Any();
-        }
-
-        public async IAsyncEnumerable<ProjectionCommit> EnumerateProjectionAsync(ProjectionVersion version, IBlobId projectionId)
-        {
-            int snapshotMarker = 0;
-            snapshotMarker++;
-            var loadedCommits = LoadAsync(version, projectionId, snapshotMarker).ConfigureAwait(false);
+            var loadedCommits = LoadAsync(version, projectionId).ConfigureAwait(false);
             await foreach (var loadedCommit in loadedCommits)
                 yield return loadedCommit;
         }
 
-        public Task SaveAsync(ProjectionCommit commit)
+        public Task SaveAsync(ProjectionCommitPreview commit)
         {
             string projectionCommitLocationBasedOnVersion = naming.GetColumnFamily(commit.Version);
             return SaveAsync(commit, projectionCommitLocationBasedOnVersion);
         }
 
-        async Task SaveAsync(ProjectionCommit commit, string columnFamily)
+        async Task SaveAsync(ProjectionCommitPreview commit, string columnFamily)
         {
-            byte[] data = serializer.SerializeToBytes(commit);
+            byte[] data = serializer.SerializeToBytes(commit.Event);
 
             ISession session = await GetSessionAsync().ConfigureAwait(false);
             PreparedStatement statement = await BuildInsertPreparedStatemntAsync(columnFamily, session).ConfigureAwait(false);
 
             var result = await session.ExecuteAsync(statement
                 .Bind(
-                    ConvertIdToString(commit.ProjectionId),
-                    commit.SnapshotMarker,
-                    commit.EventOrigin.AggregateRootId,
-                    commit.EventOrigin.AggregateRevision,
-                    commit.EventOrigin.AggregateEventPosition,
-                    commit.EventOrigin.Timestamp,
-                    data
-                )).ConfigureAwait(false);
+                    commit.ProjectionId.RawId,
+                    data,
+                    commit.Event.Timestamp.ToFileTime()
+                ))
+                .ConfigureAwait(false);
         }
 
         async Task<PreparedStatement> BuildInsertPreparedStatemntAsync(string columnFamily, ISession session)
@@ -149,29 +119,6 @@ namespace Elders.Cronus.Projections.Cassandra
                 GetPreparedStatements.TryAdd(columnFamily, loadPreparedStatement);
             }
             return loadPreparedStatement;
-        }
-
-        async Task<PreparedStatement> GetPreparedStatementToCheckProjectionSnapshotMarkerAsync(string columnFamily, ISession session)
-        {
-            if (!HasSnapshotMarkerPreparedStatements.TryGetValue(columnFamily, out PreparedStatement checkSnapshotMarkerPreparedStatement))
-            {
-                checkSnapshotMarkerPreparedStatement = await session.PrepareAsync(string.Format(HasSnapshotMarkerTemplate, columnFamily)).ConfigureAwait(false);
-                checkSnapshotMarkerPreparedStatement = checkSnapshotMarkerPreparedStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-                HasSnapshotMarkerPreparedStatements.TryAdd(columnFamily, checkSnapshotMarkerPreparedStatement);
-            }
-            return checkSnapshotMarkerPreparedStatement;
-        }
-
-        string ConvertIdToString(object id)
-        {
-            if (id is string || id is Guid)
-                return id.ToString();
-
-            if (id is IBlobId)
-            {
-                return Convert.ToBase64String((id as IBlobId).RawId);
-            }
-            throw new NotImplementedException(string.Format("Unknow type id {0}", id.GetType()));
         }
     }
 }
