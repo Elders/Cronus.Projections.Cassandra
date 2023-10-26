@@ -60,7 +60,8 @@ namespace Elders.Cronus.Projections.Cassandra
 
                 if (data is not null)
                 {
-                    yield return serializer.DeserializeFromBytes<ProjectionCommitPreview>(data);
+                    IEvent @event = serializer.DeserializeFromBytes<IEvent>(data);
+                    yield return new ProjectionCommitPreview(projectionId, version, @event);
                 }
                 else
                 {
