@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Elders.Cronus.Discoveries;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
-using Elders.Cronus.Projections.Snapshotting;
-using Elders.Cronus.Projections.Versioning;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -40,14 +38,6 @@ namespace Elders.Cronus.Projections.Cassandra
             yield return new DiscoveredModel(typeof(CassandraProjectionStore), typeof(CassandraProjectionStore), ServiceLifetime.Transient);
             yield return new DiscoveredModel(typeof(CassandraProjectionStore<>), typeof(CassandraProjectionStore<>), ServiceLifetime.Transient);
 
-            // snapshot store
-            yield return new DiscoveredModel(typeof(ISnapshotStore), typeof(CassandraSnapshotStore), ServiceLifetime.Transient)
-            {
-                CanOverrideDefaults = true
-            };
-            yield return new DiscoveredModel(typeof(CassandraSnapshotStore), typeof(CassandraSnapshotStore), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(CassandraSnapshotStore<>), typeof(CassandraSnapshotStore<>), ServiceLifetime.Transient);
-
             // cassandra
             yield return new DiscoveredModel(typeof(CassandraProvider), typeof(CassandraProvider), ServiceLifetime.Transient);
             yield return new DiscoveredModel(typeof(ICassandraProvider), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProvider>>().Get(), ServiceLifetime.Transient);
@@ -59,18 +49,12 @@ namespace Elders.Cronus.Projections.Cassandra
 
             var projectionTypes = context.FindService<IProjectionDefinition>().ToList();
             yield return new DiscoveredModel(typeof(ProjectionsProvider), provider => new ProjectionsProvider(projectionTypes), ServiceLifetime.Singleton);
-            yield return new DiscoveredModel(typeof(CassandraSnapshotStoreSchema), typeof(CassandraSnapshotStoreSchema), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(ICassandraSnapshotStoreSchema), provider => provider.GetRequiredService<SingletonPerTenant<CassandraSnapshotStoreSchema>>().Get(), ServiceLifetime.Transient);
 
             yield return new DiscoveredModel(typeof(CassandraReplicationStrategyFactory), typeof(CassandraReplicationStrategyFactory), ServiceLifetime.Singleton);
             yield return new DiscoveredModel(typeof(ICassandraReplicationStrategy), provider => provider.GetRequiredService<CassandraReplicationStrategyFactory>().GetReplicationStrategy(), ServiceLifetime.Transient);
 
             yield return new DiscoveredModel(typeof(VersionedProjectionsNaming), typeof(VersionedProjectionsNaming), ServiceLifetime.Singleton);
 
-            yield return new DiscoveredModel(typeof(ISnapshotStrategy), provider => new EventsCountSnapshotStrategy(100), ServiceLifetime.Singleton)
-            {
-                CanOverrideDefaults = true
-            };
 
             //yield return new DiscoveredModel(typeof(InMemoryProjectionVersionStore), typeof(InMemoryProjectionVersionStore), ServiceLifetime.Singleton);
 

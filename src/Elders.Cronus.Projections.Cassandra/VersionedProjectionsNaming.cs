@@ -9,11 +9,6 @@ namespace Elders.Cronus.Projections.Cassandra
             return $"{VersionPart(version)}";
         }
 
-        public string GetSnapshotColumnFamily(ProjectionVersion version)
-        {
-            return $"{GetColumnFamily(version)}_sp";
-        }
-
         public ProjectionVersion Parse(string columnFamily)
         {
             var parts = columnFamily.Split('_');
