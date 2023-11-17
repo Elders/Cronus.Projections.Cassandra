@@ -2,7 +2,6 @@
 using System;
 using Cassandra;
 using System.Collections.Concurrent;
-using System.Linq;
 using System.Threading.Tasks;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Microsoft.Extensions.Logging;
@@ -70,13 +69,6 @@ namespace Elders.Cronus.Projections.Cassandra
             }
         }
 
-        public async IAsyncEnumerable<ProjectionCommitPreview> EnumerateProjectionAsync(ProjectionVersion version, IBlobId projectionId)
-        {
-            var loadedCommits = LoadAsync(version, projectionId).ConfigureAwait(false);
-            await foreach (var loadedCommit in loadedCommits)
-                yield return loadedCommit;
-        }
-
         public Task SaveAsync(ProjectionCommitPreview commit)
         {
             string projectionCommitLocationBasedOnVersion = naming.GetColumnFamily(commit.Version);
@@ -88,7 +80,7 @@ namespace Elders.Cronus.Projections.Cassandra
             byte[] data = serializer.SerializeToBytes(commit.Event);
 
             ISession session = await GetSessionAsync().ConfigureAwait(false);
-            PreparedStatement statement = await BuildInsertPreparedStatemntAsync(columnFamily, session).ConfigureAwait(false);
+            PreparedStatement statement = await BuildInsertPreparedStatementAsync(columnFamily, session).ConfigureAwait(false);
 
             var result = await session.ExecuteAsync(statement
                 .Bind(
@@ -99,7 +91,7 @@ namespace Elders.Cronus.Projections.Cassandra
                 .ConfigureAwait(false);
         }
 
-        async Task<PreparedStatement> BuildInsertPreparedStatemntAsync(string columnFamily, ISession session)
+        async Task<PreparedStatement> BuildInsertPreparedStatementAsync(string columnFamily, ISession session)
         {
             if (!SavePreparedStatements.TryGetValue(columnFamily, out PreparedStatement statement))
             {
