@@ -178,11 +178,12 @@ namespace Elders.Cronus.Projections.Cassandra
 
         async Task<PreparedStatement> GetAsOfDatePreparedStatementAsync(string columnFamily, ISession session)
         {
-            if (GetAsOfDatePreparedStatements.TryGetValue(columnFamily, out PreparedStatement statement) == false)
+            string asOfColumnFamily = $"{columnFamily}_asof";
+            if (GetAsOfDatePreparedStatements.TryGetValue(asOfColumnFamily, out PreparedStatement statement) == false)
             {
                 statement = await session.PrepareAsync(string.Format(GetQueryAsOfTemplate, columnFamily)).ConfigureAwait(false);
                 statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-                GetAsOfDatePreparedStatements.TryAdd(columnFamily, statement);
+                GetAsOfDatePreparedStatements.TryAdd(asOfColumnFamily, statement);
             }
             return statement;
         }
