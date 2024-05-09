@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Microsoft.Extensions.Logging;
 using Elders.Cronus.Persistence.Cassandra;
+using System.ComponentModel.DataAnnotations;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
@@ -19,10 +20,12 @@ namespace Elders.Cronus.Projections.Cassandra
         const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id,data,ts) VALUES (?,?,?);";
         const string GetQueryTemplate = @"SELECT data,ts FROM ""{0}"" WHERE id=?;";
         const string GetQueryAsOfTemplate = @"SELECT data,ts FROM ""{0}"" WHERE id=? AND ts<=?;";
+        const string GetBeforeAndAfterQueryTemplate = @"SELECT data,ts FROM ""{0}"" WHERE id=? AND ts<=? AND ts>=?";
 
         private readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
         private readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
         private readonly ConcurrentDictionary<string, PreparedStatement> GetAsOfDatePreparedStatements;
+        private readonly ConcurrentDictionary<string, PreparedStatement> GetBeforeAndAfterPreparedStatement;
 
         private readonly ICassandraProvider cassandraProvider;
         private readonly ISerializer serializer;
@@ -45,6 +48,7 @@ namespace Elders.Cronus.Projections.Cassandra
             SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetAsOfDatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+            GetBeforeAndAfterPreparedStatement = new ConcurrentDictionary<string, PreparedStatement>();
         }
 
         public async IAsyncEnumerable<ProjectionCommit> LoadAsync(ProjectionVersion version, IBlobId projectionId)
@@ -77,7 +81,20 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             if (options.AsOf.HasValue)
             {
-                await EnumerateProjectionsAsOfDate(@operator, options).ConfigureAwait(false);
+                var timestamp = TimestampOptions.GetAsOfOptions(options.AsOf.Value);
+                var projectionTimestampOptions = new ProjectionQueryOptions(options.Id, options.Version, timestamp); // remove that when we remove asOf
+                await EnumerateProjectionsAsOfDate(@operator, projectionTimestampOptions).ConfigureAwait(false);
+            }
+            else if (options.TimestampOptions is not null)
+            {
+                if (options.TimestampOptions.IsAsOfOption())
+                {
+                    await EnumerateProjectionsAsOfDate(@operator, options);
+                }
+                else if (options.TimestampOptions.IsOptionForPeriod())
+                {
+                    await EnumerateProjectionsForPeriod(@operator, options);
+                }
             }
         }
 
@@ -118,6 +135,21 @@ namespace Elders.Cronus.Projections.Cassandra
             }
         }
 
+        async Task EnumerateProjectionsForPeriod(ProjectionsOperator @operator, ProjectionQueryOptions options)
+        {
+            List<IEvent> events = new List<IEvent>();
+            if (@operator.OnProjectionStreamLoadedAsync is not null)
+            {
+                await foreach (var @event in LoadForPeriodInternalAsync(options))
+                {
+                    events.Add(@event);
+                }
+
+                var stream = new ProjectionStream(options.Version, options.Id, events);
+                await @operator.OnProjectionStreamLoadedAsync(@stream);
+            }
+        }
+
         async IAsyncEnumerable<IEvent> LoadAsOfDateInternalAsync(ProjectionQueryOptions options)
         {
             string columnFamily = naming.GetColumnFamily(options.Version);
@@ -126,7 +158,42 @@ namespace Elders.Cronus.Projections.Cassandra
             ISession session = await GetSessionAsync().ConfigureAwait(false);
             PreparedStatement preparedStatement = await GetAsOfDatePreparedStatementAsync(columnFamily, session).ConfigureAwait(false);
 
-            IStatement bs = preparedStatement.Bind(options.Id.RawId, options.AsOf.Value.ToFileTime())
+            IStatement bs = preparedStatement.Bind(options.Id.RawId, options.TimestampOptions.Before.ToFileTime())
+                                                  .SetPageSize(options.BatchSize)
+                                                  .SetAutoPage(false);
+            while (pagingInfo.HasMore)
+            {
+                if (pagingInfo.HasToken())
+                    bs.SetPagingState(pagingInfo.Token);
+
+                var rows = await session.ExecuteAsync(bs).ConfigureAwait(false);
+                foreach (var row in rows)
+                {
+                    byte[] data = row.GetValue<byte[]>(ProjectionColumn.EventData);
+
+                    if (data is not null)
+                    {
+                        IEvent @event = serializer.DeserializeFromBytes<IEvent>(data);
+                        yield return @event;
+                    }
+                    else
+                    {
+                        logger.Error(() => $"Failed to load event `data`");
+                    }
+                }
+                pagingInfo = PagingInfo.From(rows);
+            }
+        }
+
+        async IAsyncEnumerable<IEvent> LoadForPeriodInternalAsync(ProjectionQueryOptions options)
+        {
+            string columnFamily = naming.GetColumnFamily(options.Version);
+
+            PagingInfo pagingInfo = new PagingInfo();
+            ISession session = await GetSessionAsync().ConfigureAwait(false);
+            PreparedStatement preparedStatement = await GetBeforeAndAfterPreparedStatementAsync(columnFamily, session).ConfigureAwait(false);
+
+            IStatement bs = preparedStatement.Bind(options.Id.RawId, options.TimestampOptions.Before.ToFileTime(), options.TimestampOptions.After.ToFileTime())
                                                   .SetPageSize(options.BatchSize)
                                                   .SetAutoPage(false);
             while (pagingInfo.HasMore)
@@ -183,6 +250,17 @@ namespace Elders.Cronus.Projections.Cassandra
                 statement = await session.PrepareAsync(string.Format(GetQueryAsOfTemplate, columnFamily)).ConfigureAwait(false);
                 statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
                 GetAsOfDatePreparedStatements.TryAdd(columnFamily, statement);
+            }
+            return statement;
+        }
+
+        async Task<PreparedStatement> GetBeforeAndAfterPreparedStatementAsync(string columnFamily, ISession session)
+        {
+            if (GetBeforeAndAfterPreparedStatement.TryGetValue(columnFamily, out PreparedStatement statement) == false)
+            {
+                statement = await session.PrepareAsync(string.Format(GetBeforeAndAfterQueryTemplate, columnFamily)).ConfigureAwait(false);
+                statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+                GetBeforeAndAfterPreparedStatement.TryAdd(columnFamily, statement);
             }
             return statement;
         }
