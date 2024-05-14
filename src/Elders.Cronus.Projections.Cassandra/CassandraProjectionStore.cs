@@ -33,6 +33,9 @@ namespace Elders.Cronus.Projections.Cassandra
         private readonly VersionedProjectionsNaming naming;
         private readonly ILogger<CassandraProjectionStore> logger;
 
+        public static EventId CronusProjectionEventLoadError = new EventId(74300, "CronusProjectionEventLoadError");
+        private static readonly Action<ILogger, string, string, Exception> LogError = LoggerMessage.Define<string, string>(LogLevel.Error, CronusProjectionEventLoadError, "Failed to load event data. Handler -> {cronus_projection_type} Projection id -> {cronus_projection_id}");
+
         private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync(); // In order to keep only 1 session alive (https://docs.datastax.com/en/developer/csharp-driver/3.16/faq/)
 
         public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, VersionedProjectionsNaming naming, ILogger<CassandraProjectionStore> logger)
@@ -73,7 +76,7 @@ namespace Elders.Cronus.Projections.Cassandra
                 }
                 else
                 {
-                    logger.Error(() => $"Failed to load event `data`");
+                    LogError(logger, version.ProjectionName, Convert.ToBase64String(projectionId.RawId), null);
                 }
             }
         }
@@ -135,7 +138,7 @@ namespace Elders.Cronus.Projections.Cassandra
                 result = await EnumerateWithPagingInternalAsync(options).ConfigureAwait(false);
 
                 var stream = new ProjectionStream(options.Version, options.Id, result.Events);
-                await @operator.OnProjectionStreamLoadedAsync(stream);
+                await @operator.OnProjectionStreamLoadedAsync(stream).ConfigureAwait(false);
             }
             else if (@operator.OnProjectionStreamLoadedWithPagingAsync is not null)
             {
@@ -143,7 +146,7 @@ namespace Elders.Cronus.Projections.Cassandra
 
                 var pagedStream = new ProjectionStream(options.Version, options.Id, result.Events);
                 var pagedOptions = new PagingOptions(options.PagingOptions.Take, result.NewPagingToken, options.PagingOptions.Order);
-                await @operator.OnProjectionStreamLoadedWithPagingAsync(pagedStream, pagedOptions);
+                await @operator.OnProjectionStreamLoadedWithPagingAsync(pagedStream, pagedOptions).ConfigureAwait(false);
             }
         }
 
@@ -175,7 +178,7 @@ namespace Elders.Cronus.Projections.Cassandra
                     }
                     else
                     {
-                        logger.Error(() => $"Failed to load event `data`");
+                        LogError(logger, options.Version.ProjectionName, Convert.ToBase64String(options.Id.RawId), null);
                     }
                 }
                 pagingInfo = PagingInfo.From(rows);
@@ -191,11 +194,11 @@ namespace Elders.Cronus.Projections.Cassandra
             ISession session = await GetSessionAsync().ConfigureAwait(false);
             if (options.PagingOptions.Order.Equals(Order.Descending))
             {
-                preparedStatement = await GetDescendingPreparedStatementAsync(columnFamily, session);
+                preparedStatement = await GetDescendingPreparedStatementAsync(columnFamily, session).ConfigureAwait(false);
             }
             else
             {
-                preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily, session);
+                preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily, session).ConfigureAwait(false);
             }
 
             IStatement boundStatement = preparedStatement.Bind(options.Id.RawId).SetPageSize(options.BatchSize).SetAutoPage(false);
@@ -215,10 +218,10 @@ namespace Elders.Cronus.Projections.Cassandra
                 }
                 else
                 {
-                    logger.Error(() => $"Failed to load event `data`");
+                    LogError(logger, options.Version.ProjectionName, Convert.ToBase64String(options.Id.RawId), null);
                 }
             }
-            pagingResult.NewPagingToken = result.PagingState; // fix me later
+            pagingResult.NewPagingToken = result.PagingState;
             return pagingResult;
         }
 
