@@ -23,11 +23,6 @@ namespace Elders.Cronus.Projections.Cassandra
         const string GetQueryAsOfTemplate = @"SELECT data,ts FROM ""{0}"" WHERE id=? AND ts<=?;";
         const string GetQueryDescendingTemplate = @"SELECT data,ts FROM ""{0}"" WHERE id=? order by ts desc";
 
-        private readonly ConcurrentDictionary<string, PreparedStatement> SavePreparedStatements;
-        private readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
-        private readonly ConcurrentDictionary<string, PreparedStatement> GetAsOfDatePreparedStatements;
-        private readonly ConcurrentDictionary<string, PreparedStatement> GetDescendingPreparedStatements;
-
         private readonly ICassandraProvider cassandraProvider;
         private readonly ISerializer serializer;
         private readonly VersionedProjectionsNaming naming;
@@ -48,11 +43,6 @@ namespace Elders.Cronus.Projections.Cassandra
             this.serializer = serializer;
             this.naming = naming;
             this.logger = logger;
-
-            SavePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            GetAsOfDatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            GetDescendingPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }
 
         public async IAsyncEnumerable<ProjectionCommit> LoadAsync(ProjectionVersion version, IBlobId projectionId)
@@ -227,46 +217,33 @@ namespace Elders.Cronus.Projections.Cassandra
 
         async Task<PreparedStatement> BuildInsertPreparedStatementAsync(string columnFamily, ISession session)
         {
-            if (!SavePreparedStatements.TryGetValue(columnFamily, out PreparedStatement statement))
-            {
-                statement = await session.PrepareAsync(string.Format(InsertQueryTemplate, columnFamily));
-                statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-                SavePreparedStatements.TryAdd(columnFamily, statement);
-            }
+            PreparedStatement statement = await session.PrepareAsync(string.Format(InsertQueryTemplate, columnFamily));
+            statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
 
             return statement;
         }
 
         async Task<PreparedStatement> GetPreparedStatementToGetProjectionAsync(string columnFamily, ISession session)
         {
-            if (GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement loadPreparedStatement) == false)
-            {
-                loadPreparedStatement = await session.PrepareAsync(string.Format(GetQueryTemplate, columnFamily)).ConfigureAwait(false);
-                loadPreparedStatement = loadPreparedStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-                GetPreparedStatements.TryAdd(columnFamily, loadPreparedStatement);
-            }
+            PreparedStatement loadPreparedStatement = await session.PrepareAsync(string.Format(GetQueryTemplate, columnFamily)).ConfigureAwait(false);
+            loadPreparedStatement = loadPreparedStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+
             return loadPreparedStatement;
         }
 
         async Task<PreparedStatement> GetAsOfDatePreparedStatementAsync(string columnFamily, ISession session)
         {
-            if (GetAsOfDatePreparedStatements.TryGetValue(columnFamily, out PreparedStatement statement) == false)
-            {
-                statement = await session.PrepareAsync(string.Format(GetQueryAsOfTemplate, columnFamily)).ConfigureAwait(false);
-                statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-                GetAsOfDatePreparedStatements.TryAdd(columnFamily, statement);
-            }
+            PreparedStatement statement = await session.PrepareAsync(string.Format(GetQueryAsOfTemplate, columnFamily)).ConfigureAwait(false);
+            statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+
             return statement;
         }
 
         async Task<PreparedStatement> GetDescendingPreparedStatementAsync(string columnFamily, ISession session)
         {
-            if (GetDescendingPreparedStatements.TryGetValue(columnFamily, out PreparedStatement statement) == false)
-            {
-                statement = await session.PrepareAsync(string.Format(GetQueryDescendingTemplate, columnFamily)).ConfigureAwait(false);
-                statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-                GetDescendingPreparedStatements.TryAdd(columnFamily, statement);
-            }
+            PreparedStatement statement = await session.PrepareAsync(string.Format(GetQueryDescendingTemplate, columnFamily)).ConfigureAwait(false);
+            statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+
             return statement;
         }
     }
