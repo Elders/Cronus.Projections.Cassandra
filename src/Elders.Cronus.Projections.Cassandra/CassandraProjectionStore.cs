@@ -134,17 +134,10 @@ namespace Elders.Cronus.Projections.Cassandra
 
         async Task EnumerateWithPagingAsync(ProjectionsOperator @operator, ProjectionQueryOptions options)
         {
-            PagingProjectionsResult result;
-            if (@operator.OnProjectionStreamLoadedAsync is not null)
-            {
-                result = await EnumerateWithPagingInternalAsync(options).ConfigureAwait(false);
 
-                var stream = new ProjectionStream(options.Version, options.Id, result.Events);
-                await @operator.OnProjectionStreamLoadedAsync(stream).ConfigureAwait(false);
-            }
-            else if (@operator.OnProjectionStreamLoadedWithPagingAsync is not null)
+            if (@operator.OnProjectionStreamLoadedWithPagingAsync is not null)
             {
-                result = await EnumerateWithPagingInternalAsync(options).ConfigureAwait(false);
+                PagingProjectionsResult result = await EnumerateWithPagingInternalAsync(options).ConfigureAwait(false);
 
                 var pagedStream = new ProjectionStream(options.Version, options.Id, result.Events);
                 var pagedOptions = new PagingOptions(options.PagingOptions.Take, result.NewPagingToken, options.PagingOptions.Order);
@@ -275,13 +268,13 @@ namespace Elders.Cronus.Projections.Cassandra
     }
 }
 
-public class ProjectionDescriptor : IProjectionDescrptor
+public class ProjectionDescriptor : IProjectionDescriptor
 {
-    public long GetPartition(IEvent @event)
+    public IComparable<long> GetPartition(IEvent @event)
     {
         int month = @event.Timestamp.Month;
         int day = @event.Timestamp.DayOfYear;
-        int partitionId = @event.Timestamp.Year * 10000 + month * 1000 + day * 10;
+        long partitionId = @event.Timestamp.Year * 10000 + month * 1000 + day * 10;
 
         return partitionId;
     }

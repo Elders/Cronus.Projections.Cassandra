@@ -2,6 +2,7 @@
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -11,12 +12,18 @@ namespace Elders.Cronus.Projections.Cassandra
     {
         Task AppendAsync(ProjectionPartition record);
 
-        IAsyncEnumerable<long> GetPartitionsAsync(string projectionName, IBlobId projectionId);
+        /// <summary>
+        /// Gets the list of all partitions for the specified projection instance.
+        /// </summary>
+        /// <param name="projectionName">The projection name.</param>
+        /// <param name="projectionId">The projection instance ID.</param>
+        /// <returns>Returns a sorted (ASC) list of all projection partitions.</returns>
+        Task<List<IComparable<long>>> GetPartitionsAsync(string projectionName, IBlobId projectionId);
     }
 
     public class CassandraProjectionPartitionsStore : IProjectionPartionsStore
     {
-        private const string Read = @"SELECT pt,id,pid FROM projection_partitions WHERE pt=? AND id=?;";
+        private const string Read = @"SELECT pid FROM projection_partitions WHERE pt=? AND id=?;";
         private const string Write = @"INSERT INTO projection_partitions (pt,id,pid) VALUES (?,?,?);";
 
         private const string ProjectionType = "pt";
@@ -45,9 +52,9 @@ namespace Elders.Cronus.Projections.Cassandra
             await session.ExecuteAsync(bs).ConfigureAwait(false);
         }
 
-        public async IAsyncEnumerable<long> GetPartitionsAsync(string projectionName, IBlobId projectionId)
+        public async Task<List<IComparable<long>>> GetPartitionsAsync(string projectionName, IBlobId projectionId)
         {
-            List<long> partitions = new List<long>();
+            List<IComparable<long>> partitions = new List<IComparable<long>>();
 
             ISession session = await GetSessionAsync().ConfigureAwait(false);
             PreparedStatement statement = await GetReadPreparedStatementAsync(session).ConfigureAwait(false);
@@ -57,8 +64,11 @@ namespace Elders.Cronus.Projections.Cassandra
 
             foreach (var row in result)
             {
-                yield return row.GetValue<long>(PartitionId);
+                var loaded = row.GetValue<long>(PartitionId);
+                partitions.Add(loaded);
             }
+
+            return partitions;
         }
 
         private async Task<PreparedStatement> GetWritePreparedStatementAsync(ISession session)

@@ -51,43 +51,39 @@ public class CassandraProjectionStoreNew : IProjectionStore
     }
 
 
-    public async Task EnumerateProjectionPartitions(ProjectionsOperator @operator, ProjectionQueryOptions options)
+    public async Task<> EnumerateProjectionPartitions(ProjectionsOperator @operator, ProjectionQueryOptions options)
     {
         string columnFamily = naming.GetColumnFamily(options.Version);
 
-        IAsyncEnumerable<long> partitions = projectionPartionsStore.GetPartitionsAsync(options.Version.ProjectionName, options.Id);
+        List<IComparable<long>> partitions = await projectionPartionsStore.GetPartitionsAsync(options.Version.ProjectionName, options.Id).ConfigureAwait(false);
 
         ISession session = await GetSessionAsync().ConfigureAwait(false);
         PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily, session).ConfigureAwait(false);
 
-        List<Task> tasks = new List<Task>();
+        int mdp = Environment.ProcessorCount;
+        List<Task> loadingTasks = new List<Task>();
 
-        await foreach (long partition in partitions)
+        foreach (IComparable<long> partition in partitions)
         {
-            if (@operator.OnProjectionStreamLoadedAsync is not null)
+            Task partitionLoadTask = LoadPartitionAsync(preparedStatement, options.Id, partition);
+            loadingTasks.Add(partitionLoadTask);
+            if (loadingTasks.Count == mdp)
             {
-                Task task = Task.Run(async () =>
-                {
-                    BoundStatement projectionBs = preparedStatement.Bind(options.Id.RawId, partition);
-                    RowSet rows = await session.ExecuteAsync(projectionBs).ConfigureAwait(false);
-
-                    if (@operator.OnProjectionEventLoadedAsync is not null)
-                    {
-                        await EnumerateEventByEventAsync(rows, @operator, options).ConfigureAwait(false);
-                    }
-                });
-
-                tasks.Add(task);
-
-                Task completedTask = await Task.WhenAny(tasks);
-
-                if (completedTask.Status == TaskStatus.Faulted)
-                {
-                    logger.ErrorException(completedTask.Exception, () => $"Bum");
-                }
-                tasks.Remove(completedTask);
+                Task<> completed = await Task.WhenAny(loadingTasks).ConfigureAwait(false);
+                loadingTasks.Remove(completed);
+                RowSet result = completed.Result;
+                //if(completed.IsFaulted)
             }
         }
+
+
+    }
+
+    private Task LoadPartitionAsync(PreparedStatement preparedStatement, IBlobId projectionId, IComparable<long> partitionId)
+    {
+
+        return Task.CompletedTask;
+
     }
 
     private async Task EnumerateEventByEventAsync(RowSet rows, ProjectionsOperator @operator, ProjectionQueryOptions options)
@@ -128,6 +124,14 @@ public class CassandraProjectionStoreNew : IProjectionStore
 
     async Task SaveAsync(ProjectionCommit commit, string columnFamily)
     {
+        //ISession session = await GetSessionAsync().ConfigureAwait(false);
+        //PreparedStatement writeStatement = await GetWriteStatementAsync(session).ConfigureAwait(false);
+        //BatchStatement batch = new BatchStatement();
+        //batch.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+        //batch.SetIdempotence(false);
+        //batch.SetBatchType(BatchType.Unlogged);
+
+
         long partitionId = CalculatePartition(commit.Event);
 
         byte[] data = serializer.SerializeToBytes(commit.Event);
@@ -143,7 +147,7 @@ public class CassandraProjectionStoreNew : IProjectionStore
                 commit.Event.Timestamp.ToFileTime()
             ));
 
-        ProjectionPartition partition = new ProjectionPartition(commit.Version.ProjectionName, commit.ProjectionId.RawId, partitionId);
+        ProjectionPartition partition = new ProjectionPartition(commit.Version.ProjectionName, commit.ProjectionId.RawId, partitionId); //loggee
         Task appendPartitionTask = projectionPartionsStore.AppendAsync(partition);
 
         await Task.WhenAll(appendProjectionTask, appendPartitionTask);
@@ -295,7 +299,7 @@ public class CassandraProjectionStoreNew : IProjectionStore
     {
         int month = @event.Timestamp.Month;
         int day = @event.Timestamp.DayOfYear;
-        int partitionId = @event.Timestamp.Year * 10000 + month * 1000 + day * 10;
+        long partitionId = @event.Timestamp.Year * 10000 + month * 1000 + day * 10;
 
         return partitionId;
     }
