@@ -1,9 +1,43 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Cassandra;
+using Elders.Cronus.Projections.PartitionIndex;
 using Microsoft.Extensions.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
+    public class CassandraProjectionPartionsStoreInitializer : IInitializableProjectionPartionsStore
+    {
+        static readonly ILogger logger = CronusLogger.CreateLogger(typeof(CassandraProjectionPartionsStoreInitializer));
+
+        private readonly ICassandraProjectionPartitionStoreSchema projectionPartitionsSchema;
+
+        public CassandraProjectionPartionsStoreInitializer(ICassandraProjectionPartitionStoreSchema projectionPartitionsSchema)
+        {
+            if (projectionPartitionsSchema is null) throw new ArgumentNullException(nameof(projectionPartitionsSchema));
+
+            this.projectionPartitionsSchema = projectionPartitionsSchema;
+        }
+
+        public async Task<bool> InitializeAsync()
+        {
+            try
+            {
+                logger.Debug(() => $"[Projection Store] Initializing projection partitions store...");
+                Task createProjectionStorageTask = projectionPartitionsSchema.CreateProjectionPartitionsStorage();
+                await createProjectionStorageTask.ConfigureAwait(false);
+                logger.Debug(() => $"[Projection Store] Initialized projection store");
+
+                return createProjectionStorageTask.IsCompletedSuccessfully;
+            }
+            catch (Exception ex) when (logger.ErrorException(ex, () => $"Failed to initialize projection partitions"))
+            {
+                return false;
+            }
+        }
+    }
+
+
     public class CassandraProjectionStoreInitializer : IInitializableProjectionStore
     {
         static readonly ILogger logger = CronusLogger.CreateLogger(typeof(CassandraProjectionStoreInitializer));

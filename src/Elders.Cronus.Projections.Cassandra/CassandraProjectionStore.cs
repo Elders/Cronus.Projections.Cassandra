@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Elders.Cronus.Persistence.Cassandra;
 using Elders.Cronus.EventStore;
 using Elders.Cronus;
+using static Cassandra.QueryTrace;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
@@ -18,10 +19,10 @@ namespace Elders.Cronus.Projections.Cassandra
 
     public class CassandraProjectionStore : IProjectionStore
     {
-        const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id,data,ts) VALUES (?,?,?);";
-        const string GetQueryTemplate = @"SELECT data,ts FROM ""{0}"" WHERE id=?;";
-        const string GetQueryAsOfTemplate = @"SELECT data,ts FROM ""{0}"" WHERE id=? AND ts<=?;";
-        const string GetQueryDescendingTemplate = @"SELECT data,ts FROM ""{0}"" WHERE id=? order by ts desc";
+        const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id,pid,data,ts) VALUES (?,?,?,?);";
+        const string GetQueryTemplate = @"SELECT pid,data,ts FROM ""{0}"" WHERE id=? AND pid=?;";
+        const string GetQueryAsOfTemplate = @"SELECT data,ts FROM ""{0}"" WHERE id=? AND pid=? AND ts<=?;";
+        const string GetQueryDescendingTemplate = @"SELECT data,ts FROM ""{0}"" WHERE id=? AND pid =? order by ts desc";
 
         private readonly ICassandraProvider cassandraProvider;
         private readonly ISerializer serializer;
@@ -45,13 +46,13 @@ namespace Elders.Cronus.Projections.Cassandra
             this.logger = logger;
         }
 
-        public async IAsyncEnumerable<ProjectionCommit> LoadAsync(ProjectionVersion version, IBlobId projectionId)
+        public async IAsyncEnumerable<ProjectionCommit> LoadAsync(ProjectionVersion version, IBlobId projectionId, long partitionId)
         {
             string columnFamily = naming.GetColumnFamily(version);
 
             ISession session = await GetSessionAsync().ConfigureAwait(false);
             PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily, session).ConfigureAwait(false);
-            BoundStatement bs = preparedStatement.Bind(projectionId.RawId);
+            BoundStatement bs = preparedStatement.Bind(projectionId.RawId, partitionId);
 
             var rows = await session.ExecuteAsync(bs).ConfigureAwait(false);
 
@@ -61,8 +62,9 @@ namespace Elders.Cronus.Projections.Cassandra
 
                 if (data is not null)
                 {
+                    long partition = row.GetValue<long>(ProjectionColumn.Partition);
                     IEvent @event = serializer.DeserializeFromBytes<IEvent>(data);
-                    yield return new ProjectionCommit(projectionId, version, @event);
+                    yield return new ProjectionCommit(projectionId, version, @event, partition);
                 }
                 else
                 {
@@ -81,7 +83,7 @@ namespace Elders.Cronus.Projections.Cassandra
             {
                 await EnumerateWithPagingAsync(@operator, options).ConfigureAwait(false);
             }
-        }
+        } // fix this sh
 
         public Task SaveAsync(ProjectionCommit commit)
         {
@@ -91,6 +93,8 @@ namespace Elders.Cronus.Projections.Cassandra
 
         async Task SaveAsync(ProjectionCommit commit, string columnFamily)
         {
+            long partitionId = CalculatePartition(commit.Event.Timestamp);
+
             byte[] data = serializer.SerializeToBytes(commit.Event);
 
             ISession session = await GetSessionAsync().ConfigureAwait(false);
@@ -99,6 +103,7 @@ namespace Elders.Cronus.Projections.Cassandra
             var result = await session.ExecuteAsync(statement
                 .Bind(
                     commit.ProjectionId.RawId,
+                    partitionId,
                     data,
                     commit.Event.Timestamp.ToFileTime()
                 ))
@@ -245,6 +250,15 @@ namespace Elders.Cronus.Projections.Cassandra
             statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
 
             return statement;
+        }
+
+        public static long CalculatePartition(DateTimeOffset filetimeUtc) // nah, this should come from high above 
+        {
+            int month = filetimeUtc.Month;
+            int day = filetimeUtc.DayOfYear;
+            int partitionId = filetimeUtc.Year * 10000 + month * 1000 + day * 10;
+
+            return partitionId;
         }
     }
 }
