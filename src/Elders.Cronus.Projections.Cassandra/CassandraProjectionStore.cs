@@ -1,20 +1,19 @@
 ﻿using System.Collections.Generic;
 using System;
 using Cassandra;
-using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Microsoft.Extensions.Logging;
 using Elders.Cronus.Persistence.Cassandra;
 using Elders.Cronus.EventStore;
+using Elders.Cronus.Projections.Cassandra;
 using Elders.Cronus;
-using static Cassandra.QueryTrace;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
     public class CassandraProjectionStore<TSettings> : CassandraProjectionStore where TSettings : ICassandraProjectionStoreSettings
     {
-        public CassandraProjectionStore(TSettings settings, ILogger<CassandraProjectionStore> logger) : base(settings.CassandraProvider, settings.Serializer, settings.ProjectionsNamingStrategy, logger) { }
+        public CassandraProjectionStore(TSettings settings, ILogger<CassandraProjectionStore> logger) : base(settings.CassandraProvider, settings.Partititons, settings.Serializer, settings.ProjectionsNamingStrategy, logger) { }
     }
 
     public class CassandraProjectionStore : IProjectionStore
@@ -25,6 +24,7 @@ namespace Elders.Cronus.Projections.Cassandra
         const string GetQueryDescendingTemplate = @"SELECT data,ts FROM ""{0}"" WHERE id=? AND pid =? order by ts desc";
 
         private readonly ICassandraProvider cassandraProvider;
+        private readonly IProjectionPartionsStore projectionPartionsStore;
         private readonly ISerializer serializer;
         private readonly VersionedProjectionsNaming naming;
         private readonly ILogger<CassandraProjectionStore> logger;
@@ -34,44 +34,51 @@ namespace Elders.Cronus.Projections.Cassandra
 
         private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync(); // In order to keep only 1 session alive (https://docs.datastax.com/en/developer/csharp-driver/3.16/faq/)
 
-        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, VersionedProjectionsNaming naming, ILogger<CassandraProjectionStore> logger)
+        public CassandraProjectionStore(ICassandraProvider cassandraProvider, IProjectionPartionsStore projectionPartionsStore, ISerializer serializer, VersionedProjectionsNaming naming, ILogger<CassandraProjectionStore> logger)
         {
             if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));
             if (naming is null) throw new ArgumentNullException(nameof(naming));
 
             this.cassandraProvider = cassandraProvider;
+            this.projectionPartionsStore = projectionPartionsStore;
             this.serializer = serializer;
             this.naming = naming;
             this.logger = logger;
         }
 
-        public async IAsyncEnumerable<ProjectionCommit> LoadAsync(ProjectionVersion version, IBlobId projectionId, long partitionId)
-        {
-            string columnFamily = naming.GetColumnFamily(version);
+        //public async IAsyncEnumerable<ProjectionCommit> LoadAsync(ProjectionVersion version, IBlobId projectionId)
+        //{
+        //    string columnFamily = naming.GetColumnFamily(version);
 
-            ISession session = await GetSessionAsync().ConfigureAwait(false);
-            PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily, session).ConfigureAwait(false);
-            BoundStatement bs = preparedStatement.Bind(projectionId.RawId, partitionId);
+        //   var aa = projectionPartionsStore.GetPartitionsAsync(version.ProjectionName, projectionId);
 
-            var rows = await session.ExecuteAsync(bs).ConfigureAwait(false);
+        //    if (partitions.Count > 0)
+        //    {
+        //        ISession session = await GetSessionAsync().ConfigureAwait(false);
+        //        PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily, session).ConfigureAwait(false);
 
-            foreach (var row in rows)
-            {
-                byte[] data = row.GetValue<byte[]>(ProjectionColumn.EventData);
+        //        foreach (long partition in partitions)
+        //        {
+        //            BoundStatement bs = preparedStatement.Bind(projectionId.RawId, partition);
+        //            var rows = await session.ExecuteAsync(bs).ConfigureAwait(false);
+        //            foreach (var row in rows)
+        //            {
+        //                byte[] data = row.GetValue<byte[]>(ProjectionColumn.EventData);
 
-                if (data is not null)
-                {
-                    long partition = row.GetValue<long>(ProjectionColumn.Partition);
-                    IEvent @event = serializer.DeserializeFromBytes<IEvent>(data);
-                    yield return new ProjectionCommit(projectionId, version, @event, partition);
-                }
-                else
-                {
-                    LogError(logger, version.ProjectionName, Convert.ToBase64String(projectionId.RawId), null);
-                }
-            }
-        }
+        //                if (data is not null)
+        //                {
+        //                    IEvent @event = serializer.DeserializeFromBytes<IEvent>(data);
+        //                    yield return new ProjectionCommit(projectionId, version, @event);
+        //                }
+        //                else
+        //                {
+        //                    LogError(logger, version.ProjectionName, Convert.ToBase64String(projectionId.RawId), null);
+        //                }
+        //            }
+        //        }
+        //    }
+        //}
 
         public async Task EnumerateProjectionsAsync(ProjectionsOperator @operator, ProjectionQueryOptions options)
         {
@@ -93,7 +100,7 @@ namespace Elders.Cronus.Projections.Cassandra
 
         async Task SaveAsync(ProjectionCommit commit, string columnFamily)
         {
-            long partitionId = CalculatePartition(commit.Event.Timestamp);
+            long partitionId = CalculatePartition(commit.Event);
 
             byte[] data = serializer.SerializeToBytes(commit.Event);
 
@@ -252,13 +259,30 @@ namespace Elders.Cronus.Projections.Cassandra
             return statement;
         }
 
-        public static long CalculatePartition(DateTimeOffset filetimeUtc) // nah, this should come from high above 
+        private static long CalculatePartition(IEvent @event) // nah
         {
-            int month = filetimeUtc.Month;
-            int day = filetimeUtc.DayOfYear;
-            int partitionId = filetimeUtc.Year * 10000 + month * 1000 + day * 10;
+            int month = @event.Timestamp.Month;
+            int day = @event.Timestamp.DayOfYear;
+            int partitionId = @event.Timestamp.Year * 10000 + month * 1000 + day * 10;
 
             return partitionId;
         }
+
+        public IAsyncEnumerable<ProjectionCommit> LoadAsync(ProjectionVersion version, IBlobId projectionId)
+        {
+            throw new NotImplementedException();
+        }
+    }
+}
+
+public class ProjectionDescriptor : IProjectionDescrptor
+{
+    public long GetPartition(IEvent @event)
+    {
+        int month = @event.Timestamp.Month;
+        int day = @event.Timestamp.DayOfYear;
+        int partitionId = @event.Timestamp.Year * 10000 + month * 1000 + day * 10;
+
+        return partitionId;
     }
 }

@@ -6,6 +6,7 @@ namespace Elders.Cronus.Projections.Cassandra
     {
         ProjectionsProvider ProjectionsProvider { get; }
         ICassandraProvider CassandraProvider { get; }
+        IProjectionPartionsStore Partititons { get; }
         ISerializer Serializer { get; }
         VersionedProjectionsNaming ProjectionsNamingStrategy { get; }
     }

@@ -1,6 +1,5 @@
 ﻿using Cassandra;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
-using Elders.Cronus.Projections.PartitionIndex;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -8,6 +7,13 @@ using System.Threading.Tasks;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
+    public interface IProjectionPartionsStore
+    {
+        Task AppendAsync(ProjectionPartition record);
+
+        IAsyncEnumerable<long> GetPartitionsAsync(string projectionName, IBlobId projectionId);
+    }
+
     public class CassandraProjectionPartitionsStore : IProjectionPartionsStore
     {
         private const string Read = @"SELECT pt,id,pid FROM projection_partitions WHERE pt=? AND id=?;";
@@ -39,8 +45,10 @@ namespace Elders.Cronus.Projections.Cassandra
             await session.ExecuteAsync(bs).ConfigureAwait(false);
         }
 
-        public async IAsyncEnumerable<ProjectionPartition> GetPartitionsAsync(string projectionName, IBlobId projectionId)
+        public async IAsyncEnumerable<long> GetPartitionsAsync(string projectionName, IBlobId projectionId)
         {
+            List<long> partitions = new List<long>();
+
             ISession session = await GetSessionAsync().ConfigureAwait(false);
             PreparedStatement statement = await GetReadPreparedStatementAsync(session).ConfigureAwait(false);
 
@@ -49,7 +57,7 @@ namespace Elders.Cronus.Projections.Cassandra
 
             foreach (var row in result)
             {
-                yield return new ProjectionPartition(row.GetValue<string>(ProjectionType), row.GetValue<byte[]>(ProjectionId), row.GetValue<long>(PartitionId));
+                yield return row.GetValue<long>(PartitionId);
             }
         }
 

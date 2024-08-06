@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Threading.Tasks;
-using Cassandra;
-using Elders.Cronus.Projections.PartitionIndex;
 using Microsoft.Extensions.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
+    public interface IInitializableProjectionPartionsStore
+    {
+        Task<bool> InitializeAsync();
+    }
+
     public class CassandraProjectionPartionsStoreInitializer : IInitializableProjectionPartionsStore
     {
         static readonly ILogger logger = CronusLogger.CreateLogger(typeof(CassandraProjectionPartionsStoreInitializer));
@@ -43,13 +46,15 @@ namespace Elders.Cronus.Projections.Cassandra
         static readonly ILogger logger = CronusLogger.CreateLogger(typeof(CassandraProjectionStoreInitializer));
 
         private readonly IProjectionStoreStorageManager projectionsSchema;
+        private readonly IInitializableProjectionPartionsStore initializableProjectionStore;
         private readonly VersionedProjectionsNaming naming;
 
-        public CassandraProjectionStoreInitializer(IProjectionStoreStorageManager projectionsSchema, VersionedProjectionsNaming naming)
+        public CassandraProjectionStoreInitializer(IProjectionStoreStorageManager projectionsSchema, IInitializableProjectionPartionsStore initializableProjectionStore, VersionedProjectionsNaming naming)
         {
             if (projectionsSchema is null) throw new ArgumentNullException(nameof(projectionsSchema));
 
             this.naming = naming;
+            this.initializableProjectionStore = initializableProjectionStore;
             this.projectionsSchema = projectionsSchema;
         }
 
@@ -57,6 +62,8 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             try
             {
+                await initializableProjectionStore.InitializeAsync();
+
                 string projectionColumnFamily = naming.GetColumnFamily(version);
 
                 logger.Debug(() => $"[Projection Store] Initializing projection store with column family `{projectionColumnFamily}`...");

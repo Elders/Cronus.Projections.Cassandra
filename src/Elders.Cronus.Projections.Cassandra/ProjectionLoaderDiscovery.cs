@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Elders.Cronus.Discoveries;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
-using Elders.Cronus.Projections.PartitionIndex;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
