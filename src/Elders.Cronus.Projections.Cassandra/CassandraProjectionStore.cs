@@ -8,6 +8,10 @@ using Elders.Cronus.Persistence.Cassandra;
 using Elders.Cronus.EventStore;
 using Elders.Cronus.Projections.Cassandra;
 using Elders.Cronus;
+using System.ComponentModel;
+using System.Threading;
+using System.Collections.Concurrent;
+using System.Linq;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
@@ -18,10 +22,14 @@ namespace Elders.Cronus.Projections.Cassandra
 
     public class CassandraProjectionStore : IProjectionStore
     {
+        // Projection tables ----->
         const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id,pid,data,ts) VALUES (?,?,?,?);";
         const string GetQueryTemplate = @"SELECT pid,data,ts FROM ""{0}"" WHERE id=? AND pid=?;";
         const string GetQueryAsOfTemplate = @"SELECT data,ts FROM ""{0}"" WHERE id=? AND pid=? AND ts<=?;";
         const string GetQueryDescendingTemplate = @"SELECT data,ts FROM ""{0}"" WHERE id=? AND pid =? order by ts desc";
+
+        // partition tables ---->
+        private const string InsertPartition = @"INSERT INTO projection_partitions (pt,id,pid) VALUES (?,?,?);";
 
         private readonly ICassandraProvider cassandraProvider;
         private readonly IProjectionPartionsStore projectionPartionsStore;
@@ -47,38 +55,101 @@ namespace Elders.Cronus.Projections.Cassandra
             this.logger = logger;
         }
 
-        //public async IAsyncEnumerable<ProjectionCommit> LoadAsync(ProjectionVersion version, IBlobId projectionId)
-        //{
-        //    string columnFamily = naming.GetColumnFamily(version);
+        private async Task<List<IEvent>> LoadProjectionPartitionAsync(IComparable<long> partitionId, ProjectionVersion version, IBlobId projectionId, int take, CancellationToken ct)
+        {
+            int bum = 0;//deleteme
 
-        //   var aa = projectionPartionsStore.GetPartitionsAsync(version.ProjectionName, projectionId);
+            if (bum != 0)
+            {
+                throw new Exception("Ami sega?");//deleteme
+            }
 
-        //    if (partitions.Count > 0)
-        //    {
-        //        ISession session = await GetSessionAsync().ConfigureAwait(false);
-        //        PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily, session).ConfigureAwait(false);
+            List<IEvent> loadedEvents = new List<IEvent>();
+            PagingInfo pagingInfo = new PagingInfo();
 
-        //        foreach (long partition in partitions)
-        //        {
-        //            BoundStatement bs = preparedStatement.Bind(projectionId.RawId, partition);
-        //            var rows = await session.ExecuteAsync(bs).ConfigureAwait(false);
-        //            foreach (var row in rows)
-        //            {
-        //                byte[] data = row.GetValue<byte[]>(ProjectionColumn.EventData);
+            string columnFamily = naming.GetColumnFamily(version);
 
-        //                if (data is not null)
-        //                {
-        //                    IEvent @event = serializer.DeserializeFromBytes<IEvent>(data);
-        //                    yield return new ProjectionCommit(projectionId, version, @event);
-        //                }
-        //                else
-        //                {
-        //                    LogError(logger, version.ProjectionName, Convert.ToBase64String(projectionId.RawId), null);
-        //                }
-        //            }
-        //        }
-        //    }
-        //}
+            ISession session = await GetSessionAsync().ConfigureAwait(false);
+            PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionByAscendingAsync(columnFamily, session).ConfigureAwait(false);
+
+            IStatement bs = preparedStatement.Bind(projectionId.RawId, partitionId)
+                                            .SetPageSize(take)
+                                            .SetAutoPage(false);
+
+            while (pagingInfo.HasMore && ct.IsCancellationRequested == false)
+            {
+                if (pagingInfo.HasToken())
+                    bs.SetPagingState(pagingInfo.Token);
+
+                RowSet rows = await session.ExecuteAsync(bs).ConfigureAwait(false);
+                IEnumerable<IEvent> events = DeserialzeEvents(rows);
+
+                loadedEvents.AddRange(events);
+                pagingInfo = PagingInfo.From(rows);
+
+                logger.LogInformation($"&&&&&&&&&&&&&&&& Izpulnih se za partition {partitionId} i projId {Convert.ToBase64String(projectionId.RawId)}"); //deleteme
+                await Task.Delay(5000);//deleteme
+            }
+            if (ct.IsCancellationRequested)//deleteme
+            {
+                logger.LogInformation($"%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% CANCELLLLL  {partitionId} i projId {Convert.ToBase64String(projectionId.RawId)}");//deleteme
+            }
+
+            return loadedEvents;
+        }
+
+        private async Task<List<IEvent>> LoadProjectionPartitionAsOfDateAsync(IComparable<long> partitionId, ProjectionVersion version, IBlobId projectionId, int take, DateTimeOffset date, CancellationToken ct)
+        {
+            List<IEvent> loadedEvents = new List<IEvent>();
+            PagingInfo pagingInfo = new PagingInfo();
+
+            string columnFamily = naming.GetColumnFamily(version);
+
+            ISession session = await GetSessionAsync().ConfigureAwait(false);
+            PreparedStatement preparedStatement = await GetAsOfDatePreparedStatementAsync(columnFamily, session).ConfigureAwait(false);
+
+            IStatement bs = preparedStatement.Bind(projectionId.RawId, partitionId, date.ToFileTime())
+                                            .SetPageSize(take)
+                                            .SetAutoPage(false);
+
+            while (pagingInfo.HasMore && ct.IsCancellationRequested == false)
+            {
+                if (pagingInfo.HasToken())
+                    bs.SetPagingState(pagingInfo.Token);
+
+                RowSet rows = await session.ExecuteAsync(bs).ConfigureAwait(false);
+                IEnumerable<IEvent> events = DeserialzeEvents(rows);
+
+                loadedEvents.AddRange(events);
+                pagingInfo = PagingInfo.From(rows);
+            }
+            return loadedEvents;
+        }
+
+        private IEnumerable<IEvent> DeserialzeEvents(RowSet rows)
+        {
+            foreach (Row row in rows)
+            {
+                byte[] data = row.GetValue<byte[]>(ProjectionColumn.EventData);
+
+                if (data is not null)
+                {
+                    IEvent @event = serializer.DeserializeFromBytes<IEvent>(data);
+                    if (@event is not null)
+                    {
+                        yield return @event;
+                    }
+                    else
+                    {
+                        throw new Exception("Unable to load projection event data from storage.");
+                    }
+                }
+                else
+                {
+                    throw new Exception("Unable to load projection event data from storage.");
+                }
+            }
+        }
 
         public async Task EnumerateProjectionsAsync(ProjectionsOperator @operator, ProjectionQueryOptions options)
         {
@@ -88,9 +159,9 @@ namespace Elders.Cronus.Projections.Cassandra
             }
             else if (options.PagingOptions is not null)
             {
-                await EnumerateWithPagingAsync(@operator, options).ConfigureAwait(false);
+                await EnumerateWithOptionsAsync(@operator, options).ConfigureAwait(false);
             }
-        } // fix this sh
+        }
 
         public Task SaveAsync(ProjectionCommit commit)
         {
@@ -100,21 +171,135 @@ namespace Elders.Cronus.Projections.Cassandra
 
         async Task SaveAsync(ProjectionCommit commit, string columnFamily)
         {
+            ISession session = await GetSessionAsync().ConfigureAwait(false);
+
+            BatchStatement batch = new BatchStatement();
+            batch.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+            batch.SetIdempotence(false);
+            batch.SetBatchType(BatchType.Logged);
+
             long partitionId = CalculatePartition(commit.Event);
 
             byte[] data = serializer.SerializeToBytes(commit.Event);
 
-            ISession session = await GetSessionAsync().ConfigureAwait(false);
-            PreparedStatement statement = await BuildInsertPreparedStatementAsync(columnFamily, session).ConfigureAwait(false);
+            PreparedStatement projectionStatement = await BuildInsertPreparedStatementAsync(columnFamily, session).ConfigureAwait(false);
+            BoundStatement projectionBoundStatement = projectionStatement.Bind(commit.ProjectionId.RawId, partitionId, data, partitionId);
+            batch.Add(projectionBoundStatement);
 
-            var result = await session.ExecuteAsync(statement
-                .Bind(
-                    commit.ProjectionId.RawId,
-                    partitionId,
-                    data,
-                    commit.Event.Timestamp.ToFileTime()
-                ))
-                .ConfigureAwait(false);
+            PreparedStatement partitionStatement = await GetWritePartitionsPreparedStatementAsync(session).ConfigureAwait(false);
+            BoundStatement partitionBoundStatement = partitionStatement.Bind(commit.Version.ProjectionName, commit.ProjectionId.RawId, partitionId);
+            batch.Add(partitionBoundStatement);
+
+            await session.ExecuteAsync(batch).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Use this method when you don't mind that the events inside the stream are unordered.
+        /// </summary>
+        /// <param name="options"></param>
+        /// <returns>The entire projection stream with unordered events</returns>
+        private async Task<ProjectionStream> EnumerateProjectionStreamAsync(ProjectionQueryOptions options)
+        {
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            try
+            {
+                string columnFamily = naming.GetColumnFamily(options.Version);
+
+                List<IComparable<long>> partitions = await projectionPartionsStore.GetPartitionsAsync(options.Version.ProjectionName, options.Id).ConfigureAwait(false);
+                if (partitions.Count == 0)
+                    return ProjectionStream.Empty();
+
+                int mdp = Environment.ProcessorCount;
+
+                List<Task<List<IEvent>>> loadingTasks = new List<Task<List<IEvent>>>();
+                List<IEvent> eventsLoaded = new List<IEvent>();
+
+                for (int i = 0; i < partitions.Count; i++)
+                {
+                    Task<List<IEvent>> loadingPartitionTask = LoadProjectionPartitionAsync(partitions[i], options.Version, options.Id, options.BatchSize, cancellationTokenSource.Token);
+                    loadingTasks.Add(loadingPartitionTask);
+
+                    if (loadingTasks.Count >= mdp || i == partitions.Count - 1)
+                    {
+                        Task<List<IEvent>> completed = await Task.WhenAny(loadingTasks);
+                        loadingTasks.Remove(completed);
+
+                        if (completed.IsFaulted)
+                        {
+                            cancellationTokenSource.Cancel();
+                        }
+
+                        List<IEvent> result = await completed;
+                        eventsLoaded.AddRange(result);
+                    }
+                }
+
+                var tasksLeft = await Task.WhenAll(loadingTasks);
+                foreach (List<IEvent> loadedEvents in tasksLeft)
+                {
+                    eventsLoaded.AddRange(loadedEvents);
+                }
+
+                ProjectionStream stream = new ProjectionStream(options.Version, options.Id, eventsLoaded);
+                return stream;
+            }
+            catch
+            {
+                cancellationTokenSource.Cancel();
+                throw;
+            }
+        }
+
+        private async Task<ProjectionStream> EnumerateProjectionDescendingStreamAsync(ProjectionQueryOptions options)
+        {
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            try
+            {
+                string columnFamily = naming.GetColumnFamily(options.Version);
+
+                List<IComparable<long>> partitions = await projectionPartionsStore.GetPartitionsAsync(options.Version.ProjectionName, options.Id).ConfigureAwait(false);
+                if (partitions.Count == 0)
+                    return ProjectionStream.Empty();
+
+                int mdp = Environment.ProcessorCount;
+
+                List<Task<List<IEvent>>> loadingTasks = new List<Task<List<IEvent>>>();
+                List<IEvent> eventsLoaded = new List<IEvent>();
+
+                for (int i = partitions.Count - 1; i == 0; i--)
+                {
+                    Task<List<IEvent>> loadingPartitionTask = LoadProjectionPartitionAsync(partitions[i], options.Version, options.Id, options.BatchSize, cancellationTokenSource.Token);
+                    loadingTasks.Add(loadingPartitionTask);
+
+                    if (loadingTasks.Count >= mdp || i == partitions.Count - 1)
+                    {
+                        Task<List<IEvent>> completed = await Task.WhenAny(loadingTasks);
+                        loadingTasks.Remove(completed);
+
+                        if (completed.IsFaulted)
+                        {
+                            cancellationTokenSource.Cancel();
+                        }
+
+                        List<IEvent> result = await completed;
+                        eventsLoaded.AddRange(result);
+                    }
+                }
+
+                var tasksLeft = await Task.WhenAll(loadingTasks);
+                foreach (List<IEvent> loadedEvents in tasksLeft)
+                {
+                    eventsLoaded.AddRange(loadedEvents);
+                }
+
+                ProjectionStream stream = new ProjectionStream(options.Version, options.Id, eventsLoaded);
+                return stream;
+            }
+            catch
+            {
+                cancellationTokenSource.Cancel();
+                throw;
+            }
         }
 
         async Task EnumerateProjectionsAsOfDate(ProjectionsOperator @operator, ProjectionQueryOptions options)
@@ -122,22 +307,24 @@ namespace Elders.Cronus.Projections.Cassandra
             List<IEvent> events = new List<IEvent>();
             if (@operator.OnProjectionStreamLoadedAsync is not null)
             {
-                await foreach (var @event in LoadAsOfDateInternalAsync(options))
-                {
-                    events.Add(@event);
-                }
+                var stream = await LoadAsOfDateInternalAsync(options).ConfigureAwait(false);
 
-                var stream = new ProjectionStream(options.Version, options.Id, events);
                 await @operator.OnProjectionStreamLoadedAsync(stream);
             }
         }
 
-        async Task EnumerateWithPagingAsync(ProjectionsOperator @operator, ProjectionQueryOptions options)
+        async Task EnumerateWithOptionsAsync(ProjectionsOperator @operator, ProjectionQueryOptions options)
         {
-
-            if (@operator.OnProjectionStreamLoadedWithPagingAsync is not null)
+            PagingProjectionsResult result;
+            if (@operator.OnProjectionStreamLoadedAsync is not null)
             {
-                PagingProjectionsResult result = await EnumerateWithPagingInternalAsync(options).ConfigureAwait(false);
+                ProjectionStream stream = await EnumerateProjectionStreamAsync(options).ConfigureAwait(false);
+                await @operator.OnProjectionStreamLoadedAsync(stream).ConfigureAwait(false);
+            }
+
+            else if (@operator.OnProjectionStreamLoadedWithPagingAsync is not null)
+            {
+                result = await EnumerateWithPagingInternalAsync(options).ConfigureAwait(false);
 
                 var pagedStream = new ProjectionStream(options.Version, options.Id, result.Events);
                 var pagedOptions = new PagingOptions(options.PagingOptions.Take, result.NewPagingToken, options.PagingOptions.Order);
@@ -145,79 +332,132 @@ namespace Elders.Cronus.Projections.Cassandra
             }
         }
 
-        async IAsyncEnumerable<IEvent> LoadAsOfDateInternalAsync(ProjectionQueryOptions options)
+        /// <summary>
+        /// Load all the events as of the provided date. The events are UNORDERED.
+        /// </summary>
+        /// <param name="options"></param>
+        /// <returns>The unordered events as of some point in time</returns>
+        private async Task<ProjectionStream> LoadAsOfDateInternalAsync(ProjectionQueryOptions options)
         {
-            string columnFamily = naming.GetColumnFamily(options.Version);
-
-            PagingInfo pagingInfo = new PagingInfo();
-            ISession session = await GetSessionAsync().ConfigureAwait(false);
-            PreparedStatement preparedStatement = await GetAsOfDatePreparedStatementAsync(columnFamily, session).ConfigureAwait(false);
-
-            IStatement bs = preparedStatement.Bind(options.Id.RawId, options.AsOf.Value.ToFileTime())
-                                                  .SetPageSize(options.BatchSize)
-                                                  .SetAutoPage(false);
-            while (pagingInfo.HasMore)
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            try
             {
-                if (pagingInfo.HasToken())
-                    bs.SetPagingState(pagingInfo.Token);
+                string columnFamily = naming.GetColumnFamily(options.Version);
 
-                var rows = await session.ExecuteAsync(bs).ConfigureAwait(false);
-                foreach (var row in rows)
+                List<IComparable<long>> partitions = await projectionPartionsStore.GetPartitionsAsync(options.Version.ProjectionName, options.Id).ConfigureAwait(false);
+                if (partitions.Count == 0)
+                    return ProjectionStream.Empty();
+
+                Dictionary<long, DateTimeOffset> partitionsDictionary = partitions.ToDictionary(key => (long)key, GetDateBasedOnPartition); //opa
+
+                var partitionsThatWeAreInterestedIn = partitionsDictionary.Where(x => x.Value <= options.AsOf.Value).Select(x=>x.Key).ToList();
+                if(partitionsThatWeAreInterestedIn.Count == 0)
+                    return ProjectionStream.Empty();
+
+                int mdp = Environment.ProcessorCount;
+
+                List<Task<List<IEvent>>> loadingTasks = new List<Task<List<IEvent>>>();
+                List<IEvent> eventsLoaded = new List<IEvent>();
+
+                for (int i = 0; i < partitionsThatWeAreInterestedIn.Count; i++)
                 {
-                    byte[] data = row.GetValue<byte[]>(ProjectionColumn.EventData);
+                    Task<List<IEvent>> loadingPartitionTask = LoadProjectionPartitionAsOfDateAsync(partitionsThatWeAreInterestedIn[i], options.Version, options.Id, options.BatchSize, options.AsOf.Value, cancellationTokenSource.Token);
+                    loadingTasks.Add(loadingPartitionTask);
 
-                    if (data is not null)
+                    if (loadingTasks.Count >= mdp || i == partitionsThatWeAreInterestedIn.Count - 1)
                     {
-                        IEvent @event = serializer.DeserializeFromBytes<IEvent>(data);
-                        yield return @event;
-                    }
-                    else
-                    {
-                        LogError(logger, options.Version.ProjectionName, Convert.ToBase64String(options.Id.RawId), null);
+                        Task<List<IEvent>> completed = await Task.WhenAny(loadingTasks);
+                        loadingTasks.Remove(completed);
+
+                        if (completed.IsFaulted)
+                        {
+                            cancellationTokenSource.Cancel();
+                        }
+
+                        List<IEvent> result = await completed;
+                        eventsLoaded.AddRange(result);
                     }
                 }
-                pagingInfo = PagingInfo.From(rows);
+
+                var tasksLeft = await Task.WhenAll(loadingTasks);
+                foreach (List<IEvent> loadedEvents in tasksLeft)
+                {
+                    eventsLoaded.AddRange(loadedEvents);
+                }
+
+                ProjectionStream stream = new ProjectionStream(options.Version, options.Id, eventsLoaded);
+                return stream;
+            }
+            catch
+            {
+                cancellationTokenSource.Cancel();
+                throw;
             }
         }
 
+        /// <summary>
+        /// Use this method when you care about the order of the events
+        /// </summary>
+        /// <param name="options"></param>
+        /// <returns>The ordered events with given options</returns>
         async Task<PagingProjectionsResult> EnumerateWithPagingInternalAsync(ProjectionQueryOptions options)
         {
-            PreparedStatement preparedStatement;
-            PagingProjectionsResult pagingResult = new PagingProjectionsResult();
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            try
+            {
+                string columnFamily = naming.GetColumnFamily(options.Version);
 
-            string columnFamily = naming.GetColumnFamily(options.Version);
-            ISession session = await GetSessionAsync().ConfigureAwait(false);
-            if (options.PagingOptions.Order.Equals(Order.Descending))
-            {
-                preparedStatement = await GetDescendingPreparedStatementAsync(columnFamily, session).ConfigureAwait(false);
-            }
-            else
-            {
-                preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily, session).ConfigureAwait(false);
-            }
+                List<IComparable<long>> partitions = await projectionPartionsStore.GetPartitionsAsync(options.Version.ProjectionName, options.Id).ConfigureAwait(false);
+                if (partitions.Count == 0)
+                    return new PagingProjectionsResult();
 
-            IStatement boundStatement = preparedStatement.Bind(options.Id.RawId).SetPageSize(options.BatchSize).SetAutoPage(false);
-            if (options.PagingOptions is not null)
-            {
-                boundStatement.SetPagingState(options.PagingOptions.PaginationToken);
-            }
+                int mdp = Environment.ProcessorCount;
 
-            RowSet result = await session.ExecuteAsync(boundStatement).ConfigureAwait(false);
-            foreach (var row in result)
-            {
-                byte[] data = row.GetValue<byte[]>(ProjectionColumn.EventData);
-                if (data is not null)
+                List<Task<List<IEvent>>> loadingTasks = new List<Task<List<IEvent>>>();
+                List<IEvent> eventsLoaded = new List<IEvent>();
+
+                for (int i = 0; i < partitions.Count; i++)
                 {
-                    IEvent @event = serializer.DeserializeFromBytes<IEvent>(data);
-                    pagingResult.Events.Add(@event);
+                    Task<List<IEvent>> loadingPartitionTask = LoadProjectionPartitionAsync(partitions[i], options.Version, options.Id, options.BatchSize, cancellationTokenSource.Token);
+                    loadingTasks.Add(loadingPartitionTask);
+
+                    if (loadingTasks.Count >= mdp || i == partitions.Count - 1)
+                    {
+                        Task<List<IEvent>> completed = await Task.WhenAny(loadingTasks);
+                        loadingTasks.Remove(completed);
+
+                        if (completed.IsFaulted)
+                        {
+                            cancellationTokenSource.Cancel();
+                        }
+
+                        List<IEvent> result = await completed;
+                        eventsLoaded.AddRange(result);
+                    }
                 }
-                else
+
+                var tasksLeft = await Task.WhenAll(loadingTasks);
+                foreach (List<IEvent> loadedEvents in tasksLeft)
                 {
-                    LogError(logger, options.Version.ProjectionName, Convert.ToBase64String(options.Id.RawId), null);
+                    eventsLoaded.AddRange(loadedEvents);
                 }
+
+                ProjectionStream stream = new ProjectionStream(options.Version, options.Id, eventsLoaded);
+                return new PagingProjectionsResult();
             }
-            pagingResult.NewPagingToken = result.PagingState;
-            return pagingResult;
+            catch
+            {
+                cancellationTokenSource.Cancel();
+                throw;
+            }
+        }
+
+        private async Task<PreparedStatement> GetWritePartitionsPreparedStatementAsync(ISession session)
+        {
+            PreparedStatement writeStatement = await session.PrepareAsync(InsertPartition).ConfigureAwait(false);
+            writeStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+
+            return writeStatement;
         }
 
         async Task<PreparedStatement> BuildInsertPreparedStatementAsync(string columnFamily, ISession session)
@@ -228,14 +468,14 @@ namespace Elders.Cronus.Projections.Cassandra
             return statement;
         }
 
-        async Task<PreparedStatement> GetPreparedStatementToGetProjectionAsync(string columnFamily, ISession session)
+        async Task<PreparedStatement> GetPreparedStatementToGetProjectionByAscendingAsync(string columnFamily, ISession session)
         {
             PreparedStatement loadPreparedStatement = await session.PrepareAsync(string.Format(GetQueryTemplate, columnFamily)).ConfigureAwait(false);
             loadPreparedStatement = loadPreparedStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
 
             return loadPreparedStatement;
         }
-
+            
         async Task<PreparedStatement> GetAsOfDatePreparedStatementAsync(string columnFamily, ISession session)
         {
             PreparedStatement statement = await session.PrepareAsync(string.Format(GetQueryAsOfTemplate, columnFamily)).ConfigureAwait(false);
@@ -256,26 +496,64 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             int month = @event.Timestamp.Month;
             int day = @event.Timestamp.DayOfYear;
-            int partitionId = @event.Timestamp.Year * 10000 + month * 1000 + day * 10;
-
-            return partitionId;
+            //long partitionId = @event.Timestamp.Year * 10000 + month * 1000 + day * 10; // tova raboti za sega
+            long pid = @event.Timestamp.Year * 1000 + day;
+            return pid;
         }
+
+        private static DateTimeOffset GetDateBasedOnPartition(IComparable<long> partition)
+        {
+            long year = (long)partition / 1000; // opa
+            long dayOfYear = (long)partition % 1000; // opa
+
+            DateTime date = new DateTime((int)year, 1, 1).AddDays(dayOfYear - 1); // becuase we start from the 1st jan and we need to substract 1 to not calculate wrong
+            DateTimeOffset dateTimeOffset = new DateTimeOffset(date, TimeSpan.Zero);
+
+            return dateTimeOffset;
+        }
+
 
         public IAsyncEnumerable<ProjectionCommit> LoadAsync(ProjectionVersion version, IBlobId projectionId)
         {
             throw new NotImplementedException();
         }
-    }
-}
 
-public class ProjectionDescriptor : IProjectionDescriptor
-{
-    public IComparable<long> GetPartition(IEvent @event)
-    {
-        int month = @event.Timestamp.Month;
-        int day = @event.Timestamp.DayOfYear;
-        long partitionId = @event.Timestamp.Year * 10000 + month * 1000 + day * 10;
+        private async Task<List<IEvent>> TestOff(IComparable<long> partitionId, IBlobId projectionId, ProjectionVersion version, Order order, int take, CancellationToken ct)
+        {
+            List<IEvent> loadedEvents = new List<IEvent>();
+            PagingInfo pagingInfo = new PagingInfo();
 
-        return partitionId;
+            string columnFamily = naming.GetColumnFamily(version);
+            ISession session = await GetSessionAsync().ConfigureAwait(false);
+
+            PreparedStatement preparedStatement;
+
+            if (order.Equals(Order.Ascending))
+            {
+                preparedStatement = await GetPreparedStatementToGetProjectionByAscendingAsync(columnFamily, session).ConfigureAwait(false);
+            }
+            else
+            {
+                preparedStatement = await GetDescendingPreparedStatementAsync(columnFamily, session).ConfigureAwait(false);
+            }
+
+            IStatement bs = preparedStatement.Bind(projectionId.RawId, partitionId)
+                                            .SetPageSize(take)
+                                            .SetAutoPage(false);
+
+            while (pagingInfo.HasMore && ct.IsCancellationRequested == false)
+            {
+                if (pagingInfo.HasToken())
+                    bs.SetPagingState(pagingInfo.Token);
+
+                RowSet rows = await session.ExecuteAsync(bs).ConfigureAwait(false);
+                IEnumerable<IEvent> events = DeserialzeEvents(rows);
+
+                loadedEvents.AddRange(events);
+                pagingInfo = PagingInfo.From(rows);
+            }
+
+            return loadedEvents;
+        }
     }
 }
