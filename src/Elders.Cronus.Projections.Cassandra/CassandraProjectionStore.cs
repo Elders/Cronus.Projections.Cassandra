@@ -1,27 +1,43 @@
 ﻿using System.Collections.Generic;
 using System;
 using Cassandra;
-using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Microsoft.Extensions.Logging;
 using Elders.Cronus.Persistence.Cassandra;
 using Elders.Cronus.EventStore;
-using Elders.Cronus;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
+    [Obsolete("Will be removed in v11")]
+    public interface IProjectionStoreLegacy
+    {
+        IAsyncEnumerable<ProjectionCommit> LoadAsync(ProjectionVersion version, IBlobId projectionId);
+
+        Task EnumerateProjectionsAsync(ProjectionsOperator @operator, ProjectionQueryOptions options);
+
+        Task SaveAsync(ProjectionCommit commit);
+    }
+
     public class CassandraProjectionStore<TSettings> : CassandraProjectionStore where TSettings : ICassandraProjectionStoreSettings
     {
         public CassandraProjectionStore(TSettings settings, ILogger<CassandraProjectionStore> logger) : base(settings.CassandraProvider, settings.Serializer, settings.ProjectionsNamingStrategy, logger) { }
     }
 
-    public class CassandraProjectionStore : IProjectionStore
+    [Obsolete("Will be removed in v11")]
+    public class CassandraProjectionStore : IProjectionStoreLegacy
     {
+        // New Projection tables --->
+        const string InsertNewQueryTemplate = @"INSERT INTO ""{0}"" (id,pid,data,ts) VALUES (?,?,?,?);";
+
+        // Projection tables --->
         const string InsertQueryTemplate = @"INSERT INTO ""{0}"" (id,data,ts) VALUES (?,?,?);";
         const string GetQueryTemplate = @"SELECT data,ts FROM ""{0}"" WHERE id=?;";
         const string GetQueryAsOfTemplate = @"SELECT data,ts FROM ""{0}"" WHERE id=? AND ts<=?;";
         const string GetQueryDescendingTemplate = @"SELECT data,ts FROM ""{0}"" WHERE id=? order by ts desc";
+
+        // Partition table --->
+        private const string InsertPartition = @"INSERT INTO projection_partitions (pt,id,pid) VALUES (?,?,?);";
 
         private readonly ICassandraProvider cassandraProvider;
         private readonly ISerializer serializer;
@@ -83,26 +99,38 @@ namespace Elders.Cronus.Projections.Cassandra
             }
         }
 
-        public Task SaveAsync(ProjectionCommit commit)
+        public async Task SaveAsync(ProjectionCommit commit)
         {
-            string projectionCommitLocationBasedOnVersion = naming.GetColumnFamily(commit.Version);
-            return SaveAsync(commit, projectionCommitLocationBasedOnVersion);
-        }
+            string projectionCommitLocationBasedOnVersionLEGACY = naming.GetColumnFamily(commit.Version);
+            string projectionCommitLocationBasedOnVersionNEW = naming.GetColumnFamilyNew(commit.Version);
 
-        async Task SaveAsync(ProjectionCommit commit, string columnFamily)
-        {
             byte[] data = serializer.SerializeToBytes(commit.Event);
 
             ISession session = await GetSessionAsync().ConfigureAwait(false);
-            PreparedStatement statement = await BuildInsertPreparedStatementAsync(columnFamily, session).ConfigureAwait(false);
 
-            var result = await session.ExecuteAsync(statement
-                .Bind(
-                    commit.ProjectionId.RawId,
-                    data,
-                    commit.Event.Timestamp.ToFileTime()
-                ))
-                .ConfigureAwait(false);
+            BatchStatement batch = new BatchStatement();
+            batch.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+            batch.SetIdempotence(false);
+            batch.SetBatchType(BatchType.Logged);
+
+            long partitionId = CalculatePartition(commit.Event);
+
+            // old projections
+            PreparedStatement projectionStatement = await BuildInsertPreparedStatementAsync(projectionCommitLocationBasedOnVersionLEGACY, session).ConfigureAwait(false);
+            BoundStatement projectionBoundStatement = projectionStatement.Bind(commit.ProjectionId.RawId, data, commit.Event.Timestamp.ToFileTime());
+            batch.Add(projectionBoundStatement);
+
+            // new projections
+            PreparedStatement projectionStatementNew = await BuildNewInsertPreparedStatementAsync(projectionCommitLocationBasedOnVersionNEW, session).ConfigureAwait(false);
+            BoundStatement projectionBoundStatementNew = projectionStatementNew.Bind(commit.ProjectionId.RawId, partitionId, data, commit.Event.Timestamp.ToFileTime());
+            batch.Add(projectionBoundStatementNew);
+
+            // partitions
+            PreparedStatement partitionStatement = await GetWritePartitionsPreparedStatementAsync(session).ConfigureAwait(false);
+            BoundStatement partitionBoundStatement = partitionStatement.Bind(commit.Version.ProjectionName, commit.ProjectionId.RawId, partitionId);
+            batch.Add(partitionBoundStatement);
+
+            await session.ExecuteAsync(batch).ConfigureAwait(false);
         }
 
         async Task EnumerateProjectionsAsOfDate(ProjectionsOperator @operator, ProjectionQueryOptions options)
@@ -122,17 +150,15 @@ namespace Elders.Cronus.Projections.Cassandra
 
         async Task EnumerateWithPagingAsync(ProjectionsOperator @operator, ProjectionQueryOptions options)
         {
-            PagingProjectionsResult result;
             if (@operator.OnProjectionStreamLoadedAsync is not null)
             {
-                result = await EnumerateWithPagingInternalAsync(options).ConfigureAwait(false);
+                ProjectionStream stream = await EnumerateEntireProjectionStreamAsync(options).ConfigureAwait(false);
 
-                var stream = new ProjectionStream(options.Version, options.Id, result.Events);
                 await @operator.OnProjectionStreamLoadedAsync(stream).ConfigureAwait(false);
             }
             else if (@operator.OnProjectionStreamLoadedWithPagingAsync is not null)
             {
-                result = await EnumerateWithPagingInternalAsync(options).ConfigureAwait(false);
+                PagingProjectionsResult result = await EnumerateWithPagingInternalAsync(options).ConfigureAwait(false);
 
                 var pagedStream = new ProjectionStream(options.Version, options.Id, result.Events);
                 var pagedOptions = new PagingOptions(options.PagingOptions.Take, result.NewPagingToken, options.PagingOptions.Order);
@@ -215,6 +241,51 @@ namespace Elders.Cronus.Projections.Cassandra
             return pagingResult;
         }
 
+        async Task<ProjectionStream> EnumerateEntireProjectionStreamAsync(ProjectionQueryOptions options)
+        {
+            PreparedStatement preparedStatement;
+            PagingInfo pagingInfo = new PagingInfo();
+
+            List<IEvent> events = new List<IEvent>();
+
+            string columnFamily = naming.GetColumnFamily(options.Version);
+            ISession session = await GetSessionAsync().ConfigureAwait(false);
+
+            if (options.PagingOptions.Order.Equals(Order.Descending))
+                preparedStatement = await GetDescendingPreparedStatementAsync(columnFamily, session).ConfigureAwait(false);
+            else
+                preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily, session).ConfigureAwait(false);
+
+            IStatement bs = preparedStatement.Bind(options.Id.RawId)
+                                           .SetPageSize(options.BatchSize)
+                                           .SetAutoPage(false);
+
+            while (pagingInfo.HasMore)
+            {
+                if (pagingInfo.HasToken())
+                    bs.SetPagingState(pagingInfo.Token);
+
+                RowSet rows = await session.ExecuteAsync(bs).ConfigureAwait(false);
+
+                foreach (var row in rows)
+                {
+                    byte[] data = row.GetValue<byte[]>(ProjectionColumn.EventData);
+                    if (data is not null)
+                    {
+                        IEvent @event = serializer.DeserializeFromBytes<IEvent>(data);
+                        events.Add(@event);
+                    }
+                    else
+                    {
+                        LogError(logger, options.Version.ProjectionName, Convert.ToBase64String(options.Id.RawId), null);
+                    }
+                }
+                pagingInfo = PagingInfo.From(rows);
+            }
+
+            return new ProjectionStream(options.Version, options.Id, events);
+        }
+
         async Task<PreparedStatement> BuildInsertPreparedStatementAsync(string columnFamily, ISession session)
         {
             PreparedStatement statement = await session.PrepareAsync(string.Format(InsertQueryTemplate, columnFamily));
@@ -245,6 +316,30 @@ namespace Elders.Cronus.Projections.Cassandra
             statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
 
             return statement;
+        }
+
+        private async Task<PreparedStatement> GetWritePartitionsPreparedStatementAsync(ISession session)
+        {
+            PreparedStatement writeStatement = await session.PrepareAsync(InsertPartition).ConfigureAwait(false);
+            writeStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+
+            return writeStatement;
+        }
+
+        private async Task<PreparedStatement> BuildNewInsertPreparedStatementAsync(string columnFamily, ISession session)
+        {
+            PreparedStatement statement = await session.PrepareAsync(string.Format(InsertNewQueryTemplate, columnFamily));
+            statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+
+            return statement;
+        }
+
+        private static long CalculatePartition(IEvent @event) // TODO: This will be extended in future version to be configurable for every projection
+        {
+            int month = @event.Timestamp.Month;
+            int partitionId = @event.Timestamp.Year * 100 + month;
+
+            return partitionId;
         }
     }
 }

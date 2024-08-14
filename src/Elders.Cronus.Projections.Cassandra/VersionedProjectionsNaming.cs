@@ -4,9 +4,14 @@ namespace Elders.Cronus.Projections.Cassandra
 {
     public class VersionedProjectionsNaming
     {
-        public string GetColumnFamily(ProjectionVersion version)
+        public string GetColumnFamily(ProjectionVersion version) // for old projection tables
         {
             return $"{VersionPart(version)}";
+        }
+
+        public string GetColumnFamilyNew(ProjectionVersion version) // for tables with new partitionId
+        {
+            return $"{VersionPart(version)}_new";
         }
 
         public ProjectionVersion Parse(string columnFamily)

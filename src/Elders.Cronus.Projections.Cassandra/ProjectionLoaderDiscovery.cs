@@ -29,18 +29,36 @@ namespace Elders.Cronus.Projections.Cassandra
             yield return new DiscoveredModel(typeof(CassandraProjectionStoreInitializer), typeof(CassandraProjectionStoreInitializer), ServiceLifetime.Transient) { CanOverrideDefaults = true };
             yield return new DiscoveredModel(typeof(IInitializableProjectionStore), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionStoreInitializer>>().Get(), ServiceLifetime.Transient);
 
-
             yield return new DiscoveredModel(typeof(CassandraProjectionStoreSchema), typeof(CassandraProjectionStoreSchema), ServiceLifetime.Transient);
             yield return new DiscoveredModel(typeof(IProjectionStoreStorageManager), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionStoreSchema>>().Get(), ServiceLifetime.Transient);
 
-            // projection store
-            yield return new DiscoveredModel(typeof(IProjectionStore), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionStore>>().Get(), ServiceLifetime.Transient) { CanOverrideDefaults = true };
-            yield return new DiscoveredModel(typeof(CassandraProjectionStore), typeof(CassandraProjectionStore), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(CassandraProjectionStore<>), typeof(CassandraProjectionStore<>), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(CassandraProjectionPartitionStoreSchema), typeof(CassandraProjectionPartitionStoreSchema), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(ICassandraProjectionPartitionStoreSchema), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionPartitionStoreSchema>>().Get(), ServiceLifetime.Transient);
+
+            yield return new DiscoveredModel(typeof(CassandraProjectionStoreSchemaNew), typeof(CassandraProjectionStoreSchemaNew), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(ICassandraProjectionStoreSchemaNew), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionStoreSchemaNew>>().Get(), ServiceLifetime.Transient);
 
             // cassandra
             yield return new DiscoveredModel(typeof(CassandraProvider), typeof(CassandraProvider), ServiceLifetime.Transient);
             yield return new DiscoveredModel(typeof(ICassandraProvider), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProvider>>().Get(), ServiceLifetime.Transient);
+
+            // projections
+            yield return new DiscoveredModel(typeof(IProjectionStore), provider => provider.GetRequiredService<SingletonPerTenant<CassandraMigrationStore>>().Get(), ServiceLifetime.Transient) { CanOverrideDefaults = true };
+            yield return new DiscoveredModel(typeof(CassandraMigrationStore), typeof(CassandraMigrationStore), ServiceLifetime.Transient);
+
+            // old store
+            yield return new DiscoveredModel(typeof(IProjectionStoreLegacy), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionStore>>().Get(), ServiceLifetime.Transient) { CanOverrideDefaults = true };
+            yield return new DiscoveredModel(typeof(CassandraProjectionStore), typeof(CassandraProjectionStore), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(CassandraProjectionStore<>), typeof(CassandraProjectionStore<>), ServiceLifetime.Transient);
+
+            // new store
+            yield return new DiscoveredModel(typeof(IProjectionStoreNew), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionStoreNew>>().Get(), ServiceLifetime.Transient) { CanOverrideDefaults = true };
+            yield return new DiscoveredModel(typeof(CassandraProjectionStoreNew), typeof(CassandraProjectionStoreNew), ServiceLifetime.Transient);
+            yield return new DiscoveredModel(typeof(CassandraProjectionStoreNew<>), typeof(CassandraProjectionStoreNew<>), ServiceLifetime.Transient);
+
+            // partitions store
+            yield return new DiscoveredModel(typeof(IProjectionPartionsStore), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionPartitionsStore>>().Get(), ServiceLifetime.Transient) { CanOverrideDefaults = true };
+            yield return new DiscoveredModel(typeof(CassandraProjectionPartitionsStore), typeof(CassandraProjectionPartitionsStore), ServiceLifetime.Transient);
 
             // naming
             yield return new DiscoveredModel(typeof(IKeyspaceNamingStrategy), typeof(KeyspacePerTenantKeyspace), ServiceLifetime.Singleton);
