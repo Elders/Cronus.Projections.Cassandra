@@ -1,11 +1,11 @@
-﻿using System.Collections.Generic;
-using System;
-using Cassandra;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using Cassandra;
+using Elders.Cronus.EventStore;
+using Elders.Cronus.Persistence.Cassandra;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Microsoft.Extensions.Logging;
-using Elders.Cronus.Persistence.Cassandra;
-using Elders.Cronus.EventStore;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
@@ -82,7 +82,7 @@ namespace Elders.Cronus.Projections.Cassandra
                 }
                 else
                 {
-                    LogError(logger, version.ProjectionName, Convert.ToBase64String(projectionId.RawId), null);
+                    LogError(logger, version.ProjectionName, Convert.ToBase64String(projectionId.RawId.Span), null);
                 }
             }
         }
@@ -114,20 +114,21 @@ namespace Elders.Cronus.Projections.Cassandra
             batch.SetBatchType(BatchType.Logged);
 
             long partitionId = CalculatePartition(commit.Event);
+            byte[] projectionId = commit.ProjectionId.RawId.ToArray(); // the Bind() method invokes the driver serializers for each value
 
             // old projections
             PreparedStatement projectionStatement = await BuildInsertPreparedStatementAsync(projectionCommitLocationBasedOnVersionLEGACY, session).ConfigureAwait(false);
-            BoundStatement projectionBoundStatement = projectionStatement.Bind(commit.ProjectionId.RawId, data, commit.Event.Timestamp.ToFileTime());
+            BoundStatement projectionBoundStatement = projectionStatement.Bind(projectionId, data, commit.Event.Timestamp.ToFileTime());
             batch.Add(projectionBoundStatement);
 
             // new projections
             PreparedStatement projectionStatementNew = await BuildNewInsertPreparedStatementAsync(projectionCommitLocationBasedOnVersionNEW, session).ConfigureAwait(false);
-            BoundStatement projectionBoundStatementNew = projectionStatementNew.Bind(commit.ProjectionId.RawId, partitionId, data, commit.Event.Timestamp.ToFileTime());
+            BoundStatement projectionBoundStatementNew = projectionStatementNew.Bind(projectionId, partitionId, data, commit.Event.Timestamp.ToFileTime());
             batch.Add(projectionBoundStatementNew);
 
             // partitions
             PreparedStatement partitionStatement = await GetWritePartitionsPreparedStatementAsync(session).ConfigureAwait(false);
-            BoundStatement partitionBoundStatement = partitionStatement.Bind(commit.Version.ProjectionName, commit.ProjectionId.RawId, partitionId);
+            BoundStatement partitionBoundStatement = partitionStatement.Bind(commit.Version.ProjectionName, projectionId, partitionId);
             batch.Add(partitionBoundStatement);
 
             await session.ExecuteAsync(batch).ConfigureAwait(false);
@@ -194,7 +195,7 @@ namespace Elders.Cronus.Projections.Cassandra
                     }
                     else
                     {
-                        LogError(logger, options.Version.ProjectionName, Convert.ToBase64String(options.Id.RawId), null);
+                        LogError(logger, options.Version.ProjectionName, Convert.ToBase64String(options.Id.RawId.Span), null);
                     }
                 }
                 pagingInfo = PagingInfo.From(rows);
@@ -234,7 +235,7 @@ namespace Elders.Cronus.Projections.Cassandra
                 }
                 else
                 {
-                    LogError(logger, options.Version.ProjectionName, Convert.ToBase64String(options.Id.RawId), null);
+                    LogError(logger, options.Version.ProjectionName, Convert.ToBase64String(options.Id.RawId.Span), null);
                 }
             }
             pagingResult.NewPagingToken = result.PagingState;
@@ -277,7 +278,7 @@ namespace Elders.Cronus.Projections.Cassandra
                     }
                     else
                     {
-                        LogError(logger, options.Version.ProjectionName, Convert.ToBase64String(options.Id.RawId), null);
+                        LogError(logger, options.Version.ProjectionName, Convert.ToBase64String(options.Id.RawId.Span), null);
                     }
                 }
                 pagingInfo = PagingInfo.From(rows);

@@ -1,13 +1,13 @@
-﻿using Cassandra;
-using Elders.Cronus.EventStore;
-using Elders.Cronus.Persistence.Cassandra;
-using Elders.Cronus.Projections.Cassandra.Infrastructure;
-using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Cassandra;
+using Elders.Cronus.EventStore;
+using Elders.Cronus.Persistence.Cassandra;
+using Elders.Cronus.Projections.Cassandra.Infrastructure;
+using Microsoft.Extensions.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
@@ -100,13 +100,14 @@ namespace Elders.Cronus.Projections.Cassandra
 
             long partitionId = CalculatePartition(commit.Event);
             byte[] data = serializer.SerializeToBytes(commit.Event);
+            byte[] projectionId = commit.ProjectionId.RawId.ToArray(); // the Bind() method invokes the driver serializers for each value
 
             PreparedStatement projectionStatement = await BuildInsertPreparedStatementAsync(columnFamily, session).ConfigureAwait(false);
-            BoundStatement projectionBoundStatement = projectionStatement.Bind(commit.ProjectionId.RawId, partitionId, data, commit.Event.Timestamp.ToFileTime());
+            BoundStatement projectionBoundStatement = projectionStatement.Bind(projectionId, partitionId, data, commit.Event.Timestamp.ToFileTime());
             batch.Add(projectionBoundStatement);
 
             PreparedStatement partitionStatement = await GetWritePartitionsPreparedStatementAsync(session).ConfigureAwait(false);
-            BoundStatement partitionBoundStatement = partitionStatement.Bind(commit.Version.ProjectionName, commit.ProjectionId.RawId, partitionId);
+            BoundStatement partitionBoundStatement = partitionStatement.Bind(commit.Version.ProjectionName, projectionId, partitionId);
             batch.Add(partitionBoundStatement);
 
             await session.ExecuteAsync(batch).ConfigureAwait(false);
