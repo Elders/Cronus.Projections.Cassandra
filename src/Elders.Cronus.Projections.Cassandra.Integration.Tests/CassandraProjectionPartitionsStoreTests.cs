@@ -1,5 +1,4 @@
 ﻿using Cassandra;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Elders.Cronus.Projections.Cassandra.Integration.Tests;
@@ -15,11 +14,9 @@ public class CassandraProjectionPartitionsStoreTests
     {
         var cassandra = new CassandraFixture();
         session = await cassandra.GetSessionAsync();
+        partitionsStore = new CassandraProjectionPartitionsStore(cassandra, NullLogger<CassandraProjectionPartitionsStore>.Instance);
 
-        var nullLoggerFactory = new NullLoggerFactory();
-        partitionsStore = new CassandraProjectionPartitionsStore(cassandra, nullLoggerFactory.CreateLogger<CassandraProjectionPartitionsStore>());
-
-        var partitionStoreSchema = new CassandraProjectionPartitionStoreSchema(cassandra, nullLoggerFactory.CreateLogger<CassandraProjectionPartitionStoreSchema>());
+        var partitionStoreSchema = new CassandraProjectionPartitionStoreSchema(cassandra, NullLogger<CassandraProjectionPartitionStoreSchema>.Instance);
         await partitionStoreSchema.CreateProjectionPartitionsStorage();
     }
 

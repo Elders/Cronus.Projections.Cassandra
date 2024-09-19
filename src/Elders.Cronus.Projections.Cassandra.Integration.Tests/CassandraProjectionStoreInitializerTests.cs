@@ -2,7 +2,6 @@
 using System.Text;
 using Cassandra;
 using Elders.Cronus.EventStore;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json;
 
@@ -23,10 +22,9 @@ public class CassandraProjectionStoreInitializerTests
         session = await cassandra.GetSessionAsync();
         cluster = await cassandra.GetClusterAsync();
         naming = new VersionedProjectionsNaming();
-        var nullLoggerFactory = new NullLoggerFactory();
-        var projectionStore = new CassandraProjectionStoreSchema(cassandra, nullLoggerFactory.CreateLogger<CassandraProjectionStoreSchema>());
-        var partitionSchema = new CassandraProjectionPartitionStoreSchema(cassandra, nullLoggerFactory.CreateLogger<CassandraProjectionPartitionStoreSchema>());
-        var projectionStoreNew = new CassandraProjectionStoreSchemaNew(cassandra, nullLoggerFactory.CreateLogger<CassandraProjectionStoreSchemaNew>());
+        var projectionStore = new CassandraProjectionStoreSchema(cassandra, NullLogger<CassandraProjectionStoreSchema>.Instance);
+        var partitionSchema = new CassandraProjectionPartitionStoreSchema(cassandra, NullLogger<CassandraProjectionPartitionStoreSchema>.Instance);
+        var projectionStoreNew = new CassandraProjectionStoreSchemaNew(cassandra, NullLogger<CassandraProjectionStoreSchemaNew>.Instance);
         initializer = new CassandraProjectionStoreInitializer(projectionStore, partitionSchema, naming, projectionStoreNew);
     }
 
@@ -62,15 +60,14 @@ public class CassandraProjectionStoreNewTests
     {
         var cassandra = new CassandraFixture();
         session = await cassandra.GetSessionAsync();
-        var nullLoggerFactory = new NullLoggerFactory();
-        var partitionStore = new CassandraProjectionPartitionsStore(cassandra, nullLoggerFactory.CreateLogger<CassandraProjectionPartitionsStore>());
+        var partitionStore = new CassandraProjectionPartitionsStore(cassandra, NullLogger<CassandraProjectionPartitionsStore>.Instance);
         serializer = new SerializerMock();
         naming = new VersionedProjectionsNaming();
-        projectionStore = new CassandraProjectionStoreNew(cassandra, partitionStore, serializer, naming, nullLoggerFactory.CreateLogger<CassandraProjectionStoreNew>());
+        projectionStore = new CassandraProjectionStoreNew(cassandra, partitionStore, serializer, naming, NullLogger<CassandraProjectionStoreNew>.Instance);
 
-        var projectionStoreSchema = new CassandraProjectionStoreSchema(cassandra, nullLoggerFactory.CreateLogger<CassandraProjectionStoreSchema>());
-        var partitionSchema = new CassandraProjectionPartitionStoreSchema(cassandra, nullLoggerFactory.CreateLogger<CassandraProjectionPartitionStoreSchema>());
-        var projectionStoreNew = new CassandraProjectionStoreSchemaNew(cassandra, nullLoggerFactory.CreateLogger<CassandraProjectionStoreSchemaNew>());
+        var projectionStoreSchema = new CassandraProjectionStoreSchema(cassandra, NullLogger<CassandraProjectionStoreSchema>.Instance);
+        var partitionSchema = new CassandraProjectionPartitionStoreSchema(cassandra, NullLogger<CassandraProjectionPartitionStoreSchema>.Instance);
+        var projectionStoreNew = new CassandraProjectionStoreSchemaNew(cassandra, NullLogger<CassandraProjectionStoreSchemaNew>.Instance);
         var initializer = new CassandraProjectionStoreInitializer(projectionStoreSchema, partitionSchema, naming, projectionStoreNew);
         version = new ProjectionVersion("proj", ProjectionStatus.Live, 1, "hash");
 
