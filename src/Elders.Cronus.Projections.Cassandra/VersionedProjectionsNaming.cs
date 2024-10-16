@@ -1,26 +1,19 @@
-﻿using Newtonsoft.Json.Linq;
-using System;
-using System.Reflection;
-using System.Runtime.InteropServices.Marshalling;
+﻿using System;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
-    public static class Neshto
-    {
-
-    }
     public class VersionedProjectionsNaming
     {
         private static readonly char Dash = '-';
 
-        public ReadOnlySpan<char> GetColumnFamily(ProjectionVersion version) // for old projection tables
+        public string GetColumnFamily(ProjectionVersion version) // for old projection tables
         {
             return $"{VersionPart(version)}";
         }
 
-        public ReadOnlySpan<char> GetColumnFamilyNew(ProjectionVersion version) // for tables with new partitionId
+        public string GetColumnFamilyNew(ProjectionVersion version) // for tables with new partitionId
         {
-            return $"{VersionPart(version)}_new"; // v11
+            return $"{VersionPart(version)}_new"; // TODO: v11
         }
 
         public ProjectionVersion Parse(string columnFamily)
@@ -34,32 +27,6 @@ namespace Elders.Cronus.Projections.Cassandra
 
             return new ProjectionVersion(parts[0], ProjectionStatus.Create("unknown"), revision, parts[2]);
         }
-
-        //string NormalizeProjectionName(ReadOnlySpan<char> projectionName)
-        //{
-        //    Span<char> result = stackalloc char[projectionName.Length];
-
-        //    int theIndex = 0;
-        //    for (int i = 0; i < projectionName.Length; i++)
-        //    {
-        //        char character = projectionName[i];
-
-        //        if (character.Equals(Dash))
-        //            continue;
-
-        //        if (char.IsUpper(character))
-        //        {
-        //            result[theIndex] = char.ToLower(character);
-        //        }
-        //        else
-        //        {
-        //            result[theIndex] = character;
-        //        }
-        //        theIndex++;
-        //    }
-
-        //    return result;
-        //}
 
         string VersionPart(ProjectionVersion version)
         {
@@ -84,9 +51,8 @@ namespace Elders.Cronus.Projections.Cassandra
                 }
                 theIndex++;
             }
-            //ReadOnlySpan<char> normalizedName = NormalizeProjectionName(version.ProjectionName);
-            ReadOnlySpan<char> constructed = $"{result}_{version.Revision}_{version.Hash}";
-
+            Span<char> trimmed = result.Slice(0, theIndex);
+            ReadOnlySpan<char> constructed = $"{trimmed}_{version.Revision}_{version.Hash}";
             return constructed.ToString();
         }
     }
