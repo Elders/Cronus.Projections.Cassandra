@@ -1,17 +1,26 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using System;
+using System.Reflection;
+using System.Runtime.InteropServices.Marshalling;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
+    public static class Neshto
+    {
+
+    }
     public class VersionedProjectionsNaming
     {
-        public string GetColumnFamily(ProjectionVersion version) // for old projection tables
+        private static readonly char Dash = '-';
+
+        public ReadOnlySpan<char> GetColumnFamily(ProjectionVersion version) // for old projection tables
         {
             return $"{VersionPart(version)}";
         }
 
-        public string GetColumnFamilyNew(ProjectionVersion version) // for tables with new partitionId
+        public ReadOnlySpan<char> GetColumnFamilyNew(ProjectionVersion version) // for tables with new partitionId
         {
-            return $"{VersionPart(version)}_new";
+            return $"{VersionPart(version)}_new"; // v11
         }
 
         public ProjectionVersion Parse(string columnFamily)
@@ -26,14 +35,59 @@ namespace Elders.Cronus.Projections.Cassandra
             return new ProjectionVersion(parts[0], ProjectionStatus.Create("unknown"), revision, parts[2]);
         }
 
-        internal string NormalizeProjectionName(string projectionName)
-        {
-            return projectionName.Replace("-", "").ToLower();
-        }
+        //string NormalizeProjectionName(ReadOnlySpan<char> projectionName)
+        //{
+        //    Span<char> result = stackalloc char[projectionName.Length];
+
+        //    int theIndex = 0;
+        //    for (int i = 0; i < projectionName.Length; i++)
+        //    {
+        //        char character = projectionName[i];
+
+        //        if (character.Equals(Dash))
+        //            continue;
+
+        //        if (char.IsUpper(character))
+        //        {
+        //            result[theIndex] = char.ToLower(character);
+        //        }
+        //        else
+        //        {
+        //            result[theIndex] = character;
+        //        }
+        //        theIndex++;
+        //    }
+
+        //    return result;
+        //}
 
         string VersionPart(ProjectionVersion version)
         {
-            return $"{NormalizeProjectionName(version.ProjectionName)}_{version.Revision}_{version.Hash}";
+            string projectionName = version.ProjectionName;
+            Span<char> result = stackalloc char[projectionName.Length];
+
+            int theIndex = 0;
+            for (int i = 0; i < projectionName.Length; i++)
+            {
+                char character = projectionName[i];
+
+                if (character.Equals(Dash))
+                    continue;
+
+                if (char.IsUpper(character))
+                {
+                    result[theIndex] = char.ToLower(character);
+                }
+                else
+                {
+                    result[theIndex] = character;
+                }
+                theIndex++;
+            }
+            //ReadOnlySpan<char> normalizedName = NormalizeProjectionName(version.ProjectionName);
+            ReadOnlySpan<char> constructed = $"{result}_{version.Revision}_{version.Hash}";
+
+            return constructed.ToString();
         }
     }
 }
