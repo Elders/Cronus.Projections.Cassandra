@@ -217,7 +217,7 @@ namespace Elders.Cronus.Projections.Cassandra
             if (allPartitions.Count == 0)
                 return result;
 
-            List<IComparable<long>> partitionsToStartLoadingFrom = allPartitions;
+            IEnumerable<IComparable<long>> partitionsToStartLoadingFrom = allPartitions;
             byte[] cassandraPagingToken = null;
 
             if (options.PagingOptions.PaginationToken is not null)
@@ -226,21 +226,19 @@ namespace Elders.Cronus.Projections.Cassandra
                 cassandraPagingToken = pagedToken.CassandraToken;
 
                 if (options.PagingOptions.Order.Equals(Order.Ascending))
-                    partitionsToStartLoadingFrom = allPartitions.Where(x => (long)x >= pagedToken.PartitionId).ToList();
+                    partitionsToStartLoadingFrom = allPartitions.Where(x => (long)x >= pagedToken.PartitionId); // example: e1p1 e2p2 e3p3 e4p4; loaded 1 and 2; partitions -> 3 and 4 in that order; (e1p1 means event 1 partition 1)
                 else
-                    partitionsToStartLoadingFrom = allPartitions.Where(x => (long)x >= pagedToken.PartitionId).OrderByDescending(x => x).ToList();
+                    partitionsToStartLoadingFrom = allPartitions.Where(x => (long)x <= pagedToken.PartitionId).OrderByDescending(x=>x); // example: e1p1 e2p2 e3p3 e4p4; loaded 4 and 3; pid left -> 2 and 1 in that order;  
             }
             else
             {
                 if (options.PagingOptions.Order.Equals(Order.Descending))
-                    partitionsToStartLoadingFrom = allPartitions.OrderByDescending(x => x).ToList();
+                    partitionsToStartLoadingFrom = allPartitions.OrderByDescending(x => x);
             }
 
             int leftToLoad = options.BatchSize;
-            for (int i = 0; i < partitionsToStartLoadingFrom.Count; i++)
+            foreach (var currentPartition in partitionsToStartLoadingFrom)
             {
-                var currentPartition = partitionsToStartLoadingFrom[i];
-
                 var pagedLoadResult = await LoadProjectionPartitionWithPagingAsync(options.Version, options.PagingOptions.Order, currentPartition, options.Id, cassandraPagingToken, leftToLoad).ConfigureAwait(false);
 
                 result.Events.AddRange(pagedLoadResult.Events);
@@ -261,7 +259,7 @@ namespace Elders.Cronus.Projections.Cassandra
         /// Load the event stream of events as of the provided date. The events are ordered.
         /// </summary>
         /// <param name="options"></param>
-        /// <returns>The unordered events as of some point in time</returns>
+        /// <returns>The ordered events as of some point in time</returns>
         private async Task<ProjectionStream> EnumerateAsOfDateInternalAsync(ProjectionQueryOptions options)
         {
             string columnFamily = naming.GetColumnFamilyNew(options.Version);
@@ -277,22 +275,30 @@ namespace Elders.Cronus.Projections.Cassandra
 
             while (true)
             {
-                var partitionBatch = partitions.Skip(skip).Take(AsOfBatchTasks).ToList();
-                if (partitionBatch.Count == 0)
+                IEnumerable<IComparable<long>> partitionBatch = partitions.Skip(skip).Take(AsOfBatchTasks);
+                int partitionBatchCount = partitionBatch.Count(); // this is okay because the underline collection here is a list
+
+                if (partitionBatchCount == 0)
                     break;
 
-                skip += partitionBatch.Count;
+                skip += partitionBatchCount;
 
                 List<IEvent> batchResult = await LoadProjectionBatchAsOfAsync(partitionBatch, options).ConfigureAwait(false);
-                eventsLoaded.AddRange(batchResult);
 
-                var orderedEvents = eventsLoaded.OrderBy(x => x.Timestamp).Where(x => x.Timestamp <= options.AsOf.Value).ToList(); // since we load in batches we dont know if we have loaded more events than necessary
-                if (eventsLoaded.Count != orderedEvents.Count)
+                IEnumerable<IEvent> eventsPastTheAsOfDate = eventsLoaded.OrderBy(x => x.Timestamp).Where(x => x.Timestamp > options.AsOf.Value);
+                if (eventsPastTheAsOfDate.Any())
                 {
-                    eventsLoaded = orderedEvents;
+                    var applicableEvents = eventsLoaded.OrderBy(x => x.Timestamp).Where(x => x.Timestamp <= options.AsOf.Value);
+                    eventsLoaded.AddRange(applicableEvents);
+
                     break;
                 }
+                else
+                {
+                    eventsLoaded.AddRange(batchResult);
+                }
             }
+
             ProjectionStream stream = new ProjectionStream(options.Version, options.Id, eventsLoaded);
             return stream;
         }

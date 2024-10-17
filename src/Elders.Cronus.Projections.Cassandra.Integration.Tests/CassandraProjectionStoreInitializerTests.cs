@@ -103,6 +103,175 @@ public class CassandraProjectionStoreNewTests
     }
 
     [Test]
+    public async Task EnumerateProjectionsAsOfDateAsync()
+    {
+        DateTimeOffset timestamp = DateTimeOffset.UtcNow.AddDays(32);
+
+        var projectionId = TestId.New();
+        var @event1 = new TestEvent(projectionId,DateTimeOffset.UtcNow);
+        var commit1 = new ProjectionCommit(projectionId, version, @event1);
+        await projectionStore.SaveAsync(commit1);
+
+        var @event2 = new TestEvent(projectionId,DateTimeOffset.UtcNow.AddDays(20));
+        var commit2 = new ProjectionCommit(projectionId, version, @event2);
+        await projectionStore.SaveAsync(commit2);
+
+        var @event3 = new TestEvent(projectionId, timestamp);
+        var commit3 = new ProjectionCommit(projectionId, version, @event3);
+        await projectionStore.SaveAsync(commit3);
+
+        var @event4 = new TestEvent(projectionId, DateTimeOffset.UtcNow.AddMonths(2));
+        var commit4 = new ProjectionCommit(projectionId, version, @event4);
+        await projectionStore.SaveAsync(commit4);
+
+        var eventsInStream = 0;
+        DateTimeOffset timestampOfLastLoadedEvent = DateTimeOffset.UtcNow;
+
+        await projectionStore.EnumerateProjectionsAsync(new ProjectionsOperator
+        {
+            OnProjectionStreamLoadedAsync = stream =>
+            {
+                eventsInStream = stream.Count();
+                timestampOfLastLoadedEvent = stream.Last().Timestamp;
+
+                return Task.CompletedTask;
+            }
+        }, new ProjectionQueryOptions(projectionId, version, DateTimeOffset.UtcNow.AddDays(33)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(eventsInStream, Is.EqualTo(3));
+            Assert.That(timestampOfLastLoadedEvent, Is.EqualTo(timestamp));
+        });
+    }
+
+    [Test]
+    public async Task EnumerateProjectionsWithPaging()
+    {
+        DateTimeOffset timestamp = DateTimeOffset.UtcNow.AddMonths(2);
+
+        var projectionId = TestId.New();
+        var @event1 = new TestEvent(projectionId, DateTimeOffset.UtcNow);
+        var commit1 = new ProjectionCommit(projectionId, version, @event1);
+        await projectionStore.SaveAsync(commit1);
+
+        var @event2 = new TestEvent(projectionId, DateTimeOffset.UtcNow.AddDays(20));
+        var commit2 = new ProjectionCommit(projectionId, version, @event2);
+        await projectionStore.SaveAsync(commit2);
+
+        var @event3 = new TestEvent(projectionId, DateTimeOffset.UtcNow.AddMonths(1).AddDays(2));
+        var commit3 = new ProjectionCommit(projectionId, version, @event3);
+        await projectionStore.SaveAsync(commit3);
+
+        var @event4 = new TestEvent(projectionId, timestamp);
+        var commit4 = new ProjectionCommit(projectionId, version, @event4);
+        await projectionStore.SaveAsync(commit4);
+
+        int numberOfEventsFirstLoad = 0;
+        int numberOfEventsSecondLoad = 0;
+
+        byte[] firstPagingToken = null;
+        byte[] secondPagingToken = null;
+
+        DateTimeOffset lastEventTimestamp = default;
+
+        await projectionStore.EnumerateProjectionsAsync(new ProjectionsOperator
+        {
+            OnProjectionStreamLoadedWithPagingAsync = (stream, options) =>
+            {
+                numberOfEventsFirstLoad = stream.Count();
+                firstPagingToken = options.PaginationToken;
+                return Task.CompletedTask;
+            }
+        }, new ProjectionQueryOptions(projectionId, version, new PagingOptions(3, null, Order.Ascending))); // first load
+
+        await projectionStore.EnumerateProjectionsAsync(new ProjectionsOperator
+        {
+            OnProjectionStreamLoadedWithPagingAsync = (stream, options) =>
+            {
+                numberOfEventsSecondLoad = stream.Count();
+                secondPagingToken = options.PaginationToken;
+                lastEventTimestamp = stream.Last().Timestamp;
+
+                return Task.CompletedTask;
+            }
+        }, new ProjectionQueryOptions(projectionId, version, new PagingOptions(2, firstPagingToken, Order.Ascending))); // second load with token
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(numberOfEventsFirstLoad, Is.EqualTo(3));
+            Assert.That(numberOfEventsSecondLoad, Is.EqualTo(1));
+            Assert.That(lastEventTimestamp, Is.EqualTo(timestamp));
+
+            Assert.That(firstPagingToken, Is.Not.Null);
+            Assert.That(secondPagingToken, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task EnumerateProjectionsWithPagingDescending()
+    {
+        DateTimeOffset timestamp = DateTimeOffset.UtcNow;
+
+        var projectionId = TestId.New();
+        var @event1 = new TestEvent(projectionId, timestamp);
+        var commit1 = new ProjectionCommit(projectionId, version, @event1);
+        await projectionStore.SaveAsync(commit1);
+
+        var @event2 = new TestEvent(projectionId, DateTimeOffset.UtcNow.AddDays(20));
+        var commit2 = new ProjectionCommit(projectionId, version, @event2);
+        await projectionStore.SaveAsync(commit2);
+
+        var @event3 = new TestEvent(projectionId, DateTimeOffset.UtcNow.AddMonths(1).AddDays(2));
+        var commit3 = new ProjectionCommit(projectionId, version, @event3);
+        await projectionStore.SaveAsync(commit3);
+
+        var @event4 = new TestEvent(projectionId, DateTimeOffset.UtcNow.AddMonths(2));
+        var commit4 = new ProjectionCommit(projectionId, version, @event4);
+        await projectionStore.SaveAsync(commit4);
+
+        int numberOfEventsFirstLoad = 0;
+        int numberOfEventsSecondLoad = 0;
+
+        byte[] firstPagingToken = null;
+        byte[] secondPagingToken = null;
+
+        DateTimeOffset lastEventTimestamp = default;
+
+        await projectionStore.EnumerateProjectionsAsync(new ProjectionsOperator
+        {
+            OnProjectionStreamLoadedWithPagingAsync = (stream, options) =>
+            {
+                numberOfEventsFirstLoad = stream.Count();
+                firstPagingToken = options.PaginationToken;
+                return Task.CompletedTask;
+            }
+        }, new ProjectionQueryOptions(projectionId, version, new PagingOptions(2, null, Order.Descending))); // first load
+
+        await projectionStore.EnumerateProjectionsAsync(new ProjectionsOperator
+        {
+            OnProjectionStreamLoadedWithPagingAsync = (stream, options) =>
+            {
+                numberOfEventsSecondLoad = stream.Count();
+                secondPagingToken = options.PaginationToken;
+                lastEventTimestamp = stream.Last().Timestamp;
+
+                return Task.CompletedTask;
+            }
+        }, new ProjectionQueryOptions(projectionId, version, new PagingOptions(3, firstPagingToken, Order.Descending))); // second load with token
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(numberOfEventsFirstLoad, Is.EqualTo(2));
+            Assert.That(numberOfEventsSecondLoad, Is.EqualTo(2));
+            Assert.That(lastEventTimestamp, Is.EqualTo(timestamp));
+
+            Assert.That(firstPagingToken, Is.Not.Null);
+            Assert.That(secondPagingToken, Is.Null);
+        });
+    }
+
+    [Test]
     public async Task EnumerateProjectionsAsync()
     {
         var projectionId = TestId.New();
