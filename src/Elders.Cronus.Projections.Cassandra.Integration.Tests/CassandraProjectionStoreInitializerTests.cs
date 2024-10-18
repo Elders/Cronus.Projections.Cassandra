@@ -105,27 +105,32 @@ public class CassandraProjectionStoreNewTests
     [Test]
     public async Task EnumerateProjectionsAsOfDateAsync()
     {
-        DateTimeOffset timestamp = DateTimeOffset.UtcNow.AddDays(32);
+        DateTimeOffset timestamp1 = new DateTimeOffset(2023, 10, 18, 0, 0, 0, TimeSpan.Zero);
+        DateTimeOffset timestamp2 = new DateTimeOffset(2023, 11, 18, 0, 0, 0, TimeSpan.Zero);
+        DateTimeOffset timestamp3 = new DateTimeOffset(2023, 11, 20, 0, 0, 0, TimeSpan.Zero);
+        DateTimeOffset timestamp4 = new DateTimeOffset(2023, 12, 10, 0, 0, 0, TimeSpan.Zero);
+
+        DateTimeOffset asOfTimestamp = new DateTimeOffset(2023, 11, 22, 0, 0, 0, TimeSpan.Zero);
 
         var projectionId = TestId.New();
-        var @event1 = new TestEvent(projectionId,DateTimeOffset.UtcNow);
+        var @event1 = new TestEvent(projectionId, timestamp1);
         var commit1 = new ProjectionCommit(projectionId, version, @event1);
         await projectionStore.SaveAsync(commit1);
 
-        var @event2 = new TestEvent(projectionId,DateTimeOffset.UtcNow.AddDays(20));
+        var @event2 = new TestEvent(projectionId, timestamp2);
         var commit2 = new ProjectionCommit(projectionId, version, @event2);
         await projectionStore.SaveAsync(commit2);
 
-        var @event3 = new TestEvent(projectionId, timestamp);
+        var @event3 = new TestEvent(projectionId, timestamp3);
         var commit3 = new ProjectionCommit(projectionId, version, @event3);
         await projectionStore.SaveAsync(commit3);
 
-        var @event4 = new TestEvent(projectionId, DateTimeOffset.UtcNow.AddMonths(2));
+        var @event4 = new TestEvent(projectionId, timestamp4);
         var commit4 = new ProjectionCommit(projectionId, version, @event4);
         await projectionStore.SaveAsync(commit4);
 
         var eventsInStream = 0;
-        DateTimeOffset timestampOfLastLoadedEvent = DateTimeOffset.UtcNow;
+        DateTimeOffset timestampOfLastLoadedEvent = DateTimeOffset.MinValue;
 
         await projectionStore.EnumerateProjectionsAsync(new ProjectionsOperator
         {
@@ -136,12 +141,12 @@ public class CassandraProjectionStoreNewTests
 
                 return Task.CompletedTask;
             }
-        }, new ProjectionQueryOptions(projectionId, version, DateTimeOffset.UtcNow.AddDays(33)));
+        }, new ProjectionQueryOptions(projectionId, version, asOfTimestamp));
 
         Assert.Multiple(() =>
         {
             Assert.That(eventsInStream, Is.EqualTo(3));
-            Assert.That(timestampOfLastLoadedEvent, Is.EqualTo(timestamp));
+            Assert.That(timestampOfLastLoadedEvent, Is.EqualTo(timestamp3));
         });
     }
 
