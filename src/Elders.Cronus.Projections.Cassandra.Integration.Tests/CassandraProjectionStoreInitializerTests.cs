@@ -109,7 +109,6 @@ public class CassandraProjectionStoreNewTests
         DateTimeOffset timestamp2 = new DateTimeOffset(2023, 11, 18, 0, 0, 0, TimeSpan.Zero);
         DateTimeOffset timestamp3 = new DateTimeOffset(2023, 11, 20, 0, 0, 0, TimeSpan.Zero);
         DateTimeOffset timestamp4 = new DateTimeOffset(2023, 12, 10, 0, 0, 0, TimeSpan.Zero);
-
         DateTimeOffset asOfTimestamp = new DateTimeOffset(2023, 11, 22, 0, 0, 0, TimeSpan.Zero);
 
         var projectionId = TestId.New();
