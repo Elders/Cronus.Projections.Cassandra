@@ -256,10 +256,10 @@ namespace Elders.Cronus.Projections.Cassandra
         }
 
         /// <summary>
-        /// Load the event stream of events as of the provided date. The events are ordered.
+        /// Load the event stream of events as of the provided date. The events are unordered.
         /// </summary>
         /// <param name="options"></param>
-        /// <returns>The ordered events as of some point in time</returns>
+        /// <returns>The unordered events as of some point in time</returns>
         private async Task<ProjectionStream> EnumerateAsOfDateInternalAsync(ProjectionQueryOptions options)
         {
             string columnFamily = naming.GetColumnFamilyNew(options.Version);
@@ -285,10 +285,10 @@ namespace Elders.Cronus.Projections.Cassandra
 
                 List<IEvent> batchResult = await LoadProjectionBatchAsOfAsync(partitionBatch, options).ConfigureAwait(false);
 
-                IEnumerable<IEvent> eventsPastTheAsOfDate = eventsLoaded.OrderBy(x => x.Timestamp).Where(x => x.Timestamp > options.AsOf.Value);
+                IEnumerable<IEvent> eventsPastTheAsOfDate = eventsLoaded.Where(x => x.Timestamp > options.AsOf.Value);
                 if (eventsPastTheAsOfDate.Any())
                 {
-                    var applicableEvents = eventsLoaded.OrderBy(x => x.Timestamp).Where(x => x.Timestamp <= options.AsOf.Value);
+                    var applicableEvents = eventsLoaded.Where(x => x.Timestamp <= options.AsOf.Value);
                     eventsLoaded.AddRange(applicableEvents);
 
                     break;

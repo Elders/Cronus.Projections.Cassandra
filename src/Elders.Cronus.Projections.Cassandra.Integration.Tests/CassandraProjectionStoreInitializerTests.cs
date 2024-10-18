@@ -109,6 +109,7 @@ public class CassandraProjectionStoreNewTests
         DateTimeOffset timestamp2 = new DateTimeOffset(2023, 11, 18, 0, 0, 0, TimeSpan.Zero);
         DateTimeOffset timestamp3 = new DateTimeOffset(2023, 11, 20, 0, 0, 0, TimeSpan.Zero);
         DateTimeOffset timestamp4 = new DateTimeOffset(2023, 12, 10, 0, 0, 0, TimeSpan.Zero);
+
         DateTimeOffset asOfTimestamp = new DateTimeOffset(2023, 11, 22, 0, 0, 0, TimeSpan.Zero);
 
         var projectionId = TestId.New();
@@ -129,14 +130,12 @@ public class CassandraProjectionStoreNewTests
         await projectionStore.SaveAsync(commit4);
 
         var eventsInStream = 0;
-        DateTimeOffset timestampOfLastLoadedEvent = DateTimeOffset.MinValue;
 
         await projectionStore.EnumerateProjectionsAsync(new ProjectionsOperator
         {
             OnProjectionStreamLoadedAsync = stream =>
             {
                 eventsInStream = stream.Count();
-                timestampOfLastLoadedEvent = stream.Last().Timestamp;
 
                 return Task.CompletedTask;
             }
@@ -145,7 +144,6 @@ public class CassandraProjectionStoreNewTests
         Assert.Multiple(() =>
         {
             Assert.That(eventsInStream, Is.EqualTo(3));
-            Assert.That(timestampOfLastLoadedEvent, Is.EqualTo(timestamp3));
         });
     }
 
