@@ -102,7 +102,8 @@ namespace Elders.Cronus.Projections.Cassandra
                 {
                     if (session is null || session.IsDisposed)
                     {
-                        logger.Info(() => "Refreshing cassandra session...");
+                        if (logger.IsEnabled(LogLevel.Information))
+                            logger.LogInformation("Refreshing cassandra session...");
                         try
                         {
                             ICluster cluster = await GetClusterAsync().ConfigureAwait(false);
