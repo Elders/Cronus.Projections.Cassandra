@@ -56,12 +56,15 @@ namespace Elders.Cronus.Projections.Cassandra
         public async Task CreateTableAsync(string location)
         {
             ISession session = await GetSessionAsync().ConfigureAwait(false);
-            logger.Debug(() => $"[Projections] Creating table `{location}` with `{session.Cluster.AllHosts().First().Address}`...");
+            if (logger.IsEnabled(LogLevel.Debug))
+                logger.LogDebug("[Projections] Creating table `{tableName}` with `{address}`...", location, session.Cluster.AllHosts().First().Address);
             string query = string.Format(CreateProjectionEventsTableTemplate, location);
             PreparedStatement statement = await session.PrepareAsync(query).ConfigureAwait(false);
             statement = statement.SetConsistencyLevel(ConsistencyLevel.All);
             await session.ExecuteAsync(statement.Bind()).ConfigureAwait(false);
-            logger.Debug(() => $"[Projections] Created table `{location}`... Maybe?!");
+
+            if (logger.IsEnabled(LogLevel.Debug))
+                logger.LogDebug("[Projections] Created table `{tableName}`... Maybe?!", location);
         }
 
         public async Task CreateProjectionsStorageAsync(string location)

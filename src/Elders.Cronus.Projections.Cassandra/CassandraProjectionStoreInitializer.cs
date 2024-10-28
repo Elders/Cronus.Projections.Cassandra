@@ -30,20 +30,25 @@ namespace Elders.Cronus.Projections.Cassandra
                 await partitionsSchema.CreateProjectionPartitionsStorage(); // partitions
 
                 string projectionColumnFamily = naming.GetColumnFamily(version);
-                logger.Debug(() => $"[Projection Store] Initializing projection store with column family `{projectionColumnFamily}`..."); // old store
+
+                if (logger.IsEnabled(LogLevel.Debug))
+                    logger.LogDebug("[Projection Store] Initializing projection store with column family `{projectionColumnFamily}`...", projectionColumnFamily); // old store
                 Task createProjectionStorageTask = projectionsSchemaLegacy.CreateProjectionsStorageAsync(projectionColumnFamily);
                 await createProjectionStorageTask.ConfigureAwait(false);
-                logger.Debug(() => $"[Projection Store] Initialized projection store with column family `{projectionColumnFamily}`");
+                if (logger.IsEnabled(LogLevel.Debug))
+                    logger.LogDebug("[Projection Store] Initialized projection store with column family `{projectionColumnFamily}`", projectionColumnFamily);
 
                 string projectionColumnFamilyNew = naming.GetColumnFamilyNew(version);
-                logger.Debug(() => $"[Projection Store] Initializing projection store with column family `{projectionColumnFamilyNew}`..."); // new store
+                if (logger.IsEnabled(LogLevel.Debug))
+                    logger.LogDebug("[Projection Store] Initializing projection store with column family `{projectionColumnFamilyNew}`...", projectionColumnFamilyNew); // new store
                 Task createProjectionStorageTaskNew = projectionsSchemaNew.CreateProjectionStorageNewAsync(projectionColumnFamilyNew);
                 await createProjectionStorageTaskNew.ConfigureAwait(false);
-                logger.Debug(() => $"[Projection Store] Initialized projection store with column family `{projectionColumnFamilyNew}`");
+                if (logger.IsEnabled(LogLevel.Debug))
+                    logger.LogDebug("[Projection Store] Initialized projection store with column family `{projectionColumnFamilyNew}`", projectionColumnFamilyNew);
 
                 return createProjectionStorageTask.IsCompletedSuccessfully && createProjectionStorageTaskNew.IsCompletedSuccessfully;
             }
-            catch (Exception ex) when (logger.ErrorException(ex, () => $"Failed to initialize projection version {version}"))
+            catch (Exception ex) when (True(() => logger.LogError(ex, "Failed to initialize projection version {version}", version)))
             {
                 return false;
             }
