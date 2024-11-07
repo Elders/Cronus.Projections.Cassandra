@@ -1,116 +1,244 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using Cassandra;
 using Elders.Cronus.Discoveries;
+using Elders.Cronus.EventStore;
+using Elders.Cronus.MessageProcessing;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
+using Elders.Cronus.Projections.Versioning;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Elders.Cronus.Projections.Cassandra
+namespace Elders.Cronus.Projections.Cassandra;
+
+internal static class V11Only
 {
-    public class ProjectionLoaderDiscovery : DiscoveryBase<IProjectionReader>
+    /// <summary>
+    /// For v12 we will need an initializer which will be creating all tables with `new` and the other tables have to be manually removed from the database (or some custom migration to take care about this task).
+    /// </summary>
+    /// <param name="services"></param>
+    /// <returns></returns>
+    internal static IServiceCollection AddProjectionStoreInitializers_v11(this IServiceCollection services)
     {
-        protected override DiscoveryResult<IProjectionReader> DiscoverFromAssemblies(DiscoveryContext context)
+        services.AddTransient<IProjectionVersionFinder, LatestVersionProjectionFinder>();
+        services.AddTransient<CassandraProjectionStoreInitializer>();
+        services.AddTransient<CassandraProjectionStoreInitializerNew>();
+        services.AddTenantSingleton<IInitializableProjectionStore, CassandraProjectionStoreInitializerNew>();
+
+        return services;
+    }
+}
+
+public class ProjectionLoaderDiscovery : DiscoveryBase<IProjectionReader>
+{
+    protected override DiscoveryResult<IProjectionReader> DiscoverFromAssemblies(DiscoveryContext context)
+    {
+        return new DiscoveryResult<IProjectionReader>(GetModels(context), services => services
+                                                                                            .AddProjectionStoreInitializers_v11()
+                                                                                            .AddOptions<CassandraProviderOptions, CassandraProviderOptionsProvider>()
+                                                                                            .AddOptions<TableRetentionOptions, TableRetentionOptionsProvider>());
+    }
+
+    IEnumerable<DiscoveredModel> GetModels(DiscoveryContext context)
+    {
+        // settings
+        var cassandraSettings = context.FindService<ICassandraProjectionStoreSettings>();
+        foreach (Type setting in cassandraSettings)
         {
-            return new DiscoveryResult<IProjectionReader>(GetModels(context), services => services.AddOptions<CassandraProviderOptions, CassandraProviderOptionsProvider>()
-                                                                                                  .AddOptions<TableRetentionOptions, TableRetentionOptionsProvider>());
+            yield return new DiscoveredModel(setting, setting, ServiceLifetime.Transient);
         }
 
-        IEnumerable<DiscoveredModel> GetModels(DiscoveryContext context)
+        // schema
+        // Right now the 3 lines bellow are replaced with AddProjectionStoreInitializers_v11 but only for v11 version. For the next we need to think a bit more what to do and inject.
+        // Note the following line there services.AddTransient<IProjectionVersionFinder, LatestVersionProjectionFinder>();
+        //yield return new DiscoveredModel(typeof(CassandraProjectionStoreInitializer), typeof(CassandraProjectionStoreInitializer), ServiceLifetime.Transient) { CanOverrideDefaults = true };
+        //yield return new DiscoveredModel(typeof(KaliProjectionStoreInitializer), typeof(KaliProjectionStoreInitializer), ServiceLifetime.Transient) { CanOverrideDefaults = true };
+        //yield return new DiscoveredModel(typeof(IInitializableProjectionStore), provider => provider.GetRequiredService<SingletonPerTenant<KaliProjectionStoreInitializer>>().Get(), ServiceLifetime.Transient); // 
+
+        yield return new DiscoveredModel(typeof(CassandraProjectionStoreSchema), typeof(CassandraProjectionStoreSchema), ServiceLifetime.Transient);
+        yield return new DiscoveredModel(typeof(IProjectionStoreStorageManager), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionStoreSchema>>().Get(), ServiceLifetime.Transient);
+
+        yield return new DiscoveredModel(typeof(CassandraProjectionPartitionStoreSchema), typeof(CassandraProjectionPartitionStoreSchema), ServiceLifetime.Transient);
+        yield return new DiscoveredModel(typeof(ICassandraProjectionPartitionStoreSchema), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionPartitionStoreSchema>>().Get(), ServiceLifetime.Transient);
+
+        yield return new DiscoveredModel(typeof(CassandraProjectionStoreSchemaNew), typeof(CassandraProjectionStoreSchemaNew), ServiceLifetime.Transient);
+        yield return new DiscoveredModel(typeof(ICassandraProjectionStoreSchemaNew), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionStoreSchemaNew>>().Get(), ServiceLifetime.Transient);
+
+        // cassandra
+        yield return new DiscoveredModel(typeof(CassandraProvider), typeof(CassandraProvider), ServiceLifetime.Transient);
+        yield return new DiscoveredModel(typeof(ICassandraProvider), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProvider>>().Get(), ServiceLifetime.Transient);
+
+        // projections
+        yield return new DiscoveredModel(typeof(IProjectionStore), provider => provider.GetRequiredService<SingletonPerTenant<CassandraMigrationStore>>().Get(), ServiceLifetime.Transient) { CanOverrideDefaults = true };
+        yield return new DiscoveredModel(typeof(CassandraMigrationStore), typeof(CassandraMigrationStore), ServiceLifetime.Transient);
+
+        // old store
+        yield return new DiscoveredModel(typeof(IProjectionStoreLegacy), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionStore>>().Get(), ServiceLifetime.Transient) { CanOverrideDefaults = true };
+        yield return new DiscoveredModel(typeof(CassandraProjectionStore), typeof(CassandraProjectionStore), ServiceLifetime.Transient);
+        yield return new DiscoveredModel(typeof(CassandraProjectionStore<>), typeof(CassandraProjectionStore<>), ServiceLifetime.Transient);
+
+        // new store
+        yield return new DiscoveredModel(typeof(IProjectionStoreNew), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionStoreNew>>().Get(), ServiceLifetime.Transient) { CanOverrideDefaults = true };
+        yield return new DiscoveredModel(typeof(CassandraProjectionStoreNew), typeof(CassandraProjectionStoreNew), ServiceLifetime.Transient);
+        yield return new DiscoveredModel(typeof(CassandraProjectionStoreNew<>), typeof(CassandraProjectionStoreNew<>), ServiceLifetime.Transient);
+
+        // partitions store
+        yield return new DiscoveredModel(typeof(IProjectionPartionsStore), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionPartitionsStore>>().Get(), ServiceLifetime.Transient) { CanOverrideDefaults = true };
+        yield return new DiscoveredModel(typeof(CassandraProjectionPartitionsStore), typeof(CassandraProjectionPartitionsStore), ServiceLifetime.Transient);
+
+        // naming
+        yield return new DiscoveredModel(typeof(IKeyspaceNamingStrategy), typeof(KeyspacePerTenantKeyspace), ServiceLifetime.Singleton);
+        yield return new DiscoveredModel(typeof(NoKeyspaceNamingStrategy), typeof(NoKeyspaceNamingStrategy), ServiceLifetime.Singleton);
+        yield return new DiscoveredModel(typeof(KeyspacePerTenantKeyspace), typeof(KeyspacePerTenantKeyspace), ServiceLifetime.Singleton);
+
+        var projectionTypes = context.FindService<IProjectionDefinition>().ToList();
+        yield return new DiscoveredModel(typeof(ProjectionsProvider), provider => new ProjectionsProvider(projectionTypes), ServiceLifetime.Singleton);
+
+        yield return new DiscoveredModel(typeof(CassandraReplicationStrategyFactory), typeof(CassandraReplicationStrategyFactory), ServiceLifetime.Singleton);
+        yield return new DiscoveredModel(typeof(ICassandraReplicationStrategy), provider => provider.GetRequiredService<CassandraReplicationStrategyFactory>().GetReplicationStrategy(), ServiceLifetime.Transient);
+
+        yield return new DiscoveredModel(typeof(VersionedProjectionsNaming), typeof(VersionedProjectionsNaming), ServiceLifetime.Singleton);
+
+
+        //yield return new DiscoveredModel(typeof(InMemoryProjectionVersionStore), typeof(InMemoryProjectionVersionStore), ServiceLifetime.Singleton);
+
+        //yield return new DiscoveredModel(typeof(IProjectionTableRetentionStrategy), typeof(RetainOldProjectionRevisions), ServiceLifetime.Transient);
+        //yield return new DiscoveredModel(typeof(RetainOldProjectionRevisions), typeof(RetainOldProjectionRevisions), ServiceLifetime.Transient);
+
+
+    }
+}
+
+class CassandraReplicationStrategyFactory
+{
+    private readonly CassandraProviderOptions options;
+
+    public CassandraReplicationStrategyFactory(IOptionsMonitor<CassandraProviderOptions> optionsMonitor)
+    {
+        this.options = optionsMonitor.CurrentValue;
+    }
+
+    internal ICassandraReplicationStrategy GetReplicationStrategy()
+    {
+        ICassandraReplicationStrategy replicationStrategy = null;
+        if (options.ReplicationStrategy.Equals("simple", StringComparison.OrdinalIgnoreCase))
         {
-            // settings
-            var cassandraSettings = context.FindService<ICassandraProjectionStoreSettings>();
-            foreach (Type setting in cassandraSettings)
+            replicationStrategy = new SimpleReplicationStrategy(options.ReplicationFactor);
+        }
+        else if (options.ReplicationStrategy.Equals("network_topology", StringComparison.OrdinalIgnoreCase))
+        {
+            var settings = new List<NetworkTopologyReplicationStrategy.DataCenterSettings>();
+            foreach (var datacenter in options.Datacenters)
             {
-                yield return new DiscoveredModel(setting, setting, ServiceLifetime.Transient);
+                var setting = new NetworkTopologyReplicationStrategy.DataCenterSettings(datacenter, options.ReplicationFactor);
+                settings.Add(setting);
             }
+            replicationStrategy = new NetworkTopologyReplicationStrategy(settings);
+        }
 
-            // schema
-            yield return new DiscoveredModel(typeof(CassandraProjectionStoreInitializer), typeof(CassandraProjectionStoreInitializer), ServiceLifetime.Transient) { CanOverrideDefaults = true };
-            yield return new DiscoveredModel(typeof(IInitializableProjectionStore), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionStoreInitializer>>().Get(), ServiceLifetime.Transient);
+        return replicationStrategy;
+    }
+}
 
-            yield return new DiscoveredModel(typeof(CassandraProjectionStoreSchema), typeof(CassandraProjectionStoreSchema), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(IProjectionStoreStorageManager), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionStoreSchema>>().Get(), ServiceLifetime.Transient);
+/// <summary>
+/// Use this class ONLY for version v11 for cronus. Remove this later when we dont use the legacy tables. USE <see cref="ProjectionFinderViaReflection"/> instead
+/// We put this because we need to ensure that we have the _new table with the latest live revision (we always append in both projection tables)
+/// Otherwise if we have latest live version 6 , until we go manually to rebuild the projection the only _new table for this projection will be the initial `1`
+/// </summary>
+internal class LatestVersionProjectionFinder : IProjectionVersionFinder
+{
+    private const char Dash = '-';
 
-            yield return new DiscoveredModel(typeof(CassandraProjectionPartitionStoreSchema), typeof(CassandraProjectionPartitionStoreSchema), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(ICassandraProjectionPartitionStoreSchema), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionPartitionStoreSchema>>().Get(), ServiceLifetime.Transient);
+    private readonly TypeContainer<IProjection> _allProjections;
+    private readonly ProjectionHasher _hasher;
+    private readonly IProjectionStore _projectionStore;
+    private readonly ICronusContextAccessor _cronusContextAccessor;
+    private readonly ProjectionVersion _f1Live;
+    private readonly ILogger<LatestVersionProjectionFinder> _logger;
 
-            yield return new DiscoveredModel(typeof(CassandraProjectionStoreSchemaNew), typeof(CassandraProjectionStoreSchemaNew), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(ICassandraProjectionStoreSchemaNew), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionStoreSchemaNew>>().Get(), ServiceLifetime.Transient);
+    public LatestVersionProjectionFinder(TypeContainer<IProjection> allProjections, ProjectionHasher hasher, IProjectionStore projectionStore, ICronusContextAccessor cronusContextAccessor, ILogger<LatestVersionProjectionFinder> logger)
+    {
+        _allProjections = allProjections;
+        _hasher = hasher;
+        _projectionStore = projectionStore;
+        _cronusContextAccessor = cronusContextAccessor;
+        _f1Live = new ProjectionVersion(ProjectionVersionsHandler.ContractId, ProjectionStatus.Live, 1, hasher.CalculateHash(typeof(ProjectionVersionsHandler)));
 
-            // cassandra
-            yield return new DiscoveredModel(typeof(CassandraProvider), typeof(CassandraProvider), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(ICassandraProvider), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProvider>>().Get(), ServiceLifetime.Transient);
+        _logger = logger;
+    }
 
-            // projections
-            yield return new DiscoveredModel(typeof(IProjectionStore), provider => provider.GetRequiredService<SingletonPerTenant<CassandraMigrationStore>>().Get(), ServiceLifetime.Transient) { CanOverrideDefaults = true };
-            yield return new DiscoveredModel(typeof(CassandraMigrationStore), typeof(CassandraMigrationStore), ServiceLifetime.Transient);
-
-            // old store
-            yield return new DiscoveredModel(typeof(IProjectionStoreLegacy), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionStore>>().Get(), ServiceLifetime.Transient) { CanOverrideDefaults = true };
-            yield return new DiscoveredModel(typeof(CassandraProjectionStore), typeof(CassandraProjectionStore), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(CassandraProjectionStore<>), typeof(CassandraProjectionStore<>), ServiceLifetime.Transient);
-
-            // new store
-            yield return new DiscoveredModel(typeof(IProjectionStoreNew), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionStoreNew>>().Get(), ServiceLifetime.Transient) { CanOverrideDefaults = true };
-            yield return new DiscoveredModel(typeof(CassandraProjectionStoreNew), typeof(CassandraProjectionStoreNew), ServiceLifetime.Transient);
-            yield return new DiscoveredModel(typeof(CassandraProjectionStoreNew<>), typeof(CassandraProjectionStoreNew<>), ServiceLifetime.Transient);
-
-            // partitions store
-            yield return new DiscoveredModel(typeof(IProjectionPartionsStore), provider => provider.GetRequiredService<SingletonPerTenant<CassandraProjectionPartitionsStore>>().Get(), ServiceLifetime.Transient) { CanOverrideDefaults = true };
-            yield return new DiscoveredModel(typeof(CassandraProjectionPartitionsStore), typeof(CassandraProjectionPartitionsStore), ServiceLifetime.Transient);
-
-            // naming
-            yield return new DiscoveredModel(typeof(IKeyspaceNamingStrategy), typeof(KeyspacePerTenantKeyspace), ServiceLifetime.Singleton);
-            yield return new DiscoveredModel(typeof(NoKeyspaceNamingStrategy), typeof(NoKeyspaceNamingStrategy), ServiceLifetime.Singleton);
-            yield return new DiscoveredModel(typeof(KeyspacePerTenantKeyspace), typeof(KeyspacePerTenantKeyspace), ServiceLifetime.Singleton);
-
-            var projectionTypes = context.FindService<IProjectionDefinition>().ToList();
-            yield return new DiscoveredModel(typeof(ProjectionsProvider), provider => new ProjectionsProvider(projectionTypes), ServiceLifetime.Singleton);
-
-            yield return new DiscoveredModel(typeof(CassandraReplicationStrategyFactory), typeof(CassandraReplicationStrategyFactory), ServiceLifetime.Singleton);
-            yield return new DiscoveredModel(typeof(ICassandraReplicationStrategy), provider => provider.GetRequiredService<CassandraReplicationStrategyFactory>().GetReplicationStrategy(), ServiceLifetime.Transient);
-
-            yield return new DiscoveredModel(typeof(VersionedProjectionsNaming), typeof(VersionedProjectionsNaming), ServiceLifetime.Singleton);
-
-
-            //yield return new DiscoveredModel(typeof(InMemoryProjectionVersionStore), typeof(InMemoryProjectionVersionStore), ServiceLifetime.Singleton);
-
-            //yield return new DiscoveredModel(typeof(IProjectionTableRetentionStrategy), typeof(RetainOldProjectionRevisions), ServiceLifetime.Transient);
-            //yield return new DiscoveredModel(typeof(RetainOldProjectionRevisions), typeof(RetainOldProjectionRevisions), ServiceLifetime.Transient);
-
-
+    public IEnumerable<ProjectionVersion> GetProjectionVersionsToBootstrap()
+    {
+        foreach (Type projectionType in _allProjections.Items)
+        {
+            if (typeof(IProjectionDefinition).IsAssignableFrom(projectionType) || typeof(IAmEventSourcedProjection).IsAssignableFrom(projectionType))
+            {
+                var loadedVersion = GetCurrentLiveVersionOrTheDefaultOne(projectionType).GetAwaiter().GetResult();
+                if (loadedVersion is not null)
+                    yield return loadedVersion;
+            }
         }
     }
 
-    class CassandraReplicationStrategyFactory
+    public async Task<ProjectionVersion> GetCurrentLiveVersionOrTheDefaultOne(Type projectionType)
     {
-        private readonly CassandraProviderOptions options;
+        string projectionName = projectionType.GetContractId();
 
-        public CassandraReplicationStrategyFactory(IOptionsMonitor<CassandraProviderOptions> optionsMonitor)
+        try
         {
-            this.options = optionsMonitor.CurrentValue;
-        }
+            var loadResultFromF1 = await GetProjectionVersionsFromStoreAsync(projectionName, _cronusContextAccessor.CronusContext.Tenant).ConfigureAwait(false);
 
-        internal ICassandraReplicationStrategy GetReplicationStrategy()
-        {
-            ICassandraReplicationStrategy replicationStrategy = null;
-            if (options.ReplicationStrategy.Equals("simple", StringComparison.OrdinalIgnoreCase))
+            if (loadResultFromF1.IsSuccess)
             {
-                replicationStrategy = new SimpleReplicationStrategy(options.ReplicationFactor);
-            }
-            else if (options.ReplicationStrategy.Equals("network_topology", StringComparison.OrdinalIgnoreCase))
-            {
-                var settings = new List<NetworkTopologyReplicationStrategy.DataCenterSettings>();
-                foreach (var datacenter in options.Datacenters)
-                {
-                    var setting = new NetworkTopologyReplicationStrategy.DataCenterSettings(datacenter, options.ReplicationFactor);
-                    settings.Add(setting);
-                }
-                replicationStrategy = new NetworkTopologyReplicationStrategy(settings);
+                ProjectionVersion found = loadResultFromF1.Data.State.AllVersions.GetLive();
+                if (found is not null)
+                    return found;
             }
 
-            return replicationStrategy;
+            return null;
         }
+        catch (InvalidQueryException ex)
+        {
+            return null;
+        }
+        catch (Exception ex) when (True(() => _logger.LogError(ex, "Something went wrong while getting the latest live version, because {message}", ex.Message)))
+        {
+            throw;
+        }
+    }
+
+    private async Task<ReadResult<ProjectionVersionsHandler>> GetProjectionVersionsFromStoreAsync(string projectionName, string tenant)
+    {
+        ProjectionVersionManagerId versionId = new ProjectionVersionManagerId(projectionName, tenant);
+        ProjectionStream stream = await LoadProjectionStreamAsync(versionId, _f1Live).ConfigureAwait(false);
+
+        ProjectionVersionsHandler projectionInstance = new ProjectionVersionsHandler();
+        projectionInstance = await stream.RestoreFromHistoryAsync(projectionInstance).ConfigureAwait(false);
+
+        return new ReadResult<ProjectionVersionsHandler>(projectionInstance);
+    }
+
+    private async Task<ProjectionStream> LoadProjectionStreamAsync(IBlobId projectionId, ProjectionVersion version)
+    {
+        List<ProjectionCommit> projectionCommits = new List<ProjectionCommit>();
+
+        ProjectionStream stream = ProjectionStream.Empty();
+
+        ProjectionQueryOptions options = new ProjectionQueryOptions(projectionId, version, new PagingOptions(1000, null, Order.Ascending));
+        ProjectionsOperator @operator = new ProjectionsOperator()
+        {
+            OnProjectionStreamLoadedAsync = projectionStream =>
+            {
+                stream = projectionStream;
+                return Task.CompletedTask;
+            }
+        };
+
+        await _projectionStore.EnumerateProjectionsAsync(@operator, options).ConfigureAwait(false);
+
+        return stream;
     }
 }

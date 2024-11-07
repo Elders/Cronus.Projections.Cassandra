@@ -8,7 +8,7 @@ using Newtonsoft.Json;
 namespace Elders.Cronus.Projections.Cassandra.Integration.Tests;
 
 [TestFixture]
-public class CassandraProjectionStoreInitializerTests
+public class CassandraProjectionStoreLegacyInitializerTests
 {
     ISession session;
     ICluster cluster;
@@ -23,9 +23,7 @@ public class CassandraProjectionStoreInitializerTests
         cluster = await cassandra.GetClusterAsync();
         naming = new VersionedProjectionsNaming();
         var projectionStore = new CassandraProjectionStoreSchema(cassandra, NullLogger<CassandraProjectionStoreSchema>.Instance);
-        var partitionSchema = new CassandraProjectionPartitionStoreSchema(cassandra, NullLogger<CassandraProjectionPartitionStoreSchema>.Instance);
-        var projectionStoreNew = new CassandraProjectionStoreSchemaNew(cassandra, NullLogger<CassandraProjectionStoreSchemaNew>.Instance);
-        initializer = new CassandraProjectionStoreInitializer(projectionStore, partitionSchema, naming, projectionStoreNew);
+        initializer = new CassandraProjectionStoreInitializer(projectionStore, naming);
     }
 
     [Test]
@@ -33,6 +31,44 @@ public class CassandraProjectionStoreInitializerTests
     {
         var version = new ProjectionVersion("proj", ProjectionStatus.Live, 1, "hash");
         var result = await initializer.InitializeAsync(version);
+
+        var tables = cluster.Metadata.GetTables(session.Keyspace);
+        var cf = naming.GetColumnFamily(version);
+        var cfNew = naming.GetColumnFamilyNew(version);
+
+        Assert.That(result, Is.True);
+        Assert.That(tables, Contains.Item(cf));
+    }
+}
+
+[TestFixture]
+public class CassandraProjectionStoreNewInitializerTests
+{
+    ISession session;
+    ICluster cluster;
+    VersionedProjectionsNaming naming;
+    CassandraProjectionStoreInitializerNew initializerNew;
+
+    [SetUp]
+    public async Task SetUp()
+    {
+        var cassandra = new CassandraFixture();
+        session = await cassandra.GetSessionAsync();
+        cluster = await cassandra.GetClusterAsync();
+        naming = new VersionedProjectionsNaming();
+        var legacyProjectionStoreSchema = new CassandraProjectionStoreSchema(cassandra, NullLogger<CassandraProjectionStoreSchema>.Instance);
+        var partitionSchema = new CassandraProjectionPartitionStoreSchema(cassandra, NullLogger<CassandraProjectionPartitionStoreSchema>.Instance);
+        var projectionStoreNew = new CassandraProjectionStoreSchemaNew(cassandra, NullLogger<CassandraProjectionStoreSchemaNew>.Instance);
+
+        CassandraProjectionStoreInitializer initializer = new CassandraProjectionStoreInitializer(legacyProjectionStoreSchema, naming);
+        initializerNew = new CassandraProjectionStoreInitializerNew(initializer, partitionSchema, naming, projectionStoreNew);
+    }
+
+    [Test]
+    public async Task InitializeAsync()
+    {
+        var version = new ProjectionVersion("proj", ProjectionStatus.Live, 1, "hash");
+        var result = await initializerNew.InitializeAsync(version);
 
         var tables = cluster.Metadata.GetTables(session.Keyspace);
         var cf = naming.GetColumnFamily(version);
@@ -54,6 +90,7 @@ public class CassandraProjectionStoreNewTests
     ISerializer serializer;
 
     ProjectionVersion version;
+    CassandraProjectionStoreInitializerNew initializerNew;
 
     [SetUp]
     public async Task SetUp()
@@ -68,10 +105,12 @@ public class CassandraProjectionStoreNewTests
         var projectionStoreSchema = new CassandraProjectionStoreSchema(cassandra, NullLogger<CassandraProjectionStoreSchema>.Instance);
         var partitionSchema = new CassandraProjectionPartitionStoreSchema(cassandra, NullLogger<CassandraProjectionPartitionStoreSchema>.Instance);
         var projectionStoreNew = new CassandraProjectionStoreSchemaNew(cassandra, NullLogger<CassandraProjectionStoreSchemaNew>.Instance);
-        var initializer = new CassandraProjectionStoreInitializer(projectionStoreSchema, partitionSchema, naming, projectionStoreNew);
+        CassandraProjectionStoreInitializer initializer = new CassandraProjectionStoreInitializer(projectionStoreSchema, naming);
+
+        initializerNew = new CassandraProjectionStoreInitializerNew(initializer, partitionSchema, naming, projectionStoreNew);
         version = new ProjectionVersion("proj", ProjectionStatus.Live, 1, "hash");
 
-        await initializer.InitializeAsync(version);
+        await initializerNew.InitializeAsync(version);
     }
 
     [Test]
