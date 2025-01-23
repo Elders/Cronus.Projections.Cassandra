@@ -2,6 +2,7 @@
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -20,10 +21,13 @@ namespace Elders.Cronus.Projections.Cassandra
         Task<List<IComparable<long>>> GetPartitionsAsync(string projectionName, IBlobId projectionId);
     }
 
+    /// We tried to use <see cref="ISession.PrepareAsync(string, string)"/> where we wanted to specify the keyspace (we use [cqlsh 6.2.0 | Cassandra 5.0.2 | CQL spec 3.4.7 | Native protocol v5] cassandra)
+    /// it seems like the driver does not have YET support for protocol v5 (still in beta). In code the driver is using protocol v4 (which is preventing us from using the above mentioned method)
+    /// https://datastax-oss.atlassian.net/jira/software/c/projects/CSHARP/issues/CSHARP-856 as of 01.23.25 this epic is still in todo.
     public class CassandraProjectionPartitionsStore : IProjectionPartionsStore
     {
-        private const string Read = @"SELECT pid FROM projection_partitions WHERE pt=? AND id=?;";
-        private const string Write = @"INSERT INTO projection_partitions (pt,id,pid) VALUES (?,?,?);";
+        private const string Read = @"SELECT pid FROM ""{0}"".projection_partitions WHERE pt=? AND id=?;";
+        private const string Write = @"INSERT INTO ""{0}"".projection_partitions (pt,id,pid) VALUES (?,?,?);";
 
         private const string ProjectionType = "pt";
         private const string ProjectionId = "id";
@@ -31,6 +35,9 @@ namespace Elders.Cronus.Projections.Cassandra
 
         private readonly ICassandraProvider cassandraProvider;
         private readonly ILogger<CassandraProjectionPartitionsStore> logger;
+
+        private readonly ConcurrentDictionary<string, PreparedStatement> ReadPreparedStatements;
+        private readonly ConcurrentDictionary<string, PreparedStatement> WritePreparedStatements;
 
         private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync(); // In order to keep only 1 session alive (https://docs.datastax.com/en/developer/csharp-driver/3.16/faq/)
 
@@ -40,6 +47,9 @@ namespace Elders.Cronus.Projections.Cassandra
 
             this.cassandraProvider = cassandraProvider;
             this.logger = logger;
+
+            ReadPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+            WritePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }
 
         public async Task AppendAsync(ProjectionPartition record)
@@ -72,18 +82,24 @@ namespace Elders.Cronus.Projections.Cassandra
 
         private async Task<PreparedStatement> GetWritePreparedStatementAsync(ISession session)
         {
-            PreparedStatement writeStatement = await session.PrepareAsync(Write).ConfigureAwait(false);
-            writeStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-
-            return writeStatement;
+            if (WritePreparedStatements.TryGetValue(session.Keyspace, out PreparedStatement statement) == false)
+            {
+                statement = await session.PrepareAsync(string.Format(Write, session.Keyspace)).ConfigureAwait(false);
+                statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+                WritePreparedStatements.TryAdd(session.Keyspace, statement);
+            }
+            return statement;
         }
 
         private async Task<PreparedStatement> GetReadPreparedStatementAsync(ISession session)
         {
-            PreparedStatement readStatement = await session.PrepareAsync(Read).ConfigureAwait(false);
-            readStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-
-            return readStatement;
+            if (ReadPreparedStatements.TryGetValue(session.Keyspace, out PreparedStatement statement) == false)
+            {
+                statement = await session.PrepareAsync(string.Format(Read, session.Keyspace)).ConfigureAwait(false);
+                statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
+                ReadPreparedStatements.TryAdd(session.Keyspace, statement);
+            }
+            return statement;
         }
     }
 }
