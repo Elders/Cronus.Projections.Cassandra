@@ -510,7 +510,7 @@ namespace Elders.Cronus.Projections.Cassandra
 
             if (GetDescendingPreparedStatements.TryGetValue(key, out PreparedStatement statement) == false)
             {
-                statement = await session.PrepareAsync(string.Format(GetQueryDescendingTemplate, session.Keyspace, columnFamily), session.Keyspace).ConfigureAwait(false);
+                statement = await session.PrepareAsync(string.Format(GetQueryDescendingTemplate, session.Keyspace, columnFamily)).ConfigureAwait(false);
                 statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
                 GetDescendingPreparedStatements.TryAdd(key, statement);
             }
