@@ -36,8 +36,8 @@ namespace Elders.Cronus.Projections.Cassandra
         private readonly ICassandraProvider cassandraProvider;
         private readonly ILogger<CassandraProjectionPartitionsStore> logger;
 
-        private readonly ConcurrentDictionary<string, PreparedStatement> ReadPreparedStatements;
-        private readonly ConcurrentDictionary<string, PreparedStatement> WritePreparedStatements;
+        private PreparedStatement _readPreparedStatement; // the store is registered as tenant singleton and the table is hardcoded so there could only be one prepared statement per tenant
+        private PreparedStatement _writePreparedStatement; // the store is registered as tenant singleton and the table is hardcoded so there could only be one prepared statement per tenant
 
         private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync(); // In order to keep only 1 session alive (https://docs.datastax.com/en/developer/csharp-driver/3.16/faq/)
 
@@ -47,9 +47,6 @@ namespace Elders.Cronus.Projections.Cassandra
 
             this.cassandraProvider = cassandraProvider;
             this.logger = logger;
-
-            ReadPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            WritePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }
 
         public async Task AppendAsync(ProjectionPartition record)
@@ -82,24 +79,22 @@ namespace Elders.Cronus.Projections.Cassandra
 
         private async Task<PreparedStatement> GetWritePreparedStatementAsync(ISession session)
         {
-            if (WritePreparedStatements.TryGetValue(session.Keyspace, out PreparedStatement statement) == false)
+            if (_writePreparedStatement is null)
             {
-                statement = await session.PrepareAsync(string.Format(Write, session.Keyspace)).ConfigureAwait(false);
-                statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-                WritePreparedStatements.TryAdd(session.Keyspace, statement);
+                _writePreparedStatement = await session.PrepareAsync(string.Format(Write, session.Keyspace)).ConfigureAwait(false);
+                _writePreparedStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
             }
-            return statement;
+            return _writePreparedStatement;
         }
 
         private async Task<PreparedStatement> GetReadPreparedStatementAsync(ISession session)
         {
-            if (ReadPreparedStatements.TryGetValue(session.Keyspace, out PreparedStatement statement) == false)
+            if (_readPreparedStatement is null)
             {
-                statement = await session.PrepareAsync(string.Format(Read, session.Keyspace)).ConfigureAwait(false);
-                statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-                ReadPreparedStatements.TryAdd(session.Keyspace, statement);
+                _readPreparedStatement = await session.PrepareAsync(string.Format(Read, session.Keyspace)).ConfigureAwait(false);
+                _readPreparedStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
             }
-            return statement;
+            return _readPreparedStatement;
         }
     }
 }

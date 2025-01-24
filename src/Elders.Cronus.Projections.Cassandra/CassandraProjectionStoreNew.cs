@@ -51,7 +51,9 @@ namespace Elders.Cronus.Projections.Cassandra
         private readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
         private readonly ConcurrentDictionary<string, PreparedStatement> GetAsOfDatePreparedStatements;
         private readonly ConcurrentDictionary<string, PreparedStatement> GetDescendingPreparedStatements;
-        private readonly ConcurrentDictionary<string, PreparedStatement> InsertPartitionPreparedStatements;
+
+        private PreparedStatement _insertPartitionPreparedStatement; // the store is registered as tenant singleton and the table is hardcoded so there could only be one prepared statement per tenant
+
 
         private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync(); // In order to keep only 1 session alive (https://docs.datastax.com/en/developer/csharp-driver/3.16/faq/)
 
@@ -70,7 +72,6 @@ namespace Elders.Cronus.Projections.Cassandra
             GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetAsOfDatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
             GetDescendingPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            InsertPartitionPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
         }
 
         [Obsolete("This method will be removed in v11. Don't use it, it is not good for performance")]
@@ -456,63 +457,54 @@ namespace Elders.Cronus.Projections.Cassandra
         #region Prepared statements
         private async Task<PreparedStatement> GetWritePartitionsPreparedStatementAsync(ISession session)
         {
-            if (InsertPartitionPreparedStatements.TryGetValue(session.Keyspace, out PreparedStatement statement) == false)
+            if (_insertPartitionPreparedStatement is null)
             {
-                statement = await session.PrepareAsync(string.Format(InsertPartition, session.Keyspace)).ConfigureAwait(false);
-                statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-                InsertPartitionPreparedStatements.TryAdd(session.Keyspace, statement);
+                _insertPartitionPreparedStatement = await session.PrepareAsync(string.Format(InsertPartition, session.Keyspace)).ConfigureAwait(false);
+                _insertPartitionPreparedStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
             }
-            return statement;
+            return _insertPartitionPreparedStatement;
         }
 
         private async Task<PreparedStatement> BuildInsertPreparedStatementAsync(string columnFamily, ISession session)
         {
-            string key = $"{session.Keyspace}_{columnFamily}";
-
-            if (InsertInProjectionPreparedStatements.TryGetValue(key, out PreparedStatement statement) == false)
+            if (InsertInProjectionPreparedStatements.TryGetValue(columnFamily, out PreparedStatement statement) == false)
             {
                 statement = await session.PrepareAsync(string.Format(InsertQueryTemplate, session.Keyspace, columnFamily)).ConfigureAwait(false);
                 statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-                InsertInProjectionPreparedStatements.TryAdd(key, statement);
+                InsertInProjectionPreparedStatements.TryAdd(columnFamily, statement);
             }
             return statement;
         }
 
         private async Task<PreparedStatement> GetPreparedStatementToGetProjectionAsync(string columnFamily, ISession session)
         {
-            string key = $"{session.Keyspace}_{columnFamily}";
-
-            if (GetPreparedStatements.TryGetValue(key, out PreparedStatement statement) == false)
+            if (GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement statement) == false)
             {
                 statement = await session.PrepareAsync(string.Format(GetQueryTemplate, session.Keyspace, columnFamily)).ConfigureAwait(false);
                 statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-                GetPreparedStatements.TryAdd(key, statement);
+                GetPreparedStatements.TryAdd(columnFamily, statement);
             }
             return statement;
         }
 
         private async Task<PreparedStatement> GetAsOfDatePreparedStatementAsync(string columnFamily, ISession session)
         {
-            string key = $"{session.Keyspace}_{columnFamily}";
-
-            if (GetAsOfDatePreparedStatements.TryGetValue(key, out PreparedStatement statement) == false)
+            if (GetAsOfDatePreparedStatements.TryGetValue(columnFamily, out PreparedStatement statement) == false)
             {
                 statement = await session.PrepareAsync(string.Format(GetQueryAsOfTemplate, session.Keyspace, columnFamily)).ConfigureAwait(false);
                 statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-                GetAsOfDatePreparedStatements.TryAdd(key, statement);
+                GetAsOfDatePreparedStatements.TryAdd(columnFamily, statement);
             }
             return statement;
         }
 
         private async Task<PreparedStatement> GetDescendingPreparedStatementAsync(string columnFamily, ISession session)
         {
-            string key = $"{session.Keyspace}_{columnFamily}";
-
-            if (GetDescendingPreparedStatements.TryGetValue(key, out PreparedStatement statement) == false)
+            if (GetDescendingPreparedStatements.TryGetValue(columnFamily, out PreparedStatement statement) == false)
             {
                 statement = await session.PrepareAsync(string.Format(GetQueryDescendingTemplate, session.Keyspace, columnFamily)).ConfigureAwait(false);
                 statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-                GetDescendingPreparedStatements.TryAdd(key, statement);
+                GetDescendingPreparedStatements.TryAdd(columnFamily, statement);
             }
             return statement;
         }
