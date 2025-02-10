@@ -1,11 +1,12 @@
 ﻿using System;
-using Cassandra;
-using Microsoft.Extensions.Options;
 using System.Threading;
 using System.Threading.Tasks;
-using DataStax = Cassandra;
-using Microsoft.Extensions.Logging;
+using Cassandra;
+using Cassandra.Serialization;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using DataStax = Cassandra;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
@@ -65,6 +66,7 @@ namespace Elders.Cronus.Projections.Cassandra
 
                     cluster = connStrBuilder
                         .ApplyToBuilder(builder)
+                        .WithTypeSerializers(new TypeSerializerDefinitions().Define(new ReadOnlyMemoryTypeSerializer()))
                         .WithReconnectionPolicy(new ExponentialReconnectionPolicy(100, 100000))
                         .Build();
 
@@ -100,7 +102,8 @@ namespace Elders.Cronus.Projections.Cassandra
                 {
                     if (session is null || session.IsDisposed)
                     {
-                        logger.Info(() => "Refreshing cassandra session...");
+                        if (logger.IsEnabled(LogLevel.Information))
+                            logger.LogInformation("Refreshing cassandra session...");
                         try
                         {
                             ICluster cluster = await GetClusterAsync().ConfigureAwait(false);
@@ -160,5 +163,15 @@ namespace Elders.Cronus.Projections.Cassandra
         {
             return RetryDecision.Rethrow();
         }
+    }
+
+    class ReadOnlyMemoryTypeSerializer : CustomTypeSerializer<ReadOnlyMemory<byte>>
+    {
+        public ReadOnlyMemoryTypeSerializer() : base("it doesn't matter") { }
+
+        public override ReadOnlyMemory<byte> Deserialize(ushort protocolVersion, byte[] buffer, int offset, int length, IColumnInfo typeInfo)
+            => buffer.AsMemory(offset, length); // we will never get here because the byte[] serializer kicks in
+
+        public override byte[] Serialize(ushort protocolVersion, ReadOnlyMemory<byte> value) => value.ToArray();
     }
 }

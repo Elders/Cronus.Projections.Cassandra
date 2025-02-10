@@ -4,9 +4,16 @@ namespace Elders.Cronus.Projections.Cassandra
 {
     public class VersionedProjectionsNaming
     {
-        public string GetColumnFamily(ProjectionVersion version)
+        private static readonly char Dash = '-';
+
+        public string GetColumnFamily(ProjectionVersion version) // for old projection tables
         {
             return $"{VersionPart(version)}";
+        }
+
+        public string GetColumnFamilyNew(ProjectionVersion version) // for tables with new partitionId
+        {
+            return $"{VersionPart(version)}_new"; // TODO: v11
         }
 
         public ProjectionVersion Parse(string columnFamily)
@@ -21,14 +28,32 @@ namespace Elders.Cronus.Projections.Cassandra
             return new ProjectionVersion(parts[0], ProjectionStatus.Create("unknown"), revision, parts[2]);
         }
 
-        internal string NormalizeProjectionName(string projectionName)
-        {
-            return projectionName.Replace("-", "").ToLower();
-        }
-
         string VersionPart(ProjectionVersion version)
         {
-            return $"{NormalizeProjectionName(version.ProjectionName)}_{version.Revision}_{version.Hash}";
+            string projectionName = version.ProjectionName;
+            Span<char> result = stackalloc char[projectionName.Length];
+
+            int theIndex = 0;
+            for (int i = 0; i < projectionName.Length; i++)
+            {
+                char character = projectionName[i];
+
+                if (character.Equals(Dash))
+                    continue;
+
+                if (char.IsUpper(character))
+                {
+                    result[theIndex] = char.ToLower(character);
+                }
+                else
+                {
+                    result[theIndex] = character;
+                }
+                theIndex++;
+            }
+            Span<char> trimmed = result.Slice(0, theIndex);
+            ReadOnlySpan<char> constructed = $"{trimmed}_{version.Revision}_{version.Hash}";
+            return constructed.ToString();
         }
     }
 }
