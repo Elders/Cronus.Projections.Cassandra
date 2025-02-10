@@ -26,11 +26,6 @@ namespace Elders.Cronus.Projections.Cassandra
                 return _legacyStore.EnumerateProjectionsAsync(@operator, options);
         }
 
-        public IAsyncEnumerable<ProjectionCommit> LoadAsync(ProjectionVersion version, IBlobId projectionId)
-        {
-            throw new System.NotImplementedException();
-        }
-
         public Task SaveAsync(ProjectionCommit commit)
         {
             return _legacyStore.SaveAsync(commit); // Always save in both tables until we remove the legacy projections altogether

@@ -30,7 +30,7 @@ public class CassandraProjectionStoreInitializer : IInitializableProjectionStore
             Task createProjectionStorageTask = projectionsSchema.CreateProjectionsStorageAsync(projectionColumnFamily);
             await createProjectionStorageTask.ConfigureAwait(false);
             if (logger.IsEnabled(LogLevel.Debug))
-                logger.LogDebug( "[Projection Store] Initialized projection store with column family `{projectionColumnFamily}`", projectionColumnFamily);
+                logger.LogDebug("[Projection Store] Initialized projection store with column family `{projectionColumnFamily}`", projectionColumnFamily);
 
             return createProjectionStorageTask.IsCompletedSuccessfully;
         }

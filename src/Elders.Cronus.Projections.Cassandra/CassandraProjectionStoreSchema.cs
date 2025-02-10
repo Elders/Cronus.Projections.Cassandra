@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
-    [Obsolete("Will be removed in v11. Use CassandraProjectionStoreSchemaNew instead.")]
+    [Obsolete("Will be removed in v12. Use CassandraProjectionStoreSchemaNew instead.")]
     public class CassandraProjectionStoreSchema : IProjectionStoreStorageManager
     {
         private readonly ConcurrentDictionary<string, bool> initializedLocations;

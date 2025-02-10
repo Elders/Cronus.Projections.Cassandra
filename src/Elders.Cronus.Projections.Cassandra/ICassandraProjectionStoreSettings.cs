@@ -3,7 +3,7 @@ using System;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
-    [Obsolete("Will be removed in v11")]
+    [Obsolete("Will be removed in v12")]
     public interface ICassandraProjectionStoreSettings
     {
         ProjectionsProvider ProjectionsProvider { get; }

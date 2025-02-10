@@ -44,5 +44,29 @@ public sealed class CassandraProjectionStoreInitializerNew : IInitializableProje
             return false;
         }
     }
+
+    // Use this in v12
+    //public async Task<bool> InitializeAsync(ProjectionVersion version)
+    //{
+    //    try
+    //    {
+    //        await partitionsSchema.CreateProjectionPartitionsStorage(); // partitions
+
+    //        string projectionColumnFamilyNew = naming.GetColumnFamilyNew(version);
+    //        if (logger.IsEnabled(LogLevel.Debug))
+    //            logger.LogDebug("[Projection Store] Initializing projection store with column family `{projectionColumnFamilyNew}`...", projectionColumnFamilyNew); // new store
+    //        Task createProjectionStorageTaskNew = projectionsSchemaNew.CreateProjectionStorageNewAsync(projectionColumnFamilyNew);
+    //        await createProjectionStorageTaskNew.ConfigureAwait(false);
+
+    //        if (logger.IsEnabled(LogLevel.Debug))
+    //            logger.LogDebug("[Projection Store] Initialized projection store with column family `{projectionColumnFamilyNew}`", projectionColumnFamilyNew);
+
+    //        return createProjectionStorageTaskNew.IsCompletedSuccessfully;
+    //    }
+    //    catch (Exception ex) when (True(() => logger.LogError(ex, "Failed to initialize projection version {version}", version)))
+    //    {
+    //        return false;
+    //    }
+    //}
 }
 

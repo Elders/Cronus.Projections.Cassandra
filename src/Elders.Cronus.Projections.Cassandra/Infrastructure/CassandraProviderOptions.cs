@@ -19,6 +19,7 @@ namespace Elders.Cronus.Projections.Cassandra.Infrastructure
         public List<string> Datacenters { get; set; }
 
         public bool LoadFromNewProjectionsTables { get; set; } // temp option for migration purposes for easy switch between load from legacy and new tables
+        public bool SaveToNewProjectionsTablesOnly { get; set; }
     }
 
     public class CassandraProviderOptionsProvider : CronusOptionsProviderBase<CassandraProviderOptions>

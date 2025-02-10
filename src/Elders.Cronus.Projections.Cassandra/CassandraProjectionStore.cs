@@ -7,10 +7,11 @@ using Elders.Cronus.EventStore;
 using Elders.Cronus.Persistence.Cassandra;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Elders.Cronus.Projections.Cassandra
 {
-    [Obsolete("Will be removed in v11")]
+    [Obsolete("Will be removed in v12")]
     public interface IProjectionStoreLegacy
     {
         IAsyncEnumerable<ProjectionCommit> LoadAsync(ProjectionVersion version, IBlobId projectionId);
@@ -20,15 +21,16 @@ namespace Elders.Cronus.Projections.Cassandra
         Task SaveAsync(ProjectionCommit commit);
     }
 
+    [Obsolete("Will be removed in v12")]
     public class CassandraProjectionStore<TSettings> : CassandraProjectionStore where TSettings : ICassandraProjectionStoreSettings
     {
-        public CassandraProjectionStore(TSettings settings, ILogger<CassandraProjectionStore> logger) : base(settings.CassandraProvider, settings.Serializer, settings.ProjectionsNamingStrategy, logger) { }
+        public CassandraProjectionStore(TSettings settings, IOptions<CassandraProviderOptions> options, ILogger<CassandraProjectionStore> logger) : base(settings.CassandraProvider, settings.Serializer, settings.ProjectionsNamingStrategy, options, logger) { }
     }
 
     /// We tried to use <see cref="ISession.PrepareAsync(string, string)"/> where we wanted to specify the keyspace (we use [cqlsh 6.2.0 | Cassandra 5.0.2 | CQL spec 3.4.7 | Native protocol v5] cassandra)
     /// it seems like the driver does not have YET support for protocol v5 (still in beta). In code the driver is using protocol v4 (which is preventing us from using the above mentioned method)
     /// https://datastax-oss.atlassian.net/jira/software/c/projects/CSHARP/issues/CSHARP-856 as of 01.23.25 this epic is still in todo.
-    [Obsolete("Will be removed in v11")]
+    [Obsolete("Will be removed in v12")]
     public class CassandraProjectionStore : IProjectionStoreLegacy
     {
         // New Projection tables --->
@@ -46,6 +48,7 @@ namespace Elders.Cronus.Projections.Cassandra
         private readonly ICassandraProvider cassandraProvider;
         private readonly ISerializer serializer;
         private readonly VersionedProjectionsNaming naming;
+        private readonly IOptions<CassandraProviderOptions> options;
         private readonly ILogger<CassandraProjectionStore> logger;
 
         public static EventId CronusProjectionEventLoadError = new EventId(74300, "CronusProjectionEventLoadError");
@@ -61,7 +64,7 @@ namespace Elders.Cronus.Projections.Cassandra
 
         private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync(); // In order to keep only 1 session alive (https://docs.datastax.com/en/developer/csharp-driver/3.16/faq/)
 
-        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, VersionedProjectionsNaming naming, ILogger<CassandraProjectionStore> logger)
+        public CassandraProjectionStore(ICassandraProvider cassandraProvider, ISerializer serializer, VersionedProjectionsNaming naming, IOptions<CassandraProviderOptions> options, ILogger<CassandraProjectionStore> logger)
         {
             if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));
@@ -70,6 +73,7 @@ namespace Elders.Cronus.Projections.Cassandra
             this.cassandraProvider = cassandraProvider;
             this.serializer = serializer;
             this.naming = naming;
+            this.options = options;
             this.logger = logger;
 
             SavePreparedStatementsNew = new ConcurrentDictionary<string, PreparedStatement>();
@@ -134,10 +138,13 @@ namespace Elders.Cronus.Projections.Cassandra
             long partitionId = CalculatePartition(commit.Event);
             byte[] projectionId = commit.ProjectionId.RawId.ToArray(); // the Bind() method invokes the driver serializers for each value
 
-            // old projections
-            PreparedStatement projectionStatement = await BuildInsertPreparedStatementAsync(projectionCommitLocationBasedOnVersionLEGACY, session).ConfigureAwait(false);
-            BoundStatement projectionBoundStatement = projectionStatement.Bind(projectionId, data, commit.Event.Timestamp.ToFileTime());
-            batch.Add(projectionBoundStatement);
+            if (options.Value.SaveToNewProjectionsTablesOnly == false)
+            {
+                // old projections
+                PreparedStatement projectionStatement = await BuildInsertPreparedStatementAsync(projectionCommitLocationBasedOnVersionLEGACY, session).ConfigureAwait(false);
+                BoundStatement projectionBoundStatement = projectionStatement.Bind(projectionId, data, commit.Event.Timestamp.ToFileTime());
+                batch.Add(projectionBoundStatement);
+            }
 
             // new projections
             PreparedStatement projectionStatementNew = await BuildNewInsertPreparedStatementAsync(projectionCommitLocationBasedOnVersionNEW, session).ConfigureAwait(false);
