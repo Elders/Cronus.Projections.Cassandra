@@ -21,7 +21,7 @@ namespace Elders.Cronus.Projections.Cassandra
         private readonly ILogger<CassandraProjectionStoreSchemaNew> logger;
         private readonly ICassandraProvider cassandraProvider;
         //                                                                                       
-        const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"" (id blob, pid bigint, data blob, ts bigint, PRIMARY KEY ((id, pid), ts)) WITH CLUSTERING ORDER BY (ts ASC);";
+        const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"".""{1}"" (id blob, pid bigint, data blob, ts bigint, PRIMARY KEY ((id, pid), ts)) WITH CLUSTERING ORDER BY (ts ASC);";
         const string DropQueryTemplate = @"DROP TABLE IF EXISTS ""{0}"";";
 
         private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync();
@@ -52,7 +52,7 @@ namespace Elders.Cronus.Projections.Cassandra
             if (logger.IsEnabled(LogLevel.Debug))
                 logger.LogDebug("[Projections] Creating table `{tableName}` with `{address}`...", location, session.Cluster.AllHosts().First().Address);
 
-            string query = string.Format(CreateProjectionEventsTableTemplate, location);
+            string query = string.Format(CreateProjectionEventsTableTemplate, session.Keyspace, location);
             PreparedStatement statement = await session.PrepareAsync(query).ConfigureAwait(false);
             statement = statement.SetConsistencyLevel(ConsistencyLevel.All);
             await session.ExecuteAsync(statement.Bind()).ConfigureAwait(false);
