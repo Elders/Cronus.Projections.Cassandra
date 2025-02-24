@@ -130,6 +130,9 @@ namespace Elders.Cronus.Projections.Cassandra
                 }
             }
 
+            if (string.IsNullOrEmpty(session.Keyspace))
+                logger.LogError("THE SESSION KEYSPACE IS NULL");
+
             return session;
         }
 
