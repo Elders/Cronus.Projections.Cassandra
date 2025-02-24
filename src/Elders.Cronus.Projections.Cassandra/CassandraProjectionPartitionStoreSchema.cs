@@ -38,7 +38,7 @@ namespace Elders.Cronus.Projections.Cassandra
                 if (logger.IsEnabled(LogLevel.Debug))
                     logger.LogDebug("[EventStore] Creating table `{tableName}` with `{address}` in keyspace `{keyspace}`...", PartionsTableName, session.Cluster.AllHosts().First().Address, session.Keyspace);
 
-                string query = string.Format(CreateProjectionPartionsTableTemplate, session.Keyspace, PartionsTableName).ToLower();
+                string query = string.Format(CreateProjectionPartionsTableTemplate, session.Keyspace, PartionsTableName);
                 PreparedStatement createEventsTableStatement = await session.PrepareAsync(query).ConfigureAwait(false);
                 createEventsTableStatement.SetConsistencyLevel(ConsistencyLevel.All);
 

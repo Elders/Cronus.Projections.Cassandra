@@ -12,6 +12,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{1A91CF2F-1
 		..\docs\Configuration.md = ..\docs\Configuration.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Elders.Cronus.Projections.Cassandra.Integration.Tests", "Elders.Cronus.Projections.Cassandra.Integration.Tests\Elders.Cronus.Projections.Cassandra.Integration.Tests.csproj", "{C5A32B2D-3C62-4C42-99F3-BFA218085273}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,6 +28,10 @@ Global
 		{1ED67B67-253A-4C38-8A8B-BBDF6329FF5F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1ED67B67-253A-4C38-8A8B-BBDF6329FF5F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1ED67B67-253A-4C38-8A8B-BBDF6329FF5F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C5A32B2D-3C62-4C42-99F3-BFA218085273}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C5A32B2D-3C62-4C42-99F3-BFA218085273}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C5A32B2D-3C62-4C42-99F3-BFA218085273}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C5A32B2D-3C62-4C42-99F3-BFA218085273}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
