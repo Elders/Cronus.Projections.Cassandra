@@ -85,7 +85,7 @@ namespace Elders.Cronus.Projections.Cassandra
             }
         }
 
-        protected virtual string GetKeyspace()
+        public virtual string GetKeyspace()
         {
             return keyspaceNamingStrategy.GetName(baseConfigurationKeyspace).ToLower();
         }
@@ -120,7 +120,7 @@ namespace Elders.Cronus.Projections.Cassandra
                             }
 
                             ICluster server = await GetClusterAsync().ConfigureAwait(false);
-                            session = await server.ConnectAsync(GetKeyspace()).ConfigureAwait(false);
+                            session = await server.ConnectAsync().ConfigureAwait(false);
                         }
                     }
                 }
@@ -129,9 +129,6 @@ namespace Elders.Cronus.Projections.Cassandra
                     threadGate?.Release();
                 }
             }
-
-            if (string.IsNullOrEmpty(session.Keyspace))
-                logger.LogError("THE SESSION KEYSPACE IS NULL");
 
             return session;
         }
@@ -142,6 +139,11 @@ namespace Elders.Cronus.Projections.Cassandra
             createEventsTableStatement = createEventsTableStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
 
             return createEventsTableStatement.Bind();
+        }
+
+        string ICassandraProvider.GetKeyspace()
+        {
+            return keyspaceNamingStrategy.GetName(baseConfigurationKeyspace).ToLower();
         }
     }
 

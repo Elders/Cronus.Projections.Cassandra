@@ -1,5 +1,7 @@
 ﻿using Cassandra;
+using Elders.Cronus.MessageProcessing;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
+using Elders.Cronus.Projections.Cassandra.PrepareStatements.Legacy;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
@@ -26,8 +28,8 @@ namespace Elders.Cronus.Projections.Cassandra
     /// https://datastax-oss.atlassian.net/jira/software/c/projects/CSHARP/issues/CSHARP-856 as of 01.23.25 this epic is still in todo.
     public class CassandraProjectionPartitionsStore : IProjectionPartionsStore
     {
-        private const string Read = @"SELECT pid FROM ""{0}"".projection_partitions WHERE pt=? AND id=?;";
-        private const string Write = @"INSERT INTO ""{0}"".projection_partitions (pt,id,pid) VALUES (?,?,?);";
+        private const string Read = @"SELECT pid FROM {0}.projection_partitions WHERE pt=? AND id=?;";
+        private const string Write = @"INSERT INTO {0}.projection_partitions (pt,id,pid) VALUES (?,?,?);";
 
         private const string ProjectionType = "pt";
         private const string ProjectionId = "id";
@@ -36,14 +38,19 @@ namespace Elders.Cronus.Projections.Cassandra
         private readonly ICassandraProvider cassandraProvider;
         private readonly ILogger<CassandraProjectionPartitionsStore> logger;
 
-        private PreparedStatement _readPreparedStatement; // the store is registered as tenant singleton and the table is hardcoded so there could only be one prepared statement per tenant
-        private PreparedStatement _writePreparedStatement; // the store is registered as tenant singleton and the table is hardcoded so there could only be one prepared statement per tenant
+        private const string TableName = "projection_partitions";
+
+        private ReadPreparedStatement _readPreparedStatement;
+        private WritePreparedStatement _writePreparedStatement;
 
         private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync(); // In order to keep only 1 session alive (https://docs.datastax.com/en/developer/csharp-driver/3.16/faq/)
 
-        public CassandraProjectionPartitionsStore(ICassandraProvider cassandraProvider, ILogger<CassandraProjectionPartitionsStore> logger)
+        public CassandraProjectionPartitionsStore(ICronusContextAccessor cronusContextAccessor, ICassandraProvider cassandraProvider, ILogger<CassandraProjectionPartitionsStore> logger)
         {
             if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
+
+            _readPreparedStatement = new ReadPreparedStatement(cronusContextAccessor, cassandraProvider);
+            _writePreparedStatement = new WritePreparedStatement(cronusContextAccessor, cassandraProvider);
 
             this.cassandraProvider = cassandraProvider;
             this.logger = logger;
@@ -52,7 +59,7 @@ namespace Elders.Cronus.Projections.Cassandra
         public async Task AppendAsync(ProjectionPartition record)
         {
             ISession session = await GetSessionAsync().ConfigureAwait(false);
-            PreparedStatement statement = await GetWritePreparedStatementAsync(session).ConfigureAwait(false);
+            PreparedStatement statement = await _writePreparedStatement.PrepareStatementAsync(session, TableName).ConfigureAwait(false);
 
             var bs = statement.Bind(record.ProjectionName, record.ProjectionId, record.Partition).SetIdempotence(true);
             await session.ExecuteAsync(bs).ConfigureAwait(false);
@@ -63,7 +70,7 @@ namespace Elders.Cronus.Projections.Cassandra
             List<IComparable<long>> partitions = new List<IComparable<long>>();
 
             ISession session = await GetSessionAsync().ConfigureAwait(false);
-            PreparedStatement statement = await GetReadPreparedStatementAsync(session).ConfigureAwait(false);
+            PreparedStatement statement = await _readPreparedStatement.PrepareStatementAsync(session, TableName).ConfigureAwait(false);
 
             BoundStatement bs = statement.Bind(projectionName, projectionId.RawId);
             RowSet result = await session.ExecuteAsync(bs).ConfigureAwait(false);
@@ -77,24 +84,18 @@ namespace Elders.Cronus.Projections.Cassandra
             return partitions;
         }
 
-        private async Task<PreparedStatement> GetWritePreparedStatementAsync(ISession session)
+        class ReadPreparedStatement : PreparedStatementCache
         {
-            if (_writePreparedStatement is null)
-            {
-                _writePreparedStatement = await session.PrepareAsync(string.Format(Write, session.Keyspace)).ConfigureAwait(false);
-                _writePreparedStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-            }
-            return _writePreparedStatement;
+            public ReadPreparedStatement(ICronusContextAccessor context, ICassandraProvider cassandraProvider) : base(context, cassandraProvider)
+            { }
+            internal override string GetQueryTemplate() => Read;
         }
 
-        private async Task<PreparedStatement> GetReadPreparedStatementAsync(ISession session)
+        class WritePreparedStatement : PreparedStatementCache
         {
-            if (_readPreparedStatement is null)
-            {
-                _readPreparedStatement = await session.PrepareAsync(string.Format(Read, session.Keyspace)).ConfigureAwait(false);
-                _readPreparedStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-            }
-            return _readPreparedStatement;
+            public WritePreparedStatement(ICronusContextAccessor context, ICassandraProvider cassandraProvider) : base(context, cassandraProvider)
+            { }
+            internal override string GetQueryTemplate() => Write;
         }
     }
 }

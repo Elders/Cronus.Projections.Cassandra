@@ -1,4 +1,5 @@
 ﻿using Cassandra;
+using Elders.Cronus.MessageProcessing;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Elders.Cronus.Projections.Cassandra.Integration.Tests;
@@ -9,6 +10,7 @@ public class CassandraProjectionStoreSchemaNewTests
     ISession session;
     ICluster cluster;
     CassandraProjectionStoreSchemaNew projectionStore;
+    ICronusContextAccessor contextAccessor;
 
     [SetUp]
     public async Task SetUp()
@@ -16,7 +18,7 @@ public class CassandraProjectionStoreSchemaNewTests
         var cassandra = new CassandraFixture();
         session = await cassandra.GetSessionAsync();
         cluster = await cassandra.GetClusterAsync();
-        projectionStore = new CassandraProjectionStoreSchemaNew(cassandra, NullLogger<CassandraProjectionStoreSchemaNew>.Instance);
+        projectionStore = new CassandraProjectionStoreSchemaNew(contextAccessor, cassandra, NullLogger<CassandraProjectionStoreSchemaNew>.Instance);
     }
 
     [Test]

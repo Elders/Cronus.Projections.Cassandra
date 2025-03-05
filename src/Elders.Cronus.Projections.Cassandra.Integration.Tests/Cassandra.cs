@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using Cassandra;
 using DotNet.Testcontainers.Builders;
+using DotNet.Testcontainers.Configurations;
 using DotNet.Testcontainers.Containers;
 using Elders.Cronus.Projections.Cassandra;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
@@ -17,6 +18,8 @@ public class CassandraFixture : ICassandraProvider, IAsyncDisposable
     [OneTimeSetUp]
     public async Task InitializeContainer()
     {
+        TestcontainersSettings.DockerHostOverride = "docker-local.com";
+
         Container = new ContainerBuilder()
             .WithImage("cassandra:4.1")
             .WithPortBinding(7000, true)
@@ -82,4 +85,6 @@ public class CassandraFixture : ICassandraProvider, IAsyncDisposable
 
         return session;
     }
+
+    public string GetKeyspace() => "tests";
 }

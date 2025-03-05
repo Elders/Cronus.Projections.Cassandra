@@ -6,8 +6,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cassandra;
 using Elders.Cronus.EventStore;
+using Elders.Cronus.MessageProcessing;
 using Elders.Cronus.Persistence.Cassandra;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
+using Elders.Cronus.Projections.Cassandra.PrepareStatements.New;
 using Microsoft.Extensions.Logging;
 
 namespace Elders.Cronus.Projections.Cassandra
@@ -23,23 +25,14 @@ namespace Elders.Cronus.Projections.Cassandra
 
     public class CassandraProjectionStoreNew<TSettings> : CassandraProjectionStoreNew where TSettings : ICassandraProjectionStoreSettingsNew
     {
-        public CassandraProjectionStoreNew(TSettings settings, ILogger<CassandraProjectionStoreNew> logger) : base(settings.CassandraProvider, settings.Partititons, settings.Serializer, settings.ProjectionsNamingStrategy, logger) { }
+        public CassandraProjectionStoreNew(ICronusContextAccessor cronusContextAccessor, TSettings settings, ILogger<CassandraProjectionStoreNew> logger) : base(cronusContextAccessor, settings.CassandraProvider, settings.Partititons, settings.Serializer, settings.ProjectionsNamingStrategy, logger) { }
     }
 
     /// We tried to use <see cref="ISession.PrepareAsync(string, string)"/> where we wanted to specify the keyspace (we use [cqlsh 6.2.0 | Cassandra 5.0.2 | CQL spec 3.4.7 | Native protocol v5] cassandra)
     /// it seems like the driver does not have YET support for protocol v5 (still in beta). In code the driver is using protocol v4 (which is preventing us from using the above mentioned method)
     /// https://datastax-oss.atlassian.net/jira/software/c/projects/CSHARP/issues/CSHARP-856 as of 01.23.25 this epic is still in todo.
-    public class CassandraProjectionStoreNew : IProjectionStoreNew
+    public partial class CassandraProjectionStoreNew : IProjectionStoreNew
     {
-        // Projection tables ----->
-        const string InsertQueryTemplate = @"INSERT INTO ""{0}"".""{1}"" (id,pid,data,ts) VALUES (?,?,?,?);";
-        const string GetQueryTemplate = @"SELECT pid,data,ts FROM ""{0}"".""{1}"" WHERE id=? AND pid=?;";
-        const string GetQueryAsOfTemplate = @"SELECT data,ts FROM ""{0}"".""{1}"" WHERE id=? AND pid=? AND ts<=?;";
-        const string GetQueryDescendingTemplate = @"SELECT data,ts FROM ""{0}"".""{1}"" WHERE id=? AND pid =? order by ts desc";
-
-        // Partition table ---->
-        private const string InsertPartition = @"INSERT INTO ""{0}"".projection_partitions (pt,id,pid) VALUES (?,?,?);";
-
         private const int AsOfBatchTasks = 2;
 
         private readonly ICassandraProvider cassandraProvider;
@@ -47,17 +40,18 @@ namespace Elders.Cronus.Projections.Cassandra
         private readonly ISerializer serializer;
         private readonly VersionedProjectionsNaming naming;
 
-        private readonly ConcurrentDictionary<string, PreparedStatement> InsertInProjectionPreparedStatements;
-        private readonly ConcurrentDictionary<string, PreparedStatement> GetPreparedStatements;
-        private readonly ConcurrentDictionary<string, PreparedStatement> GetAsOfDatePreparedStatements;
-        private readonly ConcurrentDictionary<string, PreparedStatement> GetDescendingPreparedStatements;
+        private InsertPreparedStatementNew _insertPreparedStatement;
+        private WritePreparedStatementNew _writePreparedStatementNew;
+        private PreparedStatementToGetProjectionNew _preparedStatementToGetProjectionNew;
+        private AsOfDatePreparedStatementNew _asOfDatePreparedStatementNew;
+        private DescendingPreparedStatementNew _descendingPreparedStatementNew;
 
         private PreparedStatement _insertPartitionPreparedStatement; // the store is registered as tenant singleton and the table is hardcoded so there could only be one prepared statement per tenant
 
 
         private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync(); // In order to keep only 1 session alive (https://docs.datastax.com/en/developer/csharp-driver/3.16/faq/)
 
-        public CassandraProjectionStoreNew(ICassandraProvider cassandraProvider, IProjectionPartionsStore projectionPartionsStore, ISerializer serializer, VersionedProjectionsNaming naming, ILogger<CassandraProjectionStoreNew> logger)
+        public CassandraProjectionStoreNew(ICronusContextAccessor cronusContextAccessor, ICassandraProvider cassandraProvider, IProjectionPartionsStore projectionPartionsStore, ISerializer serializer, VersionedProjectionsNaming naming, ILogger<CassandraProjectionStoreNew> logger)
         {
             if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));
@@ -68,10 +62,11 @@ namespace Elders.Cronus.Projections.Cassandra
             this.serializer = serializer;
             this.naming = naming;
 
-            InsertInProjectionPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            GetPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            GetAsOfDatePreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
-            GetDescendingPreparedStatements = new ConcurrentDictionary<string, PreparedStatement>();
+            _insertPreparedStatement = new InsertPreparedStatementNew(cronusContextAccessor, cassandraProvider);
+            _writePreparedStatementNew = new WritePreparedStatementNew(cronusContextAccessor, cassandraProvider);
+            _preparedStatementToGetProjectionNew = new PreparedStatementToGetProjectionNew(cronusContextAccessor, cassandraProvider);
+            _asOfDatePreparedStatementNew = new AsOfDatePreparedStatementNew(cronusContextAccessor, cassandraProvider);
+            _descendingPreparedStatementNew = new DescendingPreparedStatementNew(cronusContextAccessor, cassandraProvider);
         }
 
         [Obsolete("This method will be removed in v11. Don't use it, it is not good for performance")]
@@ -119,11 +114,11 @@ namespace Elders.Cronus.Projections.Cassandra
             byte[] data = serializer.SerializeToBytes(commit.Event);
             byte[] projectionId = commit.ProjectionId.RawId.ToArray(); // the Bind() method invokes the driver serializers for each value
 
-            PreparedStatement projectionStatement = await BuildInsertPreparedStatementAsync(columnFamily, session).ConfigureAwait(false);
+            PreparedStatement projectionStatement = await _insertPreparedStatement.PrepareStatementAsync(session, columnFamily).ConfigureAwait(false);
             BoundStatement projectionBoundStatement = projectionStatement.Bind(projectionId, partitionId, data, commit.Event.Timestamp.ToFileTime());
             batch.Add(projectionBoundStatement);
 
-            PreparedStatement partitionStatement = await GetWritePartitionsPreparedStatementAsync(session).ConfigureAwait(false);
+            PreparedStatement partitionStatement = await _writePreparedStatementNew.PrepareStatementAsync(session, columnFamily).ConfigureAwait(false);
             BoundStatement partitionBoundStatement = partitionStatement.Bind(commit.Version.ProjectionName, projectionId, partitionId);
             batch.Add(partitionBoundStatement);
 
@@ -365,7 +360,7 @@ namespace Elders.Cronus.Projections.Cassandra
             string columnFamily = naming.GetColumnFamilyNew(version);
 
             ISession session = await GetSessionAsync().ConfigureAwait(false);
-            PreparedStatement preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily, session).ConfigureAwait(false);
+            PreparedStatement preparedStatement = await _preparedStatementToGetProjectionNew.PrepareStatementAsync(session, columnFamily).ConfigureAwait(false);
 
             IStatement bs = preparedStatement.Bind(projectionId.RawId, partitionId)
                                             .SetPageSize(bacthTake)
@@ -398,9 +393,9 @@ namespace Elders.Cronus.Projections.Cassandra
             PreparedStatement preparedStatement;
 
             if (order.Equals(Order.Ascending))
-                preparedStatement = await GetPreparedStatementToGetProjectionAsync(columnFamily, session).ConfigureAwait(false);
+                preparedStatement = await _preparedStatementToGetProjectionNew.PrepareStatementAsync(session, columnFamily).ConfigureAwait(false);
             else
-                preparedStatement = await GetDescendingPreparedStatementAsync(columnFamily, session).ConfigureAwait(false);
+                preparedStatement = await _descendingPreparedStatementNew.PrepareStatementAsync(session, columnFamily).ConfigureAwait(false);
 
             IStatement bs = preparedStatement.Bind(projectionId.RawId, partitionId)
                                             .SetPageSize(toTake)
@@ -434,7 +429,7 @@ namespace Elders.Cronus.Projections.Cassandra
             string columnFamily = naming.GetColumnFamilyNew(version);
 
             ISession session = await GetSessionAsync().ConfigureAwait(false);
-            PreparedStatement preparedStatement = await GetAsOfDatePreparedStatementAsync(columnFamily, session).ConfigureAwait(false);
+            PreparedStatement preparedStatement = await _asOfDatePreparedStatementNew.PrepareStatementAsync(session, naming.GetColumnFamilyNew(version)).ConfigureAwait(false);
 
             IStatement bs = preparedStatement.Bind(projectionId.RawId, partitionId, date.ToFileTime())
                                             .SetPageSize(take)
@@ -453,62 +448,6 @@ namespace Elders.Cronus.Projections.Cassandra
             }
             return loadedEvents;
         }
-
-        #region Prepared statements
-        private async Task<PreparedStatement> GetWritePartitionsPreparedStatementAsync(ISession session)
-        {
-            if (_insertPartitionPreparedStatement is null)
-            {
-                _insertPartitionPreparedStatement = await session.PrepareAsync(string.Format(InsertPartition, session.Keyspace)).ConfigureAwait(false);
-                _insertPartitionPreparedStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-            }
-            return _insertPartitionPreparedStatement;
-        }
-
-        private async Task<PreparedStatement> BuildInsertPreparedStatementAsync(string columnFamily, ISession session)
-        {
-            if (InsertInProjectionPreparedStatements.TryGetValue(columnFamily, out PreparedStatement statement) == false)
-            {
-                statement = await session.PrepareAsync(string.Format(InsertQueryTemplate, session.Keyspace, columnFamily)).ConfigureAwait(false);
-                statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-                InsertInProjectionPreparedStatements.TryAdd(columnFamily, statement);
-            }
-            return statement;
-        }
-
-        private async Task<PreparedStatement> GetPreparedStatementToGetProjectionAsync(string columnFamily, ISession session)
-        {
-            if (GetPreparedStatements.TryGetValue(columnFamily, out PreparedStatement statement) == false)
-            {
-                statement = await session.PrepareAsync(string.Format(GetQueryTemplate, session.Keyspace, columnFamily)).ConfigureAwait(false);
-                statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-                GetPreparedStatements.TryAdd(columnFamily, statement);
-            }
-            return statement;
-        }
-
-        private async Task<PreparedStatement> GetAsOfDatePreparedStatementAsync(string columnFamily, ISession session)
-        {
-            if (GetAsOfDatePreparedStatements.TryGetValue(columnFamily, out PreparedStatement statement) == false)
-            {
-                statement = await session.PrepareAsync(string.Format(GetQueryAsOfTemplate, session.Keyspace, columnFamily)).ConfigureAwait(false);
-                statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-                GetAsOfDatePreparedStatements.TryAdd(columnFamily, statement);
-            }
-            return statement;
-        }
-
-        private async Task<PreparedStatement> GetDescendingPreparedStatementAsync(string columnFamily, ISession session)
-        {
-            if (GetDescendingPreparedStatements.TryGetValue(columnFamily, out PreparedStatement statement) == false)
-            {
-                statement = await session.PrepareAsync(string.Format(GetQueryDescendingTemplate, session.Keyspace, columnFamily)).ConfigureAwait(false);
-                statement = statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
-                GetDescendingPreparedStatements.TryAdd(columnFamily, statement);
-            }
-            return statement;
-        }
-        #endregion
 
         private IEnumerable<IEvent> DeserialzeEvents(RowSet rows)
         {
