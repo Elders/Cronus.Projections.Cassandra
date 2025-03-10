@@ -2,6 +2,7 @@
 using Elders.Cronus.MessageProcessing;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Moq;
 
 namespace Elders.Cronus.Projections.Cassandra.Integration.Tests;
 
@@ -10,17 +11,23 @@ public class CassandraProjectionPartitionsStoreTests
 {
     ISession session;
     CassandraProjectionPartitionsStore partitionsStore;
-    ICronusContextAccessor contextAccessor;
+    private Mock<ICronusContextAccessor> contextAccessor;
 
     [SetUp]
     public async Task SetUp()
     {
-        var bc = new BoundedContext { Name = "tests" };
+        var bc = new BoundedContext { Name = "test" };
         var cassandra = new CassandraFixture();
         session = await cassandra.GetSessionAsync();
-        partitionsStore = new CassandraProjectionPartitionsStore(contextAccessor, cassandra, NullLogger<CassandraProjectionPartitionsStore>.Instance);
 
-        var partitionStoreSchema = new CassandraProjectionPartitionStoreSchema(contextAccessor, cassandra, NullLogger<CassandraProjectionPartitionStoreSchema>.Instance);
+        contextAccessor = new Mock<ICronusContextAccessor>();
+        var serviceProviderMock = new Mock<IServiceProvider>();
+        var cronusContext = new CronusContext("test", serviceProviderMock.Object);
+        contextAccessor.SetupProperty(x => x.CronusContext, cronusContext);
+
+        partitionsStore = new CassandraProjectionPartitionsStore(contextAccessor.Object, cassandra, NullLogger<CassandraProjectionPartitionsStore>.Instance);
+
+        var partitionStoreSchema = new CassandraProjectionPartitionStoreSchema(contextAccessor.Object, cassandra, NullLogger<CassandraProjectionPartitionStoreSchema>.Instance);
         await partitionStoreSchema.CreateProjectionPartitionsStorage();
     }
 
