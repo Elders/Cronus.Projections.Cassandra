@@ -1,7 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using Cassandra;
 using DotNet.Testcontainers.Builders;
-using DotNet.Testcontainers.Configurations;
 using DotNet.Testcontainers.Containers;
 using Elders.Cronus.Projections.Cassandra;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;

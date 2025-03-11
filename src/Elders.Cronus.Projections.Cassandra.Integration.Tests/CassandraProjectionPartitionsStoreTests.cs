@@ -1,7 +1,6 @@
 ﻿using Cassandra;
 using Elders.Cronus.MessageProcessing;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using Moq;
 
 namespace Elders.Cronus.Projections.Cassandra.Integration.Tests;

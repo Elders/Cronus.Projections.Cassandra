@@ -1,6 +1,5 @@
 ﻿using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Microsoft.Extensions.Options;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Elders.Cronus.Projections.Cassandra

@@ -1,6 +1,5 @@
 ﻿using Elders.Cronus.MessageProcessing;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
-using Elders.Cronus.Projections.Cassandra.PrepareStatements;
 
 namespace Elders.Cronus.Projections.Cassandra.PrepareStatements.Legacy
 {

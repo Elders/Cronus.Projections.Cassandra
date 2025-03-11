@@ -1,10 +1,8 @@
 ﻿using Cassandra;
 using Elders.Cronus.MessageProcessing;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
-using Elders.Cronus.Projections.Cassandra.PrepareStatements.Legacy;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
