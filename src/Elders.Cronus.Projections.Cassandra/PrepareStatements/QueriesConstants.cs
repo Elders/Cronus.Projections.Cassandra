@@ -18,7 +18,5 @@ public static class QueriesConstants
         public const string GetQueryTemplate = @"SELECT data,ts FROM {0}.""{1}"" WHERE id=?;";
         public const string GetQueryAsOfTemplate = @"SELECT data,ts FROM {0}.""{1}"" WHERE id=? AND ts<=?;";
         public const string GetQueryDescendingTemplate = @"SELECT data,ts FROM {0}.""{1}"" WHERE id=? order by ts desc";
-
-        public const string InsertPartition = @"INSERT INTO {0}.projection_partitions (pt,id,pid) VALUES (?,?,?);";
     }
 }

@@ -57,9 +57,9 @@ public class CassandraFixture : ICassandraProvider, IAsyncDisposable
     {
         string keyspace;
         if (TestContext.CurrentContext.Test.Type.Name.Length > 48)
-            keyspace = TestContext.CurrentContext.Test.Type.Name[..48].ToLower();
+            keyspace = GetKeyspace()[..48];
         else
-            keyspace = TestContext.CurrentContext.Test.Type.Name.ToLower();
+            keyspace = GetKeyspace();
 
         return GetSessionAsync(keyspace);
     }

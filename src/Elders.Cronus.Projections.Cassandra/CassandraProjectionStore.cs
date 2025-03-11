@@ -47,12 +47,10 @@ public partial class CassandraProjectionStore : IProjectionStoreLegacy
     private InsertPreparedStatementNew _insertPreparedStatement;
 
     private InsertPreparedStatementLegacy _insertPreparedStatementLegacy;
-    private WritePreparedStatementLegacy _writePreparedStatementLegacy;
+    private InsertPatrtitionPreparedStatement _insertPartitionPreparedStatement;
     private PreparedStatementToGetProjectionLegacy _preparedStatementToGetProjectionLegacy;
     private AsOfDatePreparedStatementLegacy _asOfDatePreparedStatementLegacy;
     private DescendingPreparedStatementLegacy _descendingPreparedStatementLegacy;
-
-    private PreparedStatement _insertPartitionPreparedStatement; // the store is registered as tenant singleton and the table is hardcoded so there could only be one prepared statement per tenant
 
     private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync(); // In order to keep only 1 session alive (https://docs.datastax.com/en/developer/csharp-driver/3.16/faq/)
 
@@ -71,7 +69,7 @@ public partial class CassandraProjectionStore : IProjectionStoreLegacy
         _insertPreparedStatement = new InsertPreparedStatementNew(cronusContextAccessor, cassandraProvider);
 
         _insertPreparedStatementLegacy = new InsertPreparedStatementLegacy(cronusContextAccessor, cassandraProvider);
-        _writePreparedStatementLegacy = new WritePreparedStatementLegacy(cronusContextAccessor, cassandraProvider);
+        _insertPartitionPreparedStatement = new InsertPatrtitionPreparedStatement(cronusContextAccessor, cassandraProvider);
         _preparedStatementToGetProjectionLegacy = new PreparedStatementToGetProjectionLegacy(cronusContextAccessor, cassandraProvider);
         _asOfDatePreparedStatementLegacy = new AsOfDatePreparedStatementLegacy(cronusContextAccessor, cassandraProvider);
         _descendingPreparedStatementLegacy = new DescendingPreparedStatementLegacy(cronusContextAccessor, cassandraProvider);
@@ -146,7 +144,7 @@ public partial class CassandraProjectionStore : IProjectionStoreLegacy
         batch.Add(projectionBoundStatementNew);
 
         // partitions
-        PreparedStatement partitionStatement = await _writePreparedStatementLegacy.PrepareStatementAsync(session, projectionCommitLocationBasedOnVersionLEGACY).ConfigureAwait(false);
+        PreparedStatement partitionStatement = await _insertPartitionPreparedStatement.PrepareStatementAsync(session, projectionCommitLocationBasedOnVersionLEGACY).ConfigureAwait(false);
         BoundStatement partitionBoundStatement = partitionStatement.Bind(commit.Version.ProjectionName, projectionId, partitionId);
         batch.Add(partitionBoundStatement);
 

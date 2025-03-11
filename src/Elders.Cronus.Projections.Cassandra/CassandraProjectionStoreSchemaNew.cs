@@ -22,8 +22,8 @@ public class CassandraProjectionStoreSchemaNew : ICassandraProjectionStoreSchema
     private readonly ILogger<CassandraProjectionStoreSchemaNew> logger;
     private readonly ICassandraProvider cassandraProvider;
     //                                                                                       
-    const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"".""{1}"" (id blob, pid bigint, data blob, ts bigint, PRIMARY KEY ((id, pid), ts)) WITH CLUSTERING ORDER BY (ts ASC);";
-    const string DropQueryTemplate = @"DROP TABLE IF EXISTS ""{0}"";";
+    const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS {0}.""{1}"" (id blob, pid bigint, data blob, ts bigint, PRIMARY KEY ((id, pid), ts)) WITH CLUSTERING ORDER BY (ts ASC);";
+    const string DropQueryTemplate = @"DROP TABLE IF EXISTS {0};";
 
     private CreateTablePreparedStatementNew _createTablePreparedStatementNew;
 
