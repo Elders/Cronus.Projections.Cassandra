@@ -119,7 +119,7 @@ public class CassandraProvider : ICassandraProvider
                     try
                     {
                         ICluster cluster = await GetClusterAsync().ConfigureAwait(false);
-                        session = await cluster.ConnectAsync(GetKeyspace()).ConfigureAwait(false);
+                        session = await cluster.ConnectAsync().ConfigureAwait(false);
                     }
                     catch (InvalidQueryException)
                     {
