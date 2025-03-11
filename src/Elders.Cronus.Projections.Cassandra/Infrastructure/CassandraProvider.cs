@@ -64,10 +64,22 @@ public class CassandraProvider : ICassandraProvider
 
                 var connStrBuilder = new CassandraConnectionStringBuilder(connectionString);
 
+                int ThirthySeconds = 1000 * 30;
+                SocketOptions so = new SocketOptions();
+                so.SetReadTimeoutMillis(ThirthySeconds);
+                so.SetStreamMode(true);
+                so.SetTcpNoDelay(true);
+
                 cluster = connStrBuilder
                     .ApplyToBuilder(builder)
+                    .WithSocketOptions(so)
                     .WithTypeSerializers(new TypeSerializerDefinitions().Define(new ReadOnlyMemoryTypeSerializer()))
                     .WithReconnectionPolicy(new ExponentialReconnectionPolicy(100, 100000))
+                    .WithCompression(CompressionType.LZ4)
+                    .WithPoolingOptions(new PoolingOptions()
+                            .SetCoreConnectionsPerHost(HostDistance.Local, 2)
+                            .SetMaxConnectionsPerHost(HostDistance.Local, 8)
+                            .SetMaxRequestsPerConnection(options.MaxRequestsPerConnection))
                     .Build();
 
                 await cluster.RefreshSchemaAsync().ConfigureAwait(false);
@@ -139,34 +151,6 @@ public class CassandraProvider : ICassandraProvider
         createEventsTableStatement = createEventsTableStatement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
 
         return createEventsTableStatement.Bind();
-    }
-
-    string ICassandraProvider.GetKeyspace()
-    {
-        return keyspaceNamingStrategy.GetName(baseConfigurationKeyspace).ToLower();
-    }
-}
-
-class NoHintedHandOffRetryPolicy : IRetryPolicy
-{
-    public RetryDecision OnReadTimeout(IStatement query, ConsistencyLevel cl, int requiredResponses, int receivedResponses, bool dataRetrieved, int nbRetry)
-    {
-        if (nbRetry != 0)
-            return RetryDecision.Rethrow();
-
-        return receivedResponses >= requiredResponses && !dataRetrieved
-                   ? RetryDecision.Retry(cl)
-                   : RetryDecision.Rethrow();
-    }
-
-    public RetryDecision OnUnavailable(IStatement query, ConsistencyLevel cl, int requiredReplica, int aliveReplica, int nbRetry)
-    {
-        return RetryDecision.Rethrow();
-    }
-
-    public RetryDecision OnWriteTimeout(IStatement query, ConsistencyLevel cl, string writeType, int requiredAcks, int receivedAcks, int nbRetry)
-    {
-        return RetryDecision.Rethrow();
     }
 }
 
