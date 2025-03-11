@@ -1,18 +1,17 @@
-﻿namespace Elders.Cronus.Projections.Cassandra
+﻿namespace Elders.Cronus.Projections.Cassandra;
+
+public class ProjectionPartition
 {
-    public class ProjectionPartition
+    public ProjectionPartition(string projectionName, byte[] projectionId, long partition)
     {
-        public ProjectionPartition(string projectionName, byte[] projectionId, long partition)
-        {
-            ProjectionName = projectionName;
-            ProjectionId = projectionId;
-            Partition = partition;
-        }
-
-        public string ProjectionName { get; private set; }
-
-        public byte[] ProjectionId { get; private set; }
-
-        public long Partition { get; private set; }
+        ProjectionName = projectionName;
+        ProjectionId = projectionId;
+        Partition = partition;
     }
+
+    public string ProjectionName { get; private set; }
+
+    public byte[] ProjectionId { get; private set; }
+
+    public long Partition { get; private set; }
 }

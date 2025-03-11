@@ -1,7 +1,6 @@
-﻿namespace Elders.Cronus.Projections.Cassandra
+﻿namespace Elders.Cronus.Projections.Cassandra;
+
+public interface IKeyspaceNamingStrategy
 {
-    public interface IKeyspaceNamingStrategy
-    {
-        string GetName(string baseConfigurationKeyspace);
-    }
+    string GetName(string baseConfigurationKeyspace);
 }

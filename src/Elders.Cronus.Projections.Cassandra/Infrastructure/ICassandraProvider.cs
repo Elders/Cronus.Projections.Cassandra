@@ -1,12 +1,11 @@
 ﻿using Cassandra;
 using System.Threading.Tasks;
 
-namespace Elders.Cronus.Projections.Cassandra.Infrastructure
+namespace Elders.Cronus.Projections.Cassandra.Infrastructure;
+
+public interface ICassandraProvider
 {
-    public interface ICassandraProvider
-    {
-        string GetKeyspace();
-        Task<ICluster> GetClusterAsync();
-        Task<ISession> GetSessionAsync();
-    }
+    string GetKeyspace();
+    Task<ICluster> GetClusterAsync();
+    Task<ISession> GetSessionAsync();
 }
