@@ -1,36 +1,38 @@
 ﻿using Microsoft.Extensions.Configuration;
 using System.Collections.Generic;
 
-namespace Elders.Cronus.Projections.Cassandra.Infrastructure
+namespace Elders.Cronus.Projections.Cassandra.Infrastructure;
+
+public class CassandraProviderOptions
 {
-    public class CassandraProviderOptions
+    public CassandraProviderOptions()
     {
-        public CassandraProviderOptions()
-        {
-            Datacenters = new List<string>();
-        }
-
-        public string ConnectionString { get; set; }
-
-        public string ReplicationStrategy { get; set; } = "simple";
-
-        public int ReplicationFactor { get; set; } = 1;
-
-        public List<string> Datacenters { get; set; }
-
-        public bool LoadFromNewProjectionsTables { get; set; } // temp option for migration purposes for easy switch between load from legacy and new tables
-        public bool SaveToNewProjectionsTablesOnly { get; set; }
+        Datacenters = new List<string>();
     }
 
-    public class CassandraProviderOptionsProvider : CronusOptionsProviderBase<CassandraProviderOptions>
+    public string ConnectionString { get; set; }
+
+    public string ReplicationStrategy { get; set; } = "simple";
+
+    public int ReplicationFactor { get; set; } = 1;
+
+    public List<string> Datacenters { get; set; }
+
+    public bool LoadFromNewProjectionsTables { get; set; } // temp option for migration purposes for easy switch between load from legacy and new tables
+
+    public bool SaveToNewProjectionsTablesOnly { get; set; }
+
+    public int MaxRequestsPerConnection { get; set; } = 4096;
+}
+
+public class CassandraProviderOptionsProvider : CronusOptionsProviderBase<CassandraProviderOptions>
+{
+    public const string SettingKey = "cronus:projections:cassandra";
+
+    public CassandraProviderOptionsProvider(IConfiguration configuration) : base(configuration) { }
+
+    public override void Configure(CassandraProviderOptions options)
     {
-        public const string SettingKey = "cronus:projections:cassandra";
-
-        public CassandraProviderOptionsProvider(IConfiguration configuration) : base(configuration) { }
-
-        public override void Configure(CassandraProviderOptions options)
-        {
-            configuration.GetSection(SettingKey).Bind(options);
-        }
+        configuration.GetSection(SettingKey).Bind(options);
     }
 }

@@ -57,9 +57,9 @@ public class CassandraFixture : ICassandraProvider, IAsyncDisposable
     {
         string keyspace;
         if (TestContext.CurrentContext.Test.Type.Name.Length > 48)
-            keyspace = TestContext.CurrentContext.Test.Type.Name[..48];
+            keyspace = TestContext.CurrentContext.Test.Type.Name[..48].ToLower();
         else
-            keyspace = TestContext.CurrentContext.Test.Type.Name;
+            keyspace = TestContext.CurrentContext.Test.Type.Name.ToLower();
 
         return GetSessionAsync(keyspace);
     }
@@ -82,4 +82,6 @@ public class CassandraFixture : ICassandraProvider, IAsyncDisposable
 
         return session;
     }
+
+    public string GetKeyspace() => TestContext.CurrentContext.Test.Type.Name.ToLower();
 }

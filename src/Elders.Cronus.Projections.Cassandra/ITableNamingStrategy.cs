@@ -1,7 +1,6 @@
-﻿namespace Elders.Cronus.Projections.Cassandra
+﻿namespace Elders.Cronus.Projections.Cassandra;
+
+public interface ITableNamingStrategy
 {
-    public interface ITableNamingStrategy
-    {
-        string GetName();
-    }
+    string GetName();
 }

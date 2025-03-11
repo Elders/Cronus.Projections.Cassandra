@@ -1,56 +1,57 @@
 ﻿using Cassandra;
+using Elders.Cronus.MessageProcessing;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Elders.Cronus.Projections.Cassandra
+namespace Elders.Cronus.Projections.Cassandra;
+
+public interface ICassandraProjectionPartitionStoreSchema
 {
-    public interface ICassandraProjectionPartitionStoreSchema
+    Task CreateProjectionPartitionsStorage();
+}
+
+public class CassandraProjectionPartitionStoreSchema : ICassandraProjectionPartitionStoreSchema
+{
+    const string CreateProjectionPartionsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"".""{1}"" (pt text, id blob, pid bigint, PRIMARY KEY ((pt,id), pid)) WITH CLUSTERING ORDER BY (pid ASC)";
+    const string PartionsTableName = "projection_partitions";
+
+    private readonly ILogger<CassandraProjectionPartitionStoreSchema> logger;
+    private readonly ICassandraProvider cassandraProvider;
+    private CreateTablePreparedStatementLegacy _createTablePreparedStatementLegacy;
+
+    public CassandraProjectionPartitionStoreSchema(ICronusContextAccessor cronusContextAccessor, ICassandraProvider cassandraProvider, ILogger<CassandraProjectionPartitionStoreSchema> logger)
     {
-        Task CreateProjectionPartitionsStorage();
+        if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
+
+        this.cassandraProvider = cassandraProvider;
+        this.logger = logger;
+
+        _createTablePreparedStatementLegacy = new CreateTablePreparedStatementLegacy(cronusContextAccessor, cassandraProvider);
     }
 
-    public class CassandraProjectionPartitionStoreSchema : ICassandraProjectionPartitionStoreSchema
+    private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync();
+
+    public async Task CreateProjectionPartitionsStorage()
     {
-        private readonly ILogger<CassandraProjectionPartitionStoreSchema> logger;
-        private readonly ICassandraProvider cassandraProvider;
+        ISession session = await GetSessionAsync().ConfigureAwait(false);
+        if (logger.IsEnabled(LogLevel.Debug))
+            logger.LogDebug("[EventStore] Creating table `{tableName}` with `{address}` in keyspace `{keyspace}`...", PartionsTableName, session.Cluster.AllHosts().First().Address, session.Keyspace);
 
-        const string CreateProjectionPartionsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"".""{1}"" (pt text, id blob, pid bigint, PRIMARY KEY ((pt,id), pid)) WITH CLUSTERING ORDER BY (pid ASC)";
-        const string PartionsTableName = "projection_partitions";
+        PreparedStatement createEventsTableStatement = await _createTablePreparedStatementLegacy.PrepareStatementAsync(session, PartionsTableName);
 
-        public CassandraProjectionPartitionStoreSchema(ICassandraProvider cassandraProvider, ILogger<CassandraProjectionPartitionStoreSchema> logger)
-        {
-            if (cassandraProvider is null) throw new ArgumentNullException(nameof(cassandraProvider));
+        await session.ExecuteAsync(createEventsTableStatement.Bind()).ConfigureAwait(false);
 
-            this.cassandraProvider = cassandraProvider;
-            this.logger = logger;
-        }
+        if (logger.IsEnabled(LogLevel.Debug))
+            logger.LogDebug("[EventStore] Created table `{tableName}` in keyspace `{keyspace}`...", PartionsTableName, session.Keyspace);
+    }
 
-        private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync();
+    class CreateTablePreparedStatementLegacy : PreparedStatementCache
+    {
+        public CreateTablePreparedStatementLegacy(ICronusContextAccessor context, ICassandraProvider cassandraProvider) : base(context, cassandraProvider) { }
 
-        public async Task CreateProjectionPartitionsStorage()
-        {
-            try
-            {
-                ISession session = await GetSessionAsync().ConfigureAwait(false);
-                if (logger.IsEnabled(LogLevel.Debug))
-                    logger.LogDebug("[EventStore] Creating table `{tableName}` with `{address}` in keyspace `{keyspace}`...", PartionsTableName, session.Cluster.AllHosts().First().Address, session.Keyspace);
-
-                string query = string.Format(CreateProjectionPartionsTableTemplate, session.Keyspace, PartionsTableName);
-                PreparedStatement createEventsTableStatement = await session.PrepareAsync(query).ConfigureAwait(false);
-                createEventsTableStatement.SetConsistencyLevel(ConsistencyLevel.All);
-
-                await session.ExecuteAsync(createEventsTableStatement.Bind()).ConfigureAwait(false);
-
-                if (logger.IsEnabled(LogLevel.Debug))
-                    logger.LogDebug("[EventStore] Created table `{tableName}` in keyspace `{keyspace}`...", PartionsTableName, session.Keyspace);
-            }
-            catch (Exception)
-            {
-                throw;
-            }
-        }
+        internal override string GetQueryTemplate() => CreateProjectionPartionsTableTemplate;
     }
 }

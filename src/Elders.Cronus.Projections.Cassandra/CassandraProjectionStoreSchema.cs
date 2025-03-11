@@ -4,84 +4,103 @@ using System.Linq;
 using System.Threading.Tasks;
 using Cassandra;
 using Cassandra.Data.Linq;
+using Elders.Cronus.MessageProcessing;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Microsoft.Extensions.Logging;
 
-namespace Elders.Cronus.Projections.Cassandra
+namespace Elders.Cronus.Projections.Cassandra;
+
+[Obsolete("Will be removed in v12. Use CassandraProjectionStoreSchemaNew instead.")]
+public class CassandraProjectionStoreSchema : IProjectionStoreStorageManager
 {
-    [Obsolete("Will be removed in v12. Use CassandraProjectionStoreSchemaNew instead.")]
-    public class CassandraProjectionStoreSchema : IProjectionStoreStorageManager
+    private readonly ConcurrentDictionary<string, bool> initializedLocations;
+
+    private readonly ILogger<CassandraProjectionStoreSchema> logger;
+    private readonly ICassandraProvider cassandraProvider;
+
+    const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"".""{1}"" (id blob, data blob, ts bigint, PRIMARY KEY (id, ts)) WITH CLUSTERING ORDER BY (ts ASC);";
+    const string DropQueryTemplate = @"DROP TABLE IF EXISTS ""{0}"";";
+
+    private CreateProjectiondStatementLegacy _createProjectiondStatementLegacy;
+    private DropProjectiondStatementLegacy _dropProjectiondStatementLegacy;
+
+    private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync();
+    public async Task<string> GetKeypaceAsync()
     {
-        private readonly ConcurrentDictionary<string, bool> initializedLocations;
+        ISession session = await GetSessionAsync().ConfigureAwait(false);
+        return session.Keyspace;
+    }
 
-        private readonly ILogger<CassandraProjectionStoreSchema> logger;
-        private readonly ICassandraProvider cassandraProvider;
+    /// <summary>
+    /// Used for cassandra schema changes exclusively
+    /// https://issues.apache.org/jira/browse/CASSANDRA-10699
+    /// https://issues.apache.org/jira/browse/CASSANDRA-11429
+    /// </summary>
+    /// <param name="sessionForSchemaChanges"></param>
+    public CassandraProjectionStoreSchema(ICronusContextAccessor contextAccessor, ICassandraProvider cassandraProvider, ILogger<CassandraProjectionStoreSchema> logger)
+    {
+        if (ReferenceEquals(null, cassandraProvider)) throw new ArgumentNullException(nameof(cassandraProvider));
+        this.cassandraProvider = cassandraProvider;
+        this.logger = logger;
 
-        const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS ""{0}"".""{1}"" (id blob, data blob, ts bigint, PRIMARY KEY (id, ts)) WITH CLUSTERING ORDER BY (ts ASC);";
-        const string DropQueryTemplate = @"DROP TABLE IF EXISTS ""{0}"";";
+        initializedLocations = new ConcurrentDictionary<string, bool>();
 
-        private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync();
-        public async Task<string> GetKeypaceAsync()
+        _createProjectiondStatementLegacy = new CreateProjectiondStatementLegacy(contextAccessor, cassandraProvider);
+        _dropProjectiondStatementLegacy = new DropProjectiondStatementLegacy(contextAccessor, cassandraProvider);
+    }
+
+    public async Task DropTableAsync(string location)
+    {
+        if (string.IsNullOrWhiteSpace(location)) throw new ArgumentNullException(nameof(location));
+
+        ISession session = await GetSessionAsync().ConfigureAwait(false);
+        PreparedStatement statement = await _dropProjectiondStatementLegacy.PrepareStatementAsync(session, location).ConfigureAwait(false);
+        statement = statement.SetConsistencyLevel(ConsistencyLevel.All);
+        await session.ExecuteAsync(statement.Bind()).ConfigureAwait(false);
+    }
+
+    public async Task CreateTableAsync(string location)
+    {
+        ISession session = await GetSessionAsync().ConfigureAwait(false);
+        if (logger.IsEnabled(LogLevel.Debug))
+            logger.LogDebug("[Projections] Creating table `{tableName}` with `{address}`...", location, session.Cluster.AllHosts().First().Address);
+
+        PreparedStatement statement = await _createProjectiondStatementLegacy.PrepareStatementAsync(session, location).ConfigureAwait(false);
+        statement = statement.SetConsistencyLevel(ConsistencyLevel.All);
+        await session.ExecuteAsync(statement.Bind()).ConfigureAwait(false);
+
+        if (logger.IsEnabled(LogLevel.Debug))
+            logger.LogDebug("[Projections] Created table `{tableName}`... Maybe?!", location);
+    }
+
+    public async Task CreateProjectionsStorageAsync(string location)
+    {
+        if (initializedLocations.TryGetValue(location, out bool isInitialized))
         {
-            ISession session = await GetSessionAsync().ConfigureAwait(false);
-            return session.Keyspace;
-        }
-
-        /// <summary>
-        /// Used for cassandra schema changes exclusively
-        /// https://issues.apache.org/jira/browse/CASSANDRA-10699
-        /// https://issues.apache.org/jira/browse/CASSANDRA-11429
-        /// </summary>
-        /// <param name="sessionForSchemaChanges"></param>
-        public CassandraProjectionStoreSchema(ICassandraProvider cassandraProvider, ILogger<CassandraProjectionStoreSchema> logger)
-        {
-            if (ReferenceEquals(null, cassandraProvider)) throw new ArgumentNullException(nameof(cassandraProvider));
-            this.cassandraProvider = cassandraProvider;
-            this.logger = logger;
-
-            initializedLocations = new ConcurrentDictionary<string, bool>();
-        }
-
-        public async Task DropTableAsync(string location)
-        {
-            if (string.IsNullOrWhiteSpace(location)) throw new ArgumentNullException(nameof(location));
-
-            ISession session = await GetSessionAsync().ConfigureAwait(false);
-            string query = string.Format(DropQueryTemplate, location);
-            PreparedStatement statement = await session.PrepareAsync(query).ConfigureAwait(false);
-            statement = statement.SetConsistencyLevel(ConsistencyLevel.All);
-            await session.ExecuteAsync(statement.Bind()).ConfigureAwait(false);
-        }
-
-        public async Task CreateTableAsync(string location)
-        {
-            ISession session = await GetSessionAsync().ConfigureAwait(false);
-            if (logger.IsEnabled(LogLevel.Debug))
-                logger.LogDebug("[Projections] Creating table `{tableName}` with `{address}`...", location, session.Cluster.AllHosts().First().Address);
-            string query = string.Format(CreateProjectionEventsTableTemplate, session.Keyspace, location);
-            PreparedStatement statement = await session.PrepareAsync(query).ConfigureAwait(false);
-            statement = statement.SetConsistencyLevel(ConsistencyLevel.All);
-            await session.ExecuteAsync(statement.Bind()).ConfigureAwait(false);
-
-            if (logger.IsEnabled(LogLevel.Debug))
-                logger.LogDebug("[Projections] Created table `{tableName}`... Maybe?!", location);
-        }
-
-        public async Task CreateProjectionsStorageAsync(string location)
-        {
-            if (initializedLocations.TryGetValue(location, out bool isInitialized))
-            {
-                if (isInitialized == false)
-                {
-                    await CreateTableAsync(location).ConfigureAwait(false);
-                    initializedLocations.TryUpdate(location, true, false);
-                }
-            }
-            else
+            if (isInitialized == false)
             {
                 await CreateTableAsync(location).ConfigureAwait(false);
-                initializedLocations.TryAdd(location, true);
+                initializedLocations.TryUpdate(location, true, false);
             }
         }
+        else
+        {
+            await CreateTableAsync(location).ConfigureAwait(false);
+            initializedLocations.TryAdd(location, true);
+        }
+    }
+
+    class CreateProjectiondStatementLegacy : PreparedStatementCache
+    {
+        public CreateProjectiondStatementLegacy(ICronusContextAccessor context, ICassandraProvider cassandraProvider) : base(context, cassandraProvider)
+        { }
+        internal override string GetQueryTemplate() => CreateProjectionEventsTableTemplate;
+    }
+
+    class DropProjectiondStatementLegacy : PreparedStatementCache
+    {
+        public DropProjectiondStatementLegacy(ICronusContextAccessor context, ICassandraProvider cassandraProvider) : base(context, cassandraProvider)
+        { }
+        internal override string GetQueryTemplate() => DropQueryTemplate;
     }
 }

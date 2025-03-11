@@ -1,7 +1,6 @@
-﻿namespace Elders.Cronus.Projections.Cassandra.Infrastructure
+﻿namespace Elders.Cronus.Projections.Cassandra.Infrastructure;
+
+public interface ICassandraReplicationStrategy
 {
-    public interface ICassandraReplicationStrategy
-    {
-        string CreateKeySpaceTemplate(string keySpace);
-    }
+    string CreateKeySpaceTemplate(string keySpace);
 }

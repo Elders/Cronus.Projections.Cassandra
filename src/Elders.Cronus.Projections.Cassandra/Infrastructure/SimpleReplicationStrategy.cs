@@ -1,25 +1,24 @@
 ﻿using System;
 
-namespace Elders.Cronus.Projections.Cassandra.Infrastructure
+namespace Elders.Cronus.Projections.Cassandra.Infrastructure;
+
+public class SimpleReplicationStrategy : ICassandraReplicationStrategy
 {
-    public class SimpleReplicationStrategy : ICassandraReplicationStrategy
+    private const string keySpaceTemplate = @"CREATE KEYSPACE IF NOT EXISTS {0} WITH replication = {{'class':'SimpleStrategy', 'replication_factor':{1}}};";
+
+    public SimpleReplicationStrategy(int replicationFactor)
     {
-        private const string keySpaceTemplate = @"CREATE KEYSPACE IF NOT EXISTS {0} WITH replication = {{'class':'SimpleStrategy', 'replication_factor':{1}}};";
+        if (replicationFactor < 1) throw new ArgumentException("Replication factor should be at least '1'", nameof(replicationFactor));
 
-        public SimpleReplicationStrategy(int replicationFactor)
-        {
-            if (replicationFactor < 1) throw new ArgumentException("Replication factor should be at least '1'", nameof(replicationFactor));
+        ReplicationFactor = replicationFactor;
+    }
 
-            ReplicationFactor = replicationFactor;
-        }
+    public int ReplicationFactor { get; private set; }
 
-        public int ReplicationFactor { get; private set; }
+    public string CreateKeySpaceTemplate(string keySpace)
+    {
+        if (string.IsNullOrEmpty(keySpace)) throw new ArgumentNullException(nameof(keySpace));
 
-        public string CreateKeySpaceTemplate(string keySpace)
-        {
-            if (string.IsNullOrEmpty(keySpace)) throw new ArgumentNullException(nameof(keySpace));
-
-            return string.Format(keySpaceTemplate, keySpace, ReplicationFactor);
-        }
+        return string.Format(keySpaceTemplate, keySpace, ReplicationFactor);
     }
 }
