@@ -40,13 +40,10 @@ public partial class CassandraProjectionStoreNew : IProjectionStoreNew
     private readonly VersionedProjectionsNaming naming;
 
     private InsertPreparedStatementNew _insertPreparedStatement;
-    private WritePreparedStatementNew _writePreparedStatementNew;
+    private InsertPartitionPreparedStatementNew _insertPartitionPreparedStatementNew;
     private PreparedStatementToGetProjectionNew _preparedStatementToGetProjectionNew;
     private AsOfDatePreparedStatementNew _asOfDatePreparedStatementNew;
     private DescendingPreparedStatementNew _descendingPreparedStatementNew;
-
-    private PreparedStatement _insertPartitionPreparedStatement; // the store is registered as tenant singleton and the table is hardcoded so there could only be one prepared statement per tenant
-
 
     private Task<ISession> GetSessionAsync() => cassandraProvider.GetSessionAsync(); // In order to keep only 1 session alive (https://docs.datastax.com/en/developer/csharp-driver/3.16/faq/)
 
@@ -62,7 +59,7 @@ public partial class CassandraProjectionStoreNew : IProjectionStoreNew
         this.naming = naming;
 
         _insertPreparedStatement = new InsertPreparedStatementNew(cronusContextAccessor, cassandraProvider);
-        _writePreparedStatementNew = new WritePreparedStatementNew(cronusContextAccessor, cassandraProvider);
+        _insertPartitionPreparedStatementNew = new InsertPartitionPreparedStatementNew(cronusContextAccessor, cassandraProvider);
         _preparedStatementToGetProjectionNew = new PreparedStatementToGetProjectionNew(cronusContextAccessor, cassandraProvider);
         _asOfDatePreparedStatementNew = new AsOfDatePreparedStatementNew(cronusContextAccessor, cassandraProvider);
         _descendingPreparedStatementNew = new DescendingPreparedStatementNew(cronusContextAccessor, cassandraProvider);
@@ -117,7 +114,7 @@ public partial class CassandraProjectionStoreNew : IProjectionStoreNew
         BoundStatement projectionBoundStatement = projectionStatement.Bind(projectionId, partitionId, data, commit.Event.Timestamp.ToFileTime());
         batch.Add(projectionBoundStatement);
 
-        PreparedStatement partitionStatement = await _writePreparedStatementNew.PrepareStatementAsync(session, columnFamily).ConfigureAwait(false);
+        PreparedStatement partitionStatement = await _insertPartitionPreparedStatementNew.PrepareStatementAsync(session, columnFamily).ConfigureAwait(false);
         BoundStatement partitionBoundStatement = partitionStatement.Bind(commit.Version.ProjectionName, projectionId, partitionId);
         batch.Add(partitionBoundStatement);
 
