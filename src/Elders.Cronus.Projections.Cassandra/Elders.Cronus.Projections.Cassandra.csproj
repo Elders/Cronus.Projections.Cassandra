@@ -2,8 +2,6 @@
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
-    <!--<NullableReferenceTypes>true</NullableReferenceTypes>
-    <LangVersion>8.0</LangVersion>-->
   </PropertyGroup>
 
   <!--Nuget-->
@@ -19,8 +17,6 @@
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <RequireLicenseAcceptance>true</RequireLicenseAcceptance>
 
-    <ReleaseNotes>https://github.com/Elders/Cronus.Projections.Cassandra/blob/preview/CHANGELOG.md</ReleaseNotes>
-
     <PackageIconUrl>https://raw.githubusercontent.com/Elders/logo/master/cronus/frame.png</PackageIconUrl>
     <RepositoryUrl>https://github.com/Elders/Cronus.git</RepositoryUrl>
     <PackageProjectUrl>https://github.com/Elders/Cronus</PackageProjectUrl>
@@ -31,7 +27,6 @@
     <NeutralLanguage>en-US</NeutralLanguage>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <AssemblyVersion>11.0.0</AssemblyVersion>
-    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <ItemGroup>
