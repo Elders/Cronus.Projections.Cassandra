@@ -53,6 +53,10 @@ internal abstract class PreparedStatementCache
 
             return preparedStatement;
         }
+        catch (InvalidQueryException)
+        {
+            throw; // this is OK exception which is handled on a higher level.
+        }
         catch (Exception ex)
         {
             throw new Exception($"Failed to prepare query statement for {this.GetType().Name}", ex);
