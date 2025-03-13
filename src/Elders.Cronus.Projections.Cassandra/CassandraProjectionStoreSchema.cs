@@ -17,6 +17,7 @@ public class CassandraProjectionStoreSchema : IProjectionStoreStorageManager
 
     private readonly ILogger<CassandraProjectionStoreSchema> logger;
     private readonly ICassandraProvider cassandraProvider;
+    private readonly ICronusContextAccessor _cronusContextAccessor;
 
     const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS {0}.""{1}"" (id blob, data blob, ts bigint, PRIMARY KEY (id, ts)) WITH CLUSTERING ORDER BY (ts ASC);";
     const string DropQueryTemplate = @"DROP TABLE IF EXISTS {0};";
@@ -43,6 +44,7 @@ public class CassandraProjectionStoreSchema : IProjectionStoreStorageManager
         this.cassandraProvider = cassandraProvider;
         this.logger = logger;
 
+        this._cronusContextAccessor = contextAccessor;
         initializedLocations = new ConcurrentDictionary<string, bool>();
 
         _createProjectiondStatementLegacy = new CreateProjectiondStatementLegacy(contextAccessor, cassandraProvider);
@@ -75,18 +77,20 @@ public class CassandraProjectionStoreSchema : IProjectionStoreStorageManager
 
     public async Task CreateProjectionsStorageAsync(string location)
     {
-        if (initializedLocations.TryGetValue(location, out bool isInitialized))
+        string key = $"{_cronusContextAccessor.CronusContext.Tenant}_{location}"; // because this class is singleton
+
+        if (initializedLocations.TryGetValue(key, out bool isInitialized))
         {
             if (isInitialized == false)
             {
                 await CreateTableAsync(location).ConfigureAwait(false);
-                initializedLocations.TryUpdate(location, true, false);
+                initializedLocations.TryUpdate(key, true, false);
             }
         }
         else
         {
             await CreateTableAsync(location).ConfigureAwait(false);
-            initializedLocations.TryAdd(location, true);
+            initializedLocations.TryAdd(key, true);
         }
     }
 
