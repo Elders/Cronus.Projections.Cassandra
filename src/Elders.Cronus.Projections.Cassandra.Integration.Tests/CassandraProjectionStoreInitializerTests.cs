@@ -3,6 +3,7 @@ using System.Text;
 using Cassandra;
 using Elders.Cronus.EventStore;
 using Elders.Cronus.MessageProcessing;
+using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Newtonsoft.Json;
@@ -30,8 +31,8 @@ public class CassandraProjectionStoreLegacyInitializerTests
         var serviceProviderMock = new Mock<IServiceProvider>();
         var cronusContext = new CronusContext("test", serviceProviderMock.Object);
         contextAccessor.SetupProperty(x => x.CronusContext, cronusContext);
-
-        var projectionStore = new CassandraProjectionStoreSchema(contextAccessor.Object, cassandra, NullLogger<CassandraProjectionStoreSchema>.Instance);
+        var replicatoinStrategy = new SimpleReplicationStrategy(1);
+        var projectionStore = new CassandraProjectionStoreSchema(contextAccessor.Object, cassandra, replicatoinStrategy, NullLogger<CassandraProjectionStoreSchema>.Instance);
         initializer = new CassandraProjectionStoreInitializer(projectionStore, naming);
     }
 
@@ -70,9 +71,10 @@ public class CassandraProjectionStoreNewInitializerTests
         var cronusContext = new CronusContext("test", serviceProviderMock.Object);
         contextAccessor.SetupProperty(x => x.CronusContext, cronusContext);
         naming = new VersionedProjectionsNaming();
-        var legacyProjectionStoreSchema = new CassandraProjectionStoreSchema(contextAccessor.Object, cassandra, NullLogger<CassandraProjectionStoreSchema>.Instance);
-        var partitionSchema = new CassandraProjectionPartitionStoreSchema(contextAccessor.Object, cassandra, NullLogger<CassandraProjectionPartitionStoreSchema>.Instance);
-        var projectionStoreNew = new CassandraProjectionStoreSchemaNew(contextAccessor.Object, cassandra, NullLogger<CassandraProjectionStoreSchemaNew>.Instance);
+        var replicatoinStrategy = new SimpleReplicationStrategy(1);
+        var legacyProjectionStoreSchema = new CassandraProjectionStoreSchema(contextAccessor.Object, cassandra, replicatoinStrategy, NullLogger<CassandraProjectionStoreSchema>.Instance);
+        var partitionSchema = new CassandraProjectionPartitionStoreSchema(contextAccessor.Object, cassandra, replicatoinStrategy, NullLogger<CassandraProjectionPartitionStoreSchema>.Instance);
+        var projectionStoreNew = new CassandraProjectionStoreSchemaNew(contextAccessor.Object, cassandra, replicatoinStrategy, NullLogger<CassandraProjectionStoreSchemaNew>.Instance);
 
         CassandraProjectionStoreInitializer initializer = new CassandraProjectionStoreInitializer(legacyProjectionStoreSchema, naming);
         initializerNew = new CassandraProjectionStoreInitializerNew(initializer, partitionSchema, naming, projectionStoreNew);
@@ -120,10 +122,10 @@ public class CassandraProjectionStoreNewTests
         serializer = new SerializerMock();
         naming = new VersionedProjectionsNaming();
         projectionStore = new CassandraProjectionStoreNew(contextAccessor.Object, cassandra, partitionStore, serializer, naming, NullLogger<CassandraProjectionStoreNew>.Instance);
-
-        var projectionStoreSchema = new CassandraProjectionStoreSchema(contextAccessor.Object, cassandra, NullLogger<CassandraProjectionStoreSchema>.Instance);
-        var partitionSchema = new CassandraProjectionPartitionStoreSchema(contextAccessor.Object, cassandra, NullLogger<CassandraProjectionPartitionStoreSchema>.Instance);
-        var projectionStoreNew = new CassandraProjectionStoreSchemaNew(contextAccessor.Object, cassandra, NullLogger<CassandraProjectionStoreSchemaNew>.Instance);
+        var replicatoinStrategy = new SimpleReplicationStrategy(1);
+        var projectionStoreSchema = new CassandraProjectionStoreSchema(contextAccessor.Object, cassandra, replicatoinStrategy, NullLogger<CassandraProjectionStoreSchema>.Instance);
+        var partitionSchema = new CassandraProjectionPartitionStoreSchema(contextAccessor.Object, cassandra, replicatoinStrategy, NullLogger<CassandraProjectionPartitionStoreSchema>.Instance);
+        var projectionStoreNew = new CassandraProjectionStoreSchemaNew(contextAccessor.Object, cassandra, replicatoinStrategy, NullLogger<CassandraProjectionStoreSchemaNew>.Instance);
         CassandraProjectionStoreInitializer initializer = new CassandraProjectionStoreInitializer(projectionStoreSchema, naming);
 
         initializerNew = new CassandraProjectionStoreInitializerNew(initializer, partitionSchema, naming, projectionStoreNew);

@@ -1,5 +1,6 @@
 ﻿using Cassandra;
 using Elders.Cronus.MessageProcessing;
+using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -25,8 +26,8 @@ public class CassandraProjectionPartitionsStoreTests
         contextAccessor.SetupProperty(x => x.CronusContext, cronusContext);
 
         partitionsStore = new CassandraProjectionPartitionsStore(contextAccessor.Object, cassandra, NullLogger<CassandraProjectionPartitionsStore>.Instance);
-
-        var partitionStoreSchema = new CassandraProjectionPartitionStoreSchema(contextAccessor.Object, cassandra, NullLogger<CassandraProjectionPartitionStoreSchema>.Instance);
+        var replicatoinStrategy = new SimpleReplicationStrategy(1);
+        var partitionStoreSchema = new CassandraProjectionPartitionStoreSchema(contextAccessor.Object, cassandra, replicatoinStrategy, NullLogger<CassandraProjectionPartitionStoreSchema>.Instance);
         await partitionStoreSchema.CreateProjectionPartitionsStorage();
     }
 

@@ -1,5 +1,6 @@
 ﻿using Cassandra;
 using Elders.Cronus.MessageProcessing;
+using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -24,8 +25,8 @@ public class CassandraProjectionStoreSchemaNewTests
         var serviceProviderMock = new Mock<IServiceProvider>();
         var cronusContext = new CronusContext("test", serviceProviderMock.Object);
         contextAccessor.SetupProperty(x => x.CronusContext, cronusContext);
-
-        projectionStore = new CassandraProjectionStoreSchemaNew(contextAccessor.Object, cassandra, NullLogger<CassandraProjectionStoreSchemaNew>.Instance);
+        var replicatoinStrategy = new SimpleReplicationStrategy(1);
+        projectionStore = new CassandraProjectionStoreSchemaNew(contextAccessor.Object, cassandra, replicatoinStrategy, NullLogger<CassandraProjectionStoreSchemaNew>.Instance);
     }
 
     [Test]

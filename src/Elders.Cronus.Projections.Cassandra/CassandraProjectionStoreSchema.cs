@@ -17,6 +17,7 @@ public class CassandraProjectionStoreSchema : IProjectionStoreStorageManager
 
     private readonly ILogger<CassandraProjectionStoreSchema> logger;
     private readonly ICassandraProvider cassandraProvider;
+    private readonly ICassandraReplicationStrategy replicationStrategy;
     private readonly ICronusContextAccessor _cronusContextAccessor;
 
     const string CreateProjectionEventsTableTemplate = @"CREATE TABLE IF NOT EXISTS {0}.""{1}"" (id blob, data blob, ts bigint, PRIMARY KEY (id, ts)) WITH CLUSTERING ORDER BY (ts ASC);";
@@ -38,10 +39,11 @@ public class CassandraProjectionStoreSchema : IProjectionStoreStorageManager
     /// https://issues.apache.org/jira/browse/CASSANDRA-11429
     /// </summary>
     /// <param name="sessionForSchemaChanges"></param>
-    public CassandraProjectionStoreSchema(ICronusContextAccessor contextAccessor, ICassandraProvider cassandraProvider, ILogger<CassandraProjectionStoreSchema> logger)
+    public CassandraProjectionStoreSchema(ICronusContextAccessor contextAccessor, ICassandraProvider cassandraProvider, ICassandraReplicationStrategy replicationStrategy, ILogger<CassandraProjectionStoreSchema> logger)
     {
         if (ReferenceEquals(null, cassandraProvider)) throw new ArgumentNullException(nameof(cassandraProvider));
         this.cassandraProvider = cassandraProvider;
+        this.replicationStrategy = replicationStrategy;
         this.logger = logger;
 
         this._cronusContextAccessor = contextAccessor;
@@ -61,9 +63,8 @@ public class CassandraProjectionStoreSchema : IProjectionStoreStorageManager
         await session.ExecuteAsync(statement.Bind()).ConfigureAwait(false);
     }
 
-    public async Task CreateTableAsync(string location)
+    public async Task CreateTableAsync(ISession session, string location)
     {
-        ISession session = await GetSessionAsync().ConfigureAwait(false);
         if (logger.IsEnabled(LogLevel.Debug))
             logger.LogDebug("[Projections] Creating table `{tableName}` with `{address}`...", location, session.Cluster.AllHosts().First().Address);
 
@@ -77,21 +78,41 @@ public class CassandraProjectionStoreSchema : IProjectionStoreStorageManager
 
     public async Task CreateProjectionsStorageAsync(string location)
     {
+        ISession session = await GetSessionAsync().ConfigureAwait(false);
+
+        await CreateKeyspace(session).ConfigureAwait(false);
+
         string key = $"{_cronusContextAccessor.CronusContext.Tenant}_{location}"; // because this class is singleton
 
         if (initializedLocations.TryGetValue(key, out bool isInitialized))
         {
             if (isInitialized == false)
             {
-                await CreateTableAsync(location).ConfigureAwait(false);
+                await CreateTableAsync(session, location).ConfigureAwait(false);
                 initializedLocations.TryUpdate(key, true, false);
             }
         }
         else
         {
-            await CreateTableAsync(location).ConfigureAwait(false);
+            await CreateTableAsync(session, location).ConfigureAwait(false);
             initializedLocations.TryAdd(key, true);
         }
+    }
+
+    public async Task CreateKeyspace(ISession session)
+    {
+        IStatement createTableStatement = await GetCreateKeySpaceQuery(session).ConfigureAwait(false);
+        await session.ExecuteAsync(createTableStatement).ConfigureAwait(false);
+    }
+
+    private async Task<IStatement> GetCreateKeySpaceQuery(ISession session)
+    {
+        string keyspace = cassandraProvider.GetKeyspace();
+        string createKeySpaceQueryTemplate = replicationStrategy.CreateKeySpaceTemplate(keyspace);
+        PreparedStatement createEventsTableStatement = await session.PrepareAsync(createKeySpaceQueryTemplate).ConfigureAwait(false);
+        createEventsTableStatement.SetConsistencyLevel(ConsistencyLevel.All);
+
+        return createEventsTableStatement.Bind();
     }
 
     class CreateProjectiondStatementLegacy : PreparedStatementCache
