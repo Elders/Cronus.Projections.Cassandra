@@ -42,8 +42,12 @@ public class ProjectionsDataWiper : IDangerZone
             ISession session = await GetSessionAsync().ConfigureAwait(false);
             PreparedStatement statement = await _dropKeyspaceQuery.PrepareWipeStatementAsync(session).ConfigureAwait(false);
 
+            logger.LogInformation("Wiping projections data for tenant {tenant} query {query}", tenant, statement.QueryString);
+
             var bs = statement.Bind().SetIdempotence(true);
             await session.ExecuteAsync(bs).ConfigureAwait(false);
+
+            logger.LogInformation("Projections data wiped for tenant {tenant}", tenant);
         }
         catch (Exception ex)
         {

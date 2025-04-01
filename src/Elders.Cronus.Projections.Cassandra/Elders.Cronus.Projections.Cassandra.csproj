@@ -30,7 +30,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Cronus" Version="11.2.0" />
+    <PackageReference Include="Cronus" Version="11.2.1" />
     <PackageReference Include="CassandraCSharpDriver" Version="3.22.0" />
     <InternalsVisibleTo Include="Elders.Cronus.Projections.Cassandra.Integration.Tests" />
   </ItemGroup>
