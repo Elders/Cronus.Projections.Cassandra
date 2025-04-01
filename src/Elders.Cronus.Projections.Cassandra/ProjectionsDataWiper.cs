@@ -58,7 +58,7 @@ public class ProjectionsDataWiper : IDangerZone
 
     class DropKeyspaceQuery : PreparedStatementCache
     {
-        private const string Template = @"DROP KEYSPACE {0};";
+        private const string Template = @"DROP KEYSPACE IF EXISTS {0};";
 
         public DropKeyspaceQuery(ICronusContextAccessor context, ICassandraProvider cassandraProvider) : base(context, cassandraProvider) { }
 
