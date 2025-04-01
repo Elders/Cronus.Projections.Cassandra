@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Cassandra;
+using Elders.Cronus.DangerZone;
 using Elders.Cronus.Discoveries;
 using Elders.Cronus.EventStore;
 using Elders.Cronus.MessageProcessing;
@@ -84,6 +85,10 @@ public class ProjectionLoaderDiscovery : DiscoveryBase<IProjectionReader>
         yield return new DiscoveredModel(typeof(IProjectionStoreNew), typeof(CassandraProjectionStoreNew), ServiceLifetime.Singleton);
         yield return new DiscoveredModel(typeof(CassandraProjectionStoreNew), typeof(CassandraProjectionStoreNew), ServiceLifetime.Singleton);
         yield return new DiscoveredModel(typeof(CassandraProjectionStoreNew<>), typeof(CassandraProjectionStoreNew<>), ServiceLifetime.Singleton);
+
+        // data wiper
+        yield return new DiscoveredModel(typeof(ProjectionsDataWiper), typeof(ProjectionsDataWiper), ServiceLifetime.Singleton);
+        yield return new DiscoveredModel(typeof(IDangerZone), typeof(ProjectionsDataWiper), ServiceLifetime.Singleton) { CanAddMultiple = true };
 
         // partitions store
         yield return new DiscoveredModel(typeof(IProjectionPartionsStore), typeof(CassandraProjectionPartitionsStore), ServiceLifetime.Singleton);

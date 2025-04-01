@@ -67,6 +67,53 @@ internal abstract class PreparedStatementCache
         }
     }
 
+    /// <summary>
+    /// This method is used to prepare a statement for dropping a keyspace. It is used in the <see cref="ProjectionsDataWiper"/> class.
+    /// </summary>
+    /// <param name="session"></param>
+    /// <returns></returns>
+    /// <exception cref="Exception"></exception>
+    internal async Task<PreparedStatement> PrepareWipeStatementAsync(ISession session)
+    {
+        try
+        {
+            PreparedStatement preparedStatement = default;
+            string keyspace = cassandraProvider.GetKeyspace();
+            string key = $"{context.CronusContext.Tenant}_{keyspace}";
+            if (_tenantCache.TryGetValue(key, out preparedStatement) == false)
+            {
+                await threadGate.WaitAsync(10000).ConfigureAwait(false);
+                if (_tenantCache.TryGetValue(key, out preparedStatement))
+                    return preparedStatement;
+
+                string template = GetQueryTemplate();
+
+                if (string.IsNullOrEmpty(keyspace)) throw new Exception($"Invalid keyspace while preparing query template: {template}");
+
+                string query = string.Format(template, keyspace);
+
+                preparedStatement = await session.PrepareAsync(query).ConfigureAwait(false);
+                SetPreparedStatementOptions(preparedStatement);
+
+                _tenantCache.TryAdd(key, preparedStatement);
+            }
+
+            return preparedStatement;
+        }
+        catch (InvalidQueryException)
+        {
+            throw; // this is OK exception which is handled on a higher level.
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Failed to prepare query statement for {this.GetType().Name}", ex);
+        }
+        finally
+        {
+            threadGate?.Release();
+        }
+    }
+
     internal virtual void SetPreparedStatementOptions(PreparedStatement statement)
     {
         statement.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
