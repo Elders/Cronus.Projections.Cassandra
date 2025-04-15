@@ -10,7 +10,7 @@ namespace Elders.Cronus.Projections.Cassandra;
 
 internal abstract class PreparedStatementCache
 {
-    private SemaphoreSlim threadGate = new SemaphoreSlim(1);
+    private SemaphoreSlim threadGate = new SemaphoreSlim(1, 1);
     private readonly ICassandraProvider cassandraProvider;
     private readonly ICronusContextAccessor context;
     private Dictionary<string, PreparedStatement> _tenantCache;
@@ -27,13 +27,17 @@ internal abstract class PreparedStatementCache
 
     internal async Task<PreparedStatement> PrepareStatementAsync(ISession session, string columnFamily)
     {
+        bool lockAcquired = false;
         try
         {
             PreparedStatement preparedStatement = default;
             string key = $"{context.CronusContext.Tenant}_{columnFamily}";
             if (_tenantCache.TryGetValue(key, out preparedStatement) == false)
             {
-                await threadGate.WaitAsync(10000).ConfigureAwait(false);
+                lockAcquired = await threadGate.WaitAsync(10000).ConfigureAwait(false);
+                if (lockAcquired == false)
+                    throw new TimeoutException("Unable to acquire lock for prepared statement.");
+
                 if (_tenantCache.TryGetValue(key, out preparedStatement))
                     return preparedStatement;
 
@@ -63,7 +67,8 @@ internal abstract class PreparedStatementCache
         }
         finally
         {
-            threadGate?.Release();
+            if (lockAcquired)
+                threadGate?.Release();
         }
     }
 
