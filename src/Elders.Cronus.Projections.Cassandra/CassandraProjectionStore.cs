@@ -119,8 +119,17 @@ public partial class CassandraProjectionStore : IProjectionStoreLegacy
         string projectionCommitLocationBasedOnVersionNEW = naming.GetColumnFamilyNew(commit.Version);
 
         byte[] data = serializer.SerializeToBytes(commit.Event);
+        byte[] projectionId = commit.ProjectionId.RawId.ToArray(); // the Bind() method invokes the driver serializers for each value
 
         ISession session = await GetSessionAsync().ConfigureAwait(false);
+
+        if (options.Value.SaveToNewProjectionsTablesOnly == false)
+        {
+            // old projections
+            PreparedStatement projectionStatementLegacy = await _insertPreparedStatementLegacy.PrepareStatementAsync(session, projectionCommitLocationBasedOnVersionLEGACY).ConfigureAwait(false);
+            BoundStatement projectionLegacyBoundStatement = projectionStatementLegacy.Bind(projectionId, data, commit.Event.Timestamp.ToFileTime());
+            await session.ExecuteAsync(projectionLegacyBoundStatement).ConfigureAwait(false);
+        }
 
         BatchStatement batch = new BatchStatement();
         batch.SetConsistencyLevel(ConsistencyLevel.LocalQuorum);
@@ -128,15 +137,6 @@ public partial class CassandraProjectionStore : IProjectionStoreLegacy
         batch.SetBatchType(BatchType.Logged);
 
         long partitionId = CalculatePartition(commit.Event);
-        byte[] projectionId = commit.ProjectionId.RawId.ToArray(); // the Bind() method invokes the driver serializers for each value
-
-        if (options.Value.SaveToNewProjectionsTablesOnly == false)
-        {
-            // old projections
-            PreparedStatement projectionStatement = await _insertPreparedStatementLegacy.PrepareStatementAsync(session, projectionCommitLocationBasedOnVersionLEGACY).ConfigureAwait(false);
-            BoundStatement projectionBoundStatement = projectionStatement.Bind(projectionId, data, commit.Event.Timestamp.ToFileTime());
-            batch.Add(projectionBoundStatement);
-        }
 
         // new projections
         PreparedStatement projectionStatementNew = await _insertPreparedStatement.PrepareStatementAsync(session, projectionCommitLocationBasedOnVersionNEW).ConfigureAwait(false);
