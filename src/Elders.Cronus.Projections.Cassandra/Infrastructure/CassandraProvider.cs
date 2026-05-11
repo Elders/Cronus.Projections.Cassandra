@@ -3,7 +3,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cassandra;
 using Cassandra.Serialization;
-using Elders.Cronus.MessageProcessing;
 using Elders.Cronus.Projections.Cassandra.Infrastructure;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -13,66 +12,74 @@ namespace Elders.Cronus.Projections.Cassandra;
 
 public class CassandraProvider : ICassandraProvider
 {
-    protected CassandraProviderOptions options;
-    protected readonly IKeyspaceNamingStrategy keyspaceNamingStrategy;
-    protected readonly IInitializer initializer;
-    protected readonly ILogger<CassandraProvider> logger;
+    private CassandraProviderOptions _options;
+    private readonly IKeyspaceNamingStrategy _keyspaceNamingStrategy;
+    private readonly IInitializer _initializer;
+    private readonly ILogger<CassandraProvider> _logger;
 
-    protected ICluster cluster;
-    protected ISession session;
-
+    private ICluster _cluster;
+    private ISession _session;
     private string baseConfigurationKeyspace;
+
+    private static readonly SemaphoreSlim ClusterThreadGate = new SemaphoreSlim(1, 1); // Instantiate a Singleton of the Semaphore with a value of 1. This means that only 1 thread can be granted access at a time
+    private static readonly SemaphoreSlim ThreadGate = new SemaphoreSlim(1, 1); // Instantiate a Singleton of the Semaphore with a value of 1. This means that only 1 thread can be granted access at a time
+
     public CassandraProvider(IOptionsMonitor<CassandraProviderOptions> optionsMonitor, IKeyspaceNamingStrategy keyspaceNamingStrategy, ILogger<CassandraProvider> logger, IInitializer initializer = null)
     {
-        if (optionsMonitor is null) throw new ArgumentNullException(nameof(optionsMonitor));
-        if (keyspaceNamingStrategy is null) throw new ArgumentNullException(nameof(keyspaceNamingStrategy));
+        ArgumentNullException.ThrowIfNull(optionsMonitor);
+        ArgumentNullException.ThrowIfNull(keyspaceNamingStrategy);
 
-        this.options = optionsMonitor.CurrentValue;
-        this.keyspaceNamingStrategy = keyspaceNamingStrategy;
-        this.initializer = initializer;
-        this.logger = logger;
+        _options = optionsMonitor.CurrentValue;
+        _keyspaceNamingStrategy = keyspaceNamingStrategy;
+        _initializer = initializer;
+        _logger = logger;
     }
 
-    private static SemaphoreSlim clusterThreadGate = new SemaphoreSlim(1, 1); // Instantiate a Singleton of the Semaphore with a value of 1. This means that only 1 thread can be granted access at a time
 
     public async Task<ICluster> GetClusterAsync()
     {
-        if (cluster is null == false)
-            return cluster;
+        if (_cluster is not null )
+            return _cluster;
 
         bool lockAcquired = false;
 
         try
         {
-            lockAcquired = await clusterThreadGate.WaitAsync(30000).ConfigureAwait(false);
-            if (lockAcquired == false)
+            lockAcquired = await ClusterThreadGate.WaitAsync(30000).ConfigureAwait(false);
+            if (lockAcquired is false)
                 throw new TimeoutException("Unable to accquire lock for casandra cluster.");
 
-            if (cluster is null == false)
-                return cluster;
+            if (_cluster is not null )
+                return _cluster;
 
-            Builder builder = initializer as Builder;
+            Builder builder = _initializer as Builder;
             if (builder is null)
             {
                 builder = DataStax.Cluster.Builder();
                 //  TODO: check inside the `cfg` (var cfg = builder.GetConfiguration();) if we already have connectionString specified
 
-                string connectionString = options.ConnectionString;
+                string connectionString = _options.ConnectionString;
 
                 var hackyBuilder = new CassandraConnectionStringBuilder(connectionString);
                 if (string.IsNullOrEmpty(hackyBuilder.DefaultKeyspace) == false)
+                {
                     connectionString = connectionString.Replace(hackyBuilder.DefaultKeyspace, string.Empty);
-                baseConfigurationKeyspace = hackyBuilder.DefaultKeyspace;
+                    baseConfigurationKeyspace = hackyBuilder.DefaultKeyspace;
+                }
+                else
+                {
+                    baseConfigurationKeyspace = _options.DefaultKeyspace;
+                }
 
                 var connStrBuilder = new CassandraConnectionStringBuilder(connectionString);
 
-                int ThirthySeconds = 1000 * 30;
+                const int thirtySeconds = 1000 * 30;
                 SocketOptions so = new SocketOptions();
-                so.SetReadTimeoutMillis(ThirthySeconds);
+                so.SetReadTimeoutMillis(thirtySeconds);
                 so.SetStreamMode(true);
                 so.SetTcpNoDelay(true);
 
-                cluster = connStrBuilder
+                _cluster = connStrBuilder
                     .ApplyToBuilder(builder)
                     .WithSocketOptions(so)
                     .WithTypeSerializers(new TypeSerializerDefinitions().Define(new ReadOnlyMemoryTypeSerializer()))
@@ -81,61 +88,59 @@ public class CassandraProvider : ICassandraProvider
                     .WithPoolingOptions(new PoolingOptions()
                             .SetCoreConnectionsPerHost(HostDistance.Local, 2)
                             .SetMaxConnectionsPerHost(HostDistance.Local, 8)
-                            .SetMaxRequestsPerConnection(options.MaxRequestsPerConnection))
+                            .SetMaxRequestsPerConnection(_options.MaxRequestsPerConnection))
                     .Build();
 
-                await cluster.RefreshSchemaAsync().ConfigureAwait(false);
+                await _cluster.RefreshSchemaAsync().ConfigureAwait(false);
             }
             else
             {
-                cluster = DataStax.Cluster.BuildFrom(initializer);
+                _cluster = DataStax.Cluster.BuildFrom(_initializer);
             }
 
-            return cluster;
+            return _cluster;
         }
         finally
         {
             if (lockAcquired)
-                clusterThreadGate?.Release();
+                ClusterThreadGate?.Release();
         }
     }
 
     public virtual string GetKeyspace()
     {
-        return keyspaceNamingStrategy.GetName(baseConfigurationKeyspace).ToLower();
+        return _keyspaceNamingStrategy.GetName(baseConfigurationKeyspace).ToLower();
     }
-
-    private static SemaphoreSlim threadGate = new SemaphoreSlim(1, 1); // Instantiate a Singleton of the Semaphore with a value of 1. This means that only 1 thread can be granted access at a time
 
     public async Task<ISession> GetSessionAsync()
     {
-        if (session is null || session.IsDisposed)
+        if (_session is null || _session.IsDisposed)
         {
             bool lockAcquired = false;
 
             try
             {
-                lockAcquired = await threadGate.WaitAsync(30000).ConfigureAwait(false);
+                lockAcquired = await ThreadGate.WaitAsync(30000).ConfigureAwait(false);
                 if (lockAcquired == false)
                     throw new TimeoutException("Unable to acquire lock for getting cassandra session.");
 
-                if (session is null || session.IsDisposed)
+                if (_session is null || _session.IsDisposed)
                 {
-                    if (logger.IsEnabled(LogLevel.Information))
-                        logger.LogInformation("Refreshing cassandra session...");
+                    if (_logger.IsEnabled(LogLevel.Information))
+                        _logger.LogInformation("Refreshing cassandra session...");
 
-                    ICluster cluster = await GetClusterAsync().ConfigureAwait(false);
-                    session = await cluster.ConnectAsync().ConfigureAwait(false);
+                    ICluster cassandraCluster = await GetClusterAsync().ConfigureAwait(false);
+                    _session = await cassandraCluster.ConnectAsync().ConfigureAwait(false);
                 }
             }
             finally
             {
                 if (lockAcquired)
-                    threadGate?.Release();
+                    ThreadGate?.Release();
             }
         }
 
-        return session;
+        return _session;
     }
 }
 

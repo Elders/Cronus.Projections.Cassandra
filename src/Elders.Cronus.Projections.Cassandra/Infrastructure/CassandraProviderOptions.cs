@@ -12,6 +12,8 @@ public class CassandraProviderOptions
 
     public string ConnectionString { get; set; }
 
+    public string DefaultKeyspace { get; set; }
+
     public string ReplicationStrategy { get; set; } = "simple";
 
     public int ReplicationFactor { get; set; } = 1;
